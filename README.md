@@ -17,17 +17,17 @@
 
 [![Data System Screen Shot](https://insitulabs.org/static-assets/data-viewer-screenshot.jpg)](https://insitulabs.org/static-assets/data-viewer-screenshot.jpg)
 
-The In Situ Laboratory Data System is a combination of digital tools to capture, organize, and analyze field data. The process:
+The In Situ Laboratory Data System is a combination of tools to capture, organize, and analyze field data. The following desscribes the flow of data:
 
 1. Input forms are designed to let researchers collect data.
 1. The forms are loaded onto mobile devices (phone, tablet) and data is captured offline.
 1. When the mobile device has an internet connection, the data is uploaded to an [ODK Central](https://github.com/getodk/central) server.
 1. Within minutes the data is extracted from the [ODK Central](https://github.com/getodk/central) server and stored in a [MongoDB](https://www.mongodb.com) database. MongoDB allows for storing arbitrary documents, removing the complexity of fixed data typing or data normalizing raw data in it's initial collection stage.
 1. Our custom data viewer tool allows researchers to:
-  * Review data collections.
-  * Correct mistakes in the data.
-  * Upload additional binary attachments to go along with the data.
-  * Export customized views of the data.
+    * Review data collections.
+    * Correct mistakes in the data.
+    * Upload additional binary attachments to go along with the data.
+    * Export customized views of the data.
 
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
