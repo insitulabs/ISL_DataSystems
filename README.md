@@ -17,7 +17,7 @@
 
 [![Data System Screen Shot](https://insitulabs.org/static-assets/data-viewer-screenshot.jpg)](https://insitulabs.org/static-assets/data-viewer-screenshot.jpg)
 
-The In Situ Laboratory Data System is a combination of tools to capture, organize, and analyze field data. The following desscribes the flow of data:
+The In Situ Laboratory Data System is a combination of tools to capture, organize, and analyze field data. The following describes the flow of data:
 
 1. Input forms are designed to let researchers collect data.
 1. The forms are loaded onto mobile devices (phone, tablet) and data is captured offline.
