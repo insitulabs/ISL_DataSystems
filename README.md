@@ -4,7 +4,7 @@
 <!-- PROJECT LOGO -->
 <br />
 <div align="center">
-  <a href="https://github.com/github_username/repo_name">
+  <a href="https://insitulabs.org">
     <img src="https://insitulabs.org/static-assets/isl-logo.png" alt="Logo" width="80" height="80">
   </a>
 
@@ -19,15 +19,30 @@
 
 The In Situ Laboratory Data System is a combination of tools to capture, organize, and analyze field data. The following describes the flow of data:
 
+[![Data System Screen Shot](https://insitulabs.org/static-assets/isl-data-system-flow.jpg)](https://insitulabs.org/static-assets/isl-data-system-flow.jpg)
+
+
 1. Input forms are designed to let researchers collect data.
 1. The forms are loaded onto mobile devices (phone, tablet) and data is captured offline.
 1. When the mobile device has an internet connection, the data is uploaded to an [ODK Central](https://github.com/getodk/central) server.
 1. Within minutes the data is extracted from the [ODK Central](https://github.com/getodk/central) server and stored in a [MongoDB](https://www.mongodb.com) database. MongoDB allows for storing arbitrary documents, removing the complexity of fixed data typing or data normalizing raw data in it's initial collection stage.
+   * Note: The usage of [ODK Central](https://github.com/getodk/central) is not required.
+   The data system is designed to be data source agnostic.
 1. Our custom data viewer tool allows researchers to:
+    * Manage access to the data.
+       * Users are granted secure access to the system without the need to manage a password.
     * Review data collections.
     * Correct mistakes in the data.
     * Upload additional binary attachments to go along with the data.
     * Export customized views of the data.
+
+
+Additional Screenshots:
+
+**User Management**
+[![Data System User Management](https://insitulabs.org/static-assets/isl-data-user-list.jpg)](https://insitulabs.org/static-assets/isl-data-user-list.jpg)
+
+[![Data System User Management](https://insitulabs.org/static-assets/isl-data-user-edit.jpg)](https://insitulabs.org/static-assets/isl-data-user-edit.jpg)
 
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
@@ -79,13 +94,24 @@ _For more examples, please refer to the [Documentation](https://example.com)_
 <!-- ROADMAP -->
 ## Roadmap
 
-- [ ] TODO 1
-- [ ] Feature 2
-    - [ ] Nested Feature
-
+- [x] Automated import of data feeds from ODK Central.
+- [x] User management with form based access control lists.
+- [x] Inline data editing.
+- [x] Form filtering and visible column selection.
+- [ ] Form column renaming
+- [ ] Custom views to aggregate form data.
+- [ ] Record transpose or explode of record field.
+- [ ] Arbitrary CSV Import
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
+## Background
+
+Until recently field laboratories, have not been realistically possible in most locations.
+As a result data system for laboratories and field collection are typically not integrated.
+With bringing laboratories to the field, our goal is to seamlessly integrate biological sample collection with laboratory sample analysis.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ## Contributing
 
@@ -112,7 +138,7 @@ At this time, we're not seeking public contribution. This may change in the futu
 <!-- ACKNOWLEDGMENTS -->
 ## Acknowledgments
 
-* [TODO]()
-* [TODO]()
+* [Gordon and Betty Moore Foundation](https://www.moore.org/)
+* [US Forest Service](https://www.fs.usda.gov/)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
