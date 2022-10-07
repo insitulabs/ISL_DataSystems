@@ -107,9 +107,7 @@ _For more examples, please refer to the [Documentation](https://example.com)_
 
 ## Background
 
-Until recently field laboratories, have not been realistically possible in most locations.
-As a result data system for laboratories and field collection are typically not integrated.
-With bringing laboratories to the field, our goal is to seamlessly integrate biological sample collection with laboratory sample analysis.
+This work is part of the [In Situ Laboratory Initiative](https://insitulabs.org/) to support a global decentralized biosurveillance network. Historically, biological sample collection at remote field locations and laboratory analyses have been been carried independently of one another, by separate institutions and groups of stakeholders. Data systems that support these distinct parts of the research process have also been developed in isolation, and remain either 1) unintegrated or 2) unadaptable to diverse environments with power or bandwhich limitations. As we endeavor to set-up more fully-functional molecular laboratories in the field (in-situ), our goal is to seamlessly integrate biological sample collection with laboratory sample analysis and data sharing services.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
