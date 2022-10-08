@@ -1,4 +1,3 @@
-<!-- Improved compatibility of back to top link: See: https://github.com/othneildrew/Best-README-Template/pull/73 -->
 <a name="readme-top"></a>
 
 <!-- PROJECT LOGO -->
@@ -94,20 +93,21 @@ _For more examples, please refer to the [Documentation](https://example.com)_
 <!-- ROADMAP -->
 ## Roadmap
 
-- [x] Automated import of data feeds from ODK Central.
-- [x] User management with form based access control lists.
-- [x] Inline data editing.
-- [x] Form filtering and visible column selection.
+- [x] Automated import of data feeds from ODK Central
+- [x] User management with form based access control lists
+- [x] Inline data editing
+- [x] Form filtering and visible column selection
 - [ ] Form column renaming
-- [ ] Custom views to aggregate form data.
-- [ ] Record transpose or explode of record field.
+- [ ] Custom views to aggregate form data
+- [ ] Record transpose or explode of record field
 - [ ] Arbitrary CSV Import
+- [ ] Data isolation through workspaces
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ## Background
 
-This work is part of the [In Situ Laboratory Initiative](https://insitulabs.org/) to support a global decentralized biosurveillance network. Historically, biological sample collection at remote field locations and laboratory analyses have been carried out independently of one another, by separate institutions and/or groups of stakeholders. Most data systems that support these distinct parts of the research process have been developed in isolation, and remain 1) unintegrated or 2) unadaptable to diverse environments with power and data service constraints. As we endeavor to set-up more fully-functional molecular laboratories in the field (in-situ), our goal is to seamlessly integrate biological sample collection with laboratory sample analysis and data sharing applications in an intuitive, user-friendly, and secure way. We strive to build off of other prior openware initiatives, and remain commmiteed to making all our data system tools freely available for scientific research, public health, and conservation applications.
+This work is part of the [In Situ Laboratory Initiative](https://insitulabs.org/) to support a global decentralized biosurveillance network. Historically, biological sample collection at remote field locations and laboratory analyses have been carried out independently of one another, by separate institutions and/or groups of stakeholders. Most data systems that support these distinct parts of the research process have been developed in isolation, and remain 1) unintegrated or 2) unadaptable to diverse environments with power and data service constraints. As we endeavor to set-up more fully-functional molecular laboratories in the field (in-situ), our goal is to seamlessly integrate biological sample collection with laboratory sample analysis and data sharing applications in an intuitive, user-friendly, and secure way. We strive to build off of other prior openware initiatives, and remain committed to making all our data system tools freely available for scientific research, public health, and conservation applications.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -119,18 +119,16 @@ At this time, we're not seeking public contribution. This may change in the futu
 
 ## License
 
-[TODO]
+Distributed under the MIT License. See [LICENSE.txt](LICENSE.txt)
+ for more information.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
 
 ## Contact
 
 [https://insitulabs.org/how-to/contact-us/](https://insitulabs.org/how-to/contact-us/)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
-
 
 
 <!-- ACKNOWLEDGMENTS -->
