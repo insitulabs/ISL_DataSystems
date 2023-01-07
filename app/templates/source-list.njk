@@ -1,0 +1,104 @@
+{% extends "layout.njk" %}
+
+{% block styles %}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.2/font/bootstrap-icons.css" rel="stylesheet" />
+{% endblock %}
+
+{% block content %}
+<div class="container-xxl">
+  {% if isAdmin %}
+  <div class="my-3">
+    <a class="btn btn-primary btn-sm" href="/data-viewer/source/new">Create Source</a>
+  </div>
+  {% endif %}
+  <table class="table sticky-header table-striped table-bordered mt-3">
+    <thead class="table-light">
+      <tr>
+        <th scope="col" class="id-column">System</th>
+        <th scope="col" class="namespace-column">Namespace</th>
+        <th scope="col" class="name-column">Name</th>
+        <th scope="col" class="created-column">Created</th>
+        {% if isAdmin %}
+        <th scope="col"></th>
+        {% endif %}
+      </tr>
+    </thead>
+    <tbody>
+      {% if results.length === 0 %}
+      <tr><td colspan="100%">No results</td></tr>
+      {% endif %}
+      {% for source in results %}
+      <tr>
+        <td>{{ source.system }}</td>
+        <td>{{ source.namespace }}</td>
+        <td>
+          <a href="/data-viewer/source/{{ source._id }}">{{ source.name }}</a>
+        </td>
+        <td><time title="{{ source.created }}">{{ source.created | formatDate }}</time></td>
+        {% if isAdmin %}
+        <td>
+          <a
+            href="/data-viewer/source/{{ source._id }}/edit"
+            title="Edit source"
+            ><i class="bi bi-pencil-square"></i></a>
+          <a
+            href="/data-viewer/source/{{ source._id }}/import"
+            class="ms-2"
+            title="Import data"><i class="bi bi-cloud-upload"></i></a>
+        </td>
+        {% endif %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if results.length !== 0 %}
+  <nav>
+    <div class="px-2 pb-2">
+      Showing {{ results.length }} of {{ pagination.totalItems | formatNumber }} sources.
+    </div>
+
+    <ul class="pagination pagination-sm p-2">
+      <li class="page-item {% if 1 === pagination.currentPage %} disabled {% endif %}">
+        <a class="page-link" href="{{ pagePathWQuery }}&limit={{ pagination.pageSize }}"
+            {% if 1 === pagination.currentPage %} tabindex="-1" aria-disabled="true" {% endif %}>First</a>
+      </li>
+      {% for page in pagination.pages %}
+      <li class="page-item {% if page === pagination.currentPage %} active {% endif %}">
+        {% if page !== pagination.currentPage %}
+          <a class="page-link"
+            href="{{ pagePathWQuery }}&offset={{ (page - 1) * pagination.pageSize }}&limit={{ pagination.pageSize }}">{{ page }}</a>
+        {% else %}
+          <span class="page-link">{{ page }}</span>
+        {% endif %}
+        </li>
+      {% endfor %}
+      <li class="page-item {% if pagination.totalPages === pagination.currentPage %} disabled {% endif %}">
+        <a class="page-link"
+            href="{{ pagePathWQuery }}&offset={{ (pagination.totalPages - 1) * pagination.pageSize }}&limit={{ pagination.pageSize }}"
+            {% if pagination.totalPages === pagination.currentPage %} tabindex="-1" aria-disabled="true" {% endif %}>Last</a>
+      </li>
+      <li class="ms-2">
+        <div class="btn-group dropup">
+          <button type="button"
+              id="itemsPerPageBtn"
+              class="btn btn-secondary dropdown-toggle btn-sm"
+              data-bs-toggle="dropdown"
+              aria-expanded="false">
+            Show rows: {{ pagination.pageSize | formatNumber }}
+          </button>
+          <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton1">
+            <li><a class="dropdown-item {% if 20 == pagination.pageSize %} active {% endif %}"
+              href="{{ pagePathWQuery }}&limit=20">20</a></li>
+            <li><a class="dropdown-item {% if 100 == pagination.pageSize %} active {% endif %}"
+              href="{{ pagePathWQuery }}&limit=50">50</a></li>
+          </ul>
+        </div>
+      </li>
+    </ul>
+  </nav>
+</div>
+{% endif %}
+
+{% endblock %}
+

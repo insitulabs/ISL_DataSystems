@@ -1,0 +1,88 @@
+{% extends "layout.njk" %}
+
+{% block styles %}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.2/font/bootstrap-icons.css" rel="stylesheet" />
+{% endblock %}
+
+{% block content %}
+<div id="app" class="my-2 container-xxl">
+  <ul class="nav nav-pills mb-2">
+    <li class="nav-item flex-fill"></li>
+    <li class="nav-item">
+      <a class="nav-link" href="/data-viewer/source/{{ source._id }}"
+        >Go To Source</a
+      >
+    </li>
+  </ul>
+
+  <div class="d-flex mt-2">
+    <input
+      type="text"
+      disabled
+      value="{{ source.system }}"
+      class="form-control"
+    />
+    <input
+      type="text"
+      disabled
+      value="{{ source.namespace }}"
+      class="form-control ms-1"
+    />
+  </div>
+
+  <div class="d-flex mt-2">
+    <input
+      type="text"
+      value="{{ source.name }}"
+      class="form-control"
+      disabled
+    />
+  </div>
+
+  <div class="d-flex mt-2">
+    <textarea
+      v-model.trim="note"
+      class="form-control"
+      placeholder="Source note..."
+      disabled
+    >{{ source.note }}</textarea>
+  </div>
+
+  <ul>
+    {% for theImport in imports %}
+      <li>
+        <a href="/data-viewer/source/{{ source._id }}/import/{{ theImport._id }}">
+          Import {{ loop.index }}
+        </a>
+        <ul>
+          <li>Created On: <time title="{{ theImport.created }}">{{ theImport.created | formatDate }}</time></li>
+          <li>
+            Created By: {{ theImport.createdBy.name }}
+            (<a href="mailto:{{ theImport.createdBy.email }}">{{ theImport.createdBy.email }}</a>)
+          </li>
+        </ul>
+      </li>
+    {% endfor %}
+  </ul>
+
+  <div class="mt-2">
+    <form id="parse" action="./parse" method="POST" enctype="multipart/form-data">
+      <input type="hidden" name="id" value="{{ source._id }}" />
+      <input class="form-control" type="file" name="file" required aria-describedby="fileHelp" />
+      <div id="fileHelp" class="form-text">
+        Supported file types:
+        <span class="badge bg-light text-dark">xlsx</span>
+        <span class="badge bg-light text-dark">csv</span>
+        </div>
+
+      <button class="btn btn-primary mt-2" type="submit">Upload</button>
+    </form>
+  </div>
+</div>
+
+<script>
+  window._source = {{ source | dump | safe }};
+</script>
+{# <script type="module" src="/assets/source-import.js"></script> #}
+{% endblock %}
+

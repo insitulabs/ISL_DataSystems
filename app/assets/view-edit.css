@@ -1,0 +1,21 @@
+@import url("https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.2/font/bootstrap-icons.css");
+
+#source-fields-modal .modal-body .fields {
+  max-height: 75vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+#source-fields-modal .modal-body .fields {
+  --bs-table-striped-bg: rgba(0, 0, 0, 0.05);
+  --bs-table-striped-color: #212529;
+}
+
+#source-fields-modal .modal-body .fields > .row:nth-of-type(odd) {
+  background-color: var(--bs-table-striped-bg);
+  color: var(--bs-table-striped-color);
+}
+
+#preview > .loading-placeholder {
+  min-height: 50vh;
+}

@@ -1,0 +1,29 @@
+{% extends "layout.njk" %}
+
+{% block content %}
+<div class="d-flex flex-column min-vh-100 justify-content-center align-items-center">
+  {% if sent %}
+    Check your email for a login link.
+  {% else %}
+  {% if expired %}
+  <div class="alert alert-warning" role="alert">
+    Your login URL has expired. Please try again.
+  </div>
+  {% endif %}
+  <form id="login" class="container" method="POST">
+    {% if return %}
+    <input type="hidden" name="return" value="{{ return }}" />
+    {% endif %}
+    <div class="mb-3 form-floating">
+      <input type="email" class="form-control" id="edit-user-email"
+          required
+          placeholder="user@domain.com"
+          name="email"
+          autofocus />
+      <label for="edit-user-email">Email address</label>
+    </div>
+    <button type="submit" class="btn btn-primary">Submit</button>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,20 @@
+<tr data-id="{{ user._id }}" data-email="{{ user.email }}">
+  <td class="email align-middle">{{ user.email }}</td>
+  <td class="name align-middle">{{ user.name }}</td>
+  <td class="write align-middle">
+    <div class="form-check">
+      <input
+        class="form-check-input"
+        type="checkbox"
+        name="write"
+        value="true"
+        id="write-{{ user._id }}"
+        disabled
+        {{"checked" if user.acl.write}}
+      />
+      <label class="form-check-label" for="write-{{ user._id }}">Editor</label>
+    </div>
+  </td>
+  <td><button class="btn btn-danger btn-sm" disabled>Remove</button></td>
+</tr>
+

@@ -1,0 +1,6 @@
+{
+  "search.exclude": {
+    "**/assets/lib": true,
+    "**/node_modules": true
+  }
+}

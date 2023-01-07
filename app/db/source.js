@@ -1,0 +1,1008 @@
+const { ObjectId } = require('mongodb');
+const Base = require('./base');
+const Errors = require('../lib/errors');
+const CurrentUser = require('../lib/current-user');
+
+const SUBMISSIONS = 'submissions';
+const SOURCES = 'sources';
+const SUBMISSIONS_STAGED = 'submissionsStaged';
+const IMPORTS = 'imports';
+
+class SourceModel {
+  constructor(data) {
+    this.data = data;
+    return new Proxy(this, {
+      get: function (target, prop) {
+        console.log('here', prop);
+        const property = target[prop];
+        if (typeof property === 'function') {
+          return property.bind(target);
+        }
+
+        return target.data[prop];
+
+        // if (field in person) return person[field]; // normal case
+
+        // return model.data[field];
+      }
+    });
+  }
+
+  toString() {
+    return this.data.submissionKey;
+  }
+}
+
+class Source extends Base {
+  /** @type {CurrentUser} */
+  user = null;
+
+  /**
+   * @param {CurrentUser} user
+   * @param {String} workspace The workspace or default to user's workspace.
+   */
+  constructor(user, workspace) {
+    if (!user) {
+      throw new Errors.BadRequest('User is required');
+    }
+
+    super(workspace || user.workspace);
+    this.user = user;
+  }
+
+  static RESERVED_FIELDS = [
+    '_odkForm',
+    '_odkProject',
+    'sourceId',
+    '_attachmentsPresent',
+    '_source'
+  ];
+
+  static submissionKey(system, namespace) {
+    return `${system}__${namespace}`.toLowerCase();
+  }
+
+  static flattenSubmission(data) {
+    var result = {};
+    function recurse(cur, prop) {
+      if (Object(cur) !== cur || Array.isArray(cur) || prop === '_id' || cur instanceof Date) {
+        result[prop] = cur;
+      } else {
+        var isEmpty = true;
+        for (var p in cur) {
+          isEmpty = false;
+          recurse(cur[p], prop ? prop + '.' + p : p);
+        }
+        if (isEmpty && prop) result[prop] = {};
+      }
+    }
+    recurse(data, '');
+    return result;
+  }
+
+  #buildSubmissionQuery($match, options, forCount = false) {
+    // Cast fields to filter as string, so regex works correctly on numbers.
+    let match = {};
+    let fieldsToStr = {};
+    if (options.filters) {
+      Object.keys(options.filters).forEach((field) => {
+        let filterField = '_filter.' + field;
+        fieldsToStr[filterField] = {
+          $toString: '$data.' + field
+        };
+        let values = options.filters[field];
+
+        // If truthy or falsy search?
+        const findAny = values.some((v) => v && v.trim() === '*');
+        const findNull = values.some((v) => v && v.trim() === 'null');
+
+        if (findAny) {
+          match[filterField] = { $exists: true, $ne: null };
+        } else if (findNull) {
+          match[filterField] = null;
+        } else {
+          let queries = values.map((v) => {
+            // Escape for regex.
+            let escapedV = v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            return new RegExp(escapedV, 'i');
+          });
+
+          if (queries.length == 1) {
+            match[filterField] = { $regex: queries[0] };
+          } else {
+            match[filterField] = { $in: queries };
+          }
+        }
+      });
+    }
+
+    let query = [
+      {
+        $match: $match
+      }
+    ];
+
+    // If we have an single ID filter, include it in match.
+    if (options.id && ObjectId.isValid(options.id)) {
+      query[0].$match._id = new ObjectId(options.id);
+      options.limit = -1;
+    }
+
+    if (Object.keys(fieldsToStr).length) {
+      query.push({ $addFields: fieldsToStr });
+    }
+    if (Object.keys(match).length) {
+      query.push({ $match: match });
+    }
+    if (Object.keys(fieldsToStr).length) {
+      query.push({ $unset: '_filter' });
+    }
+
+    if (forCount) {
+      return query;
+    }
+
+    if (options.sample) {
+      query.push({
+        $sample: { size: options.sample }
+      });
+    } else {
+      // TODO If we need case insensitive sort, look at collation or normalizing a string to then sort on
+      if (options.sort) {
+        let sort = {};
+        sort['data.' + options.sort] = options.order === 'asc' ? 1 : -1;
+        // Include a unique value in our sort so Mongo doesn't screw up limit/skip operation.
+        sort._id = 1;
+        query.push({
+          $sort: sort
+        });
+      }
+
+      if (options.limit && options.limit !== -1) {
+        if (options.offset) {
+          query.push({
+            $skip: options.offset
+          });
+        }
+
+        query.push({
+          $limit: options.limit
+        });
+      }
+    }
+
+    return query;
+  }
+
+  async getFormFields(system, namespace) {
+    if (!system || !namespace) {
+      throw new Error('Invalid params: system or namespace');
+    }
+
+    let submissionKey = Source.submissionKey(system, namespace);
+
+    const getDocumentNestedFields = function (document, fields, fieldName = '') {
+      for (const [key, value] of Object.entries(document)) {
+        if (value !== null && typeof value === 'object' && Object.keys(value).length > 0) {
+          getDocumentNestedFields(value, fields, fieldName === '' ? key : `${fieldName}.${key}`);
+        } else if (!Array.isArray(value)) {
+          fields.add(fieldName === '' ? key : `${fieldName}.${key}`);
+        }
+      }
+      return fields;
+    };
+
+    const col = this.collection(SUBMISSIONS);
+    const docs = await col.aggregate([
+      { $match: { source: submissionKey } },
+      { $sample: { size: 100 } },
+      { $project: { data: 1, _id: 0 } },
+      {
+        $replaceRoot: {
+          newRoot: '$data'
+        }
+      }
+    ]);
+
+    let allFields = [];
+    await docs.forEach((doc) => {
+      const nestedFields = getDocumentNestedFields(doc, new Set());
+      allFields = new Set([...allFields, ...nestedFields]);
+    });
+    allFields = Array.from(allFields);
+
+    // Sometimes GPS points and other nested objects can be null, so we get a false field
+    // of the top level object. Remove them.
+    allFields = allFields.filter((field) => {
+      let isOrphanParent = allFields.some((f) => f.indexOf(field + '.') === 0);
+      return !isOrphanParent;
+    });
+
+    // Remove reserved system fields.
+    allFields = allFields.filter((f) => !Source.RESERVED_FIELDS.includes(f));
+
+    return allFields.sort((a, b) => {
+      return a.toLowerCase().localeCompare(b.toLowerCase());
+    });
+  }
+
+  /**
+   * @param {Object || String || ObjectId} source The source.
+   * Can be a source object, an _id or submissionKey.
+   * @param {Object} options Query params (sort, order, limit (-1 for all), offset, filters, sample, id)
+   * @return
+   */
+  async getSubmissions(source, options = {}) {
+    const col = this.collection(SUBMISSIONS);
+
+    let submissionKey = null;
+    if (typeof source === 'object' && source.submissionKey) {
+      submissionKey = source.submissionKey;
+    } else if (typeof source === 'string') {
+      if (/^[0-9A-Fa-f]+$/.test(source)) {
+        submissionKey = (await this.getSource(source)).submissionKey;
+      } else {
+        submissionKey = source;
+      }
+    }
+
+    if (!submissionKey) {
+      throw new Errors.BadRequest('Invalid submission query.');
+    }
+
+    let $match = {
+      source: submissionKey
+    };
+
+    let countQuery = this.#buildSubmissionQuery($match, options, true);
+    let fullQuery = this.#buildSubmissionQuery($match, options, false);
+
+    let totalResults = await col.aggregate([...countQuery, { $count: 'totalResults' }]).toArray();
+    totalResults = totalResults && totalResults.length ? totalResults[0].totalResults : 0;
+
+    let results = col.aggregate(fullQuery);
+    return {
+      results: await results.toArray(),
+      totalResults: totalResults
+    };
+  }
+
+  /**
+   * Get a single submission by ID
+   * @param {String} id
+   * @return {Object} The submission
+   */
+  async getSubmission(id) {
+    if (!id || !ObjectId.isValid(id)) {
+      throw new Errors.BadRequest('Invalid ID param');
+    }
+
+    const submissions = this.collection(SUBMISSIONS);
+    let submission = await submissions.findOne({ _id: new ObjectId(id) });
+    if (!submission) {
+      throw new Errors.BadRequest('Submission not found.');
+    }
+    return submission;
+  }
+
+  /**
+   * Get a source by ID.
+   * @param {String || ObjectId} id The ID of the source.
+   * @return {Object} Source
+   * @throws Not found error.
+   */
+  async getSource(id) {
+    if (!id || !ObjectId.isValid(id)) {
+      throw new Errors.BadRequest('Invalid source ID param');
+    }
+
+    this.user.validateSourcePermission(id);
+
+    let sources = this.collection(SOURCES);
+    let source = await sources.findOne({ _id: new ObjectId(id) });
+    if (!source) {
+      throw new Error('Source not found: ' + id);
+    }
+
+    // Append any un-mapped raw fields to end of the source fields list.
+    let rawFields = await this.getFormFields(source.system, source.namespace);
+    for (let rawId of rawFields) {
+      if (!source.fields.some((f) => f.id === rawId)) {
+        source.fields.push({
+          id: rawId,
+          name: null
+        });
+      }
+    }
+
+    // return new SourceModel(source);
+    return source;
+  }
+
+  /**
+   * Get a source by ID.
+   * @param {String || ObjectId} id The ID of the source.
+   * @return {Object} Source
+   * @throws Not found error.
+   */
+  async getSourceByName(system, namespace) {
+    if (!system || !namespace) {
+      throw new Errors.BadRequest('Invalid source params');
+    }
+
+    const sources = this.collection(SOURCES);
+    let source = await sources.findOne({ system: system, namespace: namespace });
+
+    if (source) {
+      return this.getSource(source._id);
+    } else {
+      throw new Error(`Source not found: for system: [${system}] and namespace: [${namespace}]`);
+    }
+  }
+
+  /**
+   * Get a source by submission key.
+   * @param {string} key The submission key of the source.
+   * @return {Object} Source
+   * @throws Not found error.
+   */
+  async getSourceBySubmissionKey(key) {
+    if (!key) {
+      throw new Errors.BadRequest('Invalid source key');
+    }
+
+    const sources = this.collection(SOURCES);
+    let source = await sources.findOne({ submissionKey: key });
+
+    if (source) {
+      return this.getSource(source._id);
+    } else {
+      throw new Error(`Source not found: for key: ${key}`);
+    }
+  }
+
+  /**
+   * List sources.
+   * @param {Object} options Query params (sort, order, limit (-1 for all), offset)
+   * @return {Object} Query result object with, results, totalResults, offset.
+   */
+  async listSources(options = {}) {
+    let pipeline = [];
+
+    if (!this.user.admin && !this.user.isSuperAdmin) {
+      pipeline.push({
+        $match: {
+          _id: { $in: this.user.sourceIds() }
+        }
+      });
+    }
+
+    let sources = this.collection(SOURCES);
+    let totalResults = await sources.aggregate([...pipeline, { $count: 'totalResults' }]).toArray();
+    totalResults = totalResults && totalResults.length ? totalResults[0].totalResults : 0;
+
+    let offset = options.offset ? Math.max(0, options.offset) : 0;
+
+    // TODO If we need case insensitive sort, look at collation or normalizing a string to then sort on
+    if (options.sort) {
+      let sort = {};
+      sort[options.sort] = options.order === 'asc' ? 1 : -1;
+      // Include a unique value in our sort so Mongo doesn't screw up limit/skip operation.
+      sort._id = 1;
+      pipeline.push({
+        $sort: sort
+      });
+    }
+
+    if (options.limit && options.limit !== -1) {
+      if (offset) {
+        pipeline.push({
+          $skip: options.offset
+        });
+      }
+
+      pipeline.push({
+        $limit: options.limit
+      });
+    }
+
+    let results = await sources.aggregate(pipeline);
+
+    return {
+      totalResults,
+      offset: offset,
+      results: await results.toArray()
+    };
+  }
+
+  /**
+   * Create a source.
+   * @param {Object} source
+   * @param {Object} user
+   * @returns {Object} The new source.
+   */
+  async createSource(source, user) {
+    this.#validateSource(source);
+    if (source._id) {
+      throw new Error('Failed to create pre-existing source: ' + source.name);
+    }
+
+    let now = new Date();
+    let toPersist = {
+      name: source.name,
+      system: source.system,
+      namespace: source.namespace,
+      submissionKey: Source.submissionKey(source.system, source.namespace),
+      note: source.note,
+      fields: source.fields,
+      created: now,
+      modified: now
+    };
+
+    // toPersist.fields.forEach((f) => {
+    //   if (!f.id) {
+    //     f.id = crypto.randomUUID();
+    //   }
+    // });
+
+    if (user) {
+      toPersist.createdBy = {
+        id: ObjectId(user._id),
+        name: user.name,
+        email: user.email
+      };
+      toPersist.modifiedBy = {
+        id: ObjectId(user._id),
+        name: user.name,
+        email: user.email
+      };
+    }
+
+    const sources = this.collection(SOURCES);
+    let insertResult = await sources.insertOne(toPersist);
+    return await this.getSource(insertResult.insertedId);
+  }
+
+  /**
+   * Update a source.
+   * @param {Object} source
+   * @param {Object} user
+   * @returns {Object} The updated source.
+   */
+  async updateSource(source, user) {
+    let existing = await this.getSource(source._id);
+    this.#validateSource(source);
+
+    let now = new Date();
+    let toPersist = {
+      name: source.name,
+      // TODO evaluate if we can update these once they are set.
+      // system: source.system,
+      // namespace: source.namespace,
+      note: source.note,
+      fields: source.fields,
+      modified: now
+    };
+
+    if (user) {
+      toPersist.modifiedBy = {
+        id: ObjectId(user._id),
+        name: user.name,
+        email: user.email
+      };
+    }
+
+    const sources = this.collection(SOURCES);
+    await sources.updateOne(
+      { _id: existing._id },
+      {
+        $set: toPersist
+      }
+    );
+    return await this.getSource(existing._id);
+  }
+
+  /**
+   * Validate the structure of a source object.
+   * @param {Object} view
+   * @throws Error if a problem.
+   */
+  #validateSource(source) {
+    if (!source) {
+      throw new Error('Source required.');
+    }
+
+    if (!source.name || typeof source.name !== 'string' || !source.name.trim().length > 0) {
+      throw new Error('Invalid source name.');
+    }
+
+    if (!source.system || typeof source.system !== 'string' || !source.system.trim().length > 0) {
+      throw new Error('Invalid source system.');
+    }
+    if (source.system.indexOf('.') >= 0) {
+      throw new Error('Invalid source system. Cannot contain periods.');
+    }
+
+    if (
+      !source.namespace ||
+      typeof source.namespace !== 'string' ||
+      !source.namespace.trim().length > 0
+    ) {
+      throw new Error('Invalid source namespace.');
+    }
+    if (source.namespace.indexOf('.') >= 0) {
+      throw new Error('Invalid source namespace. Cannot contain periods.');
+    }
+
+    if (!source.fields || !Array.isArray(source.fields)) {
+      throw new Error('Source fields required.');
+    }
+
+    if (
+      source.fields.some((f) => {
+        if (!f.id || typeof f.id !== 'string') {
+          return true;
+        }
+        // Ensure name is a string
+        if (f.name && typeof f.name !== 'string') {
+          return true;
+        }
+      })
+    ) {
+      throw new Error('Invalid source fields');
+    }
+  }
+
+  /**
+   * Update a submission
+   * @param {String || ObjectId} id
+   * @param {String} field
+   * @param {*} value
+   * @param {*} currentValue
+   * @return {Object} The updated submission.
+   */
+  async updateSubmission(id, field, value, currentValue) {
+    const submissions = this.collection(SUBMISSIONS);
+    let record = await this.getSubmission(id);
+
+    if (typeof field !== 'string') {
+      throw new Errors.BadRequest('Invalid field name type: ' + typeof field);
+    }
+
+    // this.user.validateSourcePermission(id, CurrentUser.PERMISSIONS.WRITE);
+
+    let flatRecord = Source.flattenSubmission(record.data);
+    currentValue = currentValue ? currentValue : null;
+    let recordValue = flatRecord[field] ? flatRecord[field] : null;
+
+    if (currentValue != recordValue) {
+      // Optimistic Lock
+      throw new Errors.BadRequest(
+        'The data you are trying to edit is stale. Refresh the page and try again.'
+      );
+    }
+
+    let update = {};
+    update['data.' + field] = value;
+
+    let auditRecord = {
+      field,
+      value,
+      modified: new Date(),
+      modifiedBy: {
+        _id: this.user._id,
+        email: this.user.email
+      }
+    };
+
+    let results = await submissions.updateOne(
+      { _id: new ObjectId(id) },
+      {
+        $set: update,
+        $push: {
+          _edits: auditRecord
+        }
+      }
+    );
+
+    return this.getSubmission(id);
+  }
+
+  async insertSubmissions(source, submissions, options = {}) {
+    const col = this.collection(SUBMISSIONS);
+
+    let toInsert = submissions;
+    if (options.originIdKey) {
+      let ids = submissions.map((s) => s[options.originIdKey]);
+
+      let exists = (
+        await col
+          .find({ originId: { $in: ids } })
+          .map((s) => {
+            return s.originId;
+          })
+          .toArray()
+      ).filter(Boolean);
+
+      toInsert = submissions.filter((s) => {
+        return !exists.includes(s[options.originIdKey]);
+      });
+    }
+
+    let now = new Date();
+    let created = now;
+    if (toInsert.length > 0) {
+      toInsert = toInsert.map((s) => {
+        let { _attachmentsPresent, ...rest } = s;
+
+        if (options.createdKey && s[options.createdKey]) {
+          created = s[options.createdKey];
+          delete rest[options.createdKey];
+        }
+
+        let originId = null;
+        if (options.originIdKey && s[options.originIdKey]) {
+          originId = s[options.originIdKey];
+          delete rest[options.originIdKey];
+        }
+
+        let submission = {
+          source: source.submissionKey,
+          created: created,
+          imported: now,
+          data: rest,
+          attachments: [],
+          edits: [],
+          originalData: rest
+        };
+
+        if (originId) {
+          submission.originId = originId;
+        }
+
+        if (_attachmentsPresent) {
+          submission._attachmentsPresent = _attachmentsPresent;
+        }
+
+        return submission;
+      });
+
+      let resp = await col.insertMany(toInsert);
+      return resp.insertedCount;
+    }
+
+    return 0;
+  }
+
+  /**
+   * Add attachments to a submission. Will not update, only add.
+   * @param {String || ObjectId} id
+   * @param {[Object]} attachments
+   * @return {Object} The updated submission.
+   */
+  async addSubmissionAttachments(id, attachments = []) {
+    const col = this.collection(SUBMISSIONS);
+    let submission = await this.getSubmission(id);
+    let toAdd = [];
+    if (Array.isArray(submission.attachments) && submission.attachments.length) {
+      attachments.forEach((a) => {
+        if (!submission.attachments.some((e) => e.name === a.name)) {
+          toAdd.push(a);
+        }
+      });
+    } else {
+      toAdd = attachments;
+    }
+
+    let results = await col.updateOne(
+      { _id: submission._id },
+      {
+        $push: { attachments: { $each: toAdd } }
+      }
+    );
+
+    return this.getSubmission(id);
+  }
+
+  async createImport(source, fields, records) {
+    if (!source) {
+      throw new Errors.BadRequest('Source is required');
+    }
+    if (!fields || !Array.isArray(fields) || !fields.length) {
+      throw new Errors.BadRequest('Fields are required');
+    }
+    if (!records || !Array.isArray(records) || !records.length) {
+      throw new Errors.BadRequest('Records are required');
+    }
+
+    const imports = this.collection(IMPORTS);
+    const stagedSubmissions = this.collection(SUBMISSIONS_STAGED);
+
+    let created = new Date();
+
+    let toPersist = {
+      sourceId: source._id,
+      sourceName: source.name,
+      created,
+      createdBy: {
+        id: ObjectId(this.user._id),
+        name: this.user.name,
+        email: this.user.email
+      },
+      fields: fields.map((f) => {
+        return {
+          id: Source.normalizeFieldName(f),
+          name: null
+        };
+      })
+    };
+
+    let insertImport = await imports.insertOne(toPersist);
+
+    let submissionsToPersist = records.map((r) => {
+      let normalized = {};
+      for (const [key, value] of Object.entries(r)) {
+        normalized[Source.normalizeFieldName(key)] = value;
+      }
+
+      return {
+        import: insertImport.insertedId,
+        created,
+        data: normalized
+      };
+    });
+
+    await stagedSubmissions.insertMany(submissionsToPersist);
+
+    return imports.findOne(insertImport.insertedId);
+  }
+
+  async getImport(id) {
+    if (!id || !ObjectId.isValid(id)) {
+      throw new Errors.BadRequest('Invalid import ID');
+    }
+
+    const imports = this.collection(IMPORTS);
+    let theImport = imports.findOne({ _id: new ObjectId(id) });
+    if (!theImport) {
+      throw new Errors.BadRequest('Import not found.');
+    }
+
+    this.user.validateSourcePermission(theImport.sourceId, CurrentUser.PERMISSIONS.WRITE);
+
+    return theImport;
+  }
+
+  /**
+   * Get pending imports for a given source.
+   * @param {object} sourceId
+   * @returns {Array}
+   */
+  async listImports(source) {
+    const imports = this.collection(IMPORTS);
+    return (await imports.find({ sourceId: source._id })).toArray();
+  }
+
+  /*
+   * Get a single staged submission by ID
+   * @param {String} id
+   * @return {Object} The staged submission
+   */
+  async getStagedSubmission(id) {
+    if (!id || !ObjectId.isValid(id)) {
+      throw new Errors.BadRequest('Invalid ID param');
+    }
+
+    const submissions = this.collection(SUBMISSIONS_STAGED);
+    let submission = submissions.findOne({ _id: new ObjectId(id) });
+    if (!submission) {
+      throw new Errors.BadRequest('Submission not found.');
+    }
+    return submission;
+  }
+
+  async getStagedSubmissions(theImport, options = {}) {
+    const col = this.collection(SUBMISSIONS_STAGED);
+
+    let $match = {
+      import: theImport._id
+    };
+
+    let countQuery = this.#buildSubmissionQuery($match, options, true);
+    let fullQuery = this.#buildSubmissionQuery($match, options, false);
+
+    let totalResults = await col.aggregate([...countQuery, { $count: 'totalResults' }]).toArray();
+    totalResults = totalResults && totalResults.length ? totalResults[0].totalResults : 0;
+
+    let results = col.aggregate(fullQuery);
+    return {
+      results: await results.toArray(),
+      totalResults: totalResults
+    };
+  }
+
+  /**
+   * Update staged submission.
+   * @param {String || ObjectId} id
+   * @param {String} field
+   * @param {*} value
+   * @param {*} currentValue
+   * @return {Object} The updated submission.
+   */
+  async updateStagedSubmission(id, field, value, currentValue) {
+    let record = await this.getStagedSubmission(id);
+
+    if (typeof field !== 'string') {
+      throw new Errors.BadRequest('Invalid field name type: ' + typeof field);
+    }
+
+    // this.user.validateSourcePermission(id, CurrentUser.PERMISSIONS.WRITE);
+    const stagedSubmissions = this.collection(SUBMISSIONS_STAGED);
+
+    let flatRecord = Source.flattenSubmission(record.data);
+    currentValue = currentValue ? currentValue : null;
+    let recordValue = flatRecord[field] ? flatRecord[field] : null;
+
+    if (currentValue != recordValue) {
+      // Optimistic Lock
+      throw new Errors.BadRequest(
+        'The data you are trying to edit is stale. Refresh the page and try again.'
+      );
+    }
+
+    let update = {};
+    update[`data.${field}`] = value;
+
+    await stagedSubmissions.updateOne(
+      { _id: new ObjectId(id) },
+      {
+        $set: update
+      }
+    );
+
+    return this.getStagedSubmission(id);
+  }
+
+  async updateImportField(id, field, newField) {
+    if (!field) {
+      throw new Errors.BadRequest('Invalid field name');
+    }
+
+    let newFieldId = Source.normalizeFieldName(newField);
+    if (!newFieldId) {
+      throw new Errors.BadRequest('Invalid new field name');
+    }
+
+    // Fetching the import will validate it exists and ensure write permissions.
+    const theImport = await this.getImport(id);
+    if (theImport.fields.some((f) => f.id === newFieldId)) {
+      throw new Errors.BadRequest('Invalid new field name. No duplicate fields.');
+    }
+
+    const imports = this.collection(IMPORTS);
+    let resp = await imports.updateOne(
+      { _id: theImport._id, 'fields.id': field },
+      {
+        $set: { 'fields.$.id': newFieldId }
+      }
+    );
+
+    if (resp.modifiedCount > 0) {
+      const col = this.collection(SUBMISSIONS_STAGED);
+      let $rename = {};
+      $rename[`data.${field}`] = `data.${newFieldId}`;
+      resp = await col.updateMany({ import: theImport._id }, { $rename });
+    }
+
+    return newFieldId;
+  }
+
+  /**
+   * Delete the given import.
+   * @param {object} theImport
+   */
+  async deleteImport(theImport) {
+    if (!theImport) {
+      throw new Errors.BadRequest('Invalid import');
+    }
+    const imports = this.collection(IMPORTS);
+    await imports.deleteOne({ _id: theImport._id });
+    const col = this.collection(SUBMISSIONS_STAGED);
+    await col.deleteMany({
+      import: theImport._id
+    });
+  }
+
+  /**
+   * Commit the  he given import.
+   * @param {object} theImport
+   */
+  async commitImport(theImport) {
+    if (!theImport) {
+      throw new Errors.BadRequest('Invalid import');
+    }
+
+    let source = await this.getSource(theImport.sourceId);
+
+    let queryResponse = await this.getStagedSubmissions(theImport, { limit: -1 });
+    let toCreate = queryResponse.results.map((r) => {
+      return r.data;
+    });
+    await this.insertSubmissions(source, toCreate);
+    await this.deleteImport(theImport);
+  }
+
+  /**
+   * Set the last sync status for a source.
+   * @param {object} source
+   * @param {object} sync
+   * @return {object} The updated source.
+   */
+  async setLastSync(source, sync) {
+    if (!source) {
+      throw new Errors.BadRequest('Invalid source');
+    }
+    if (!sync || !sync.date) {
+      throw new Errors.BadRequest('Invalid sync object.');
+    }
+
+    const sources = this.collection(SOURCES);
+    let toPersist = {
+      lastSync: sync
+    };
+
+    await sources.updateOne(
+      { _id: source._id },
+      {
+        $set: toPersist
+      }
+    );
+    return await this.getSource(source._id);
+  }
+
+  async getSubmissionsNeedingAttachmentSync(source) {
+    const submissions = this.collection(SUBMISSIONS);
+
+    let submissionKey = null;
+    if (typeof source === 'object' && source.submissionKey) {
+      submissionKey = source.submissionKey;
+    } else if (typeof source === 'string') {
+      if (/^[0-9A-Fa-f]+$/.test(source)) {
+        submissionKey = (await this.getSource(source)).submissionKey;
+      } else {
+        submissionKey = source;
+      }
+    }
+
+    if (!submissionKey) {
+      throw new Errors.BadRequest('Invalid submission query.');
+    }
+
+    let $match = {
+      source: submissionKey,
+      _attachmentsPresent: { $exists: true, $gt: 0 }
+    };
+
+    return await submissions
+      .aggregate([
+        { $match },
+        {
+          $addFields: {
+            _attachmentsPersisted: {
+              $cond: {
+                if: { $isArray: '$_attachments' },
+                then: { $size: '$_attachments' },
+                else: 0
+              }
+            }
+          }
+        },
+        { $match: { $expr: { $lt: ['$_attachmentsPersisted', '$_attachmentsPresent'] } } },
+        { $unset: '_attachmentsPersisted' }
+      ])
+      .toArray();
+  }
+}
+
+module.exports = Source;
+

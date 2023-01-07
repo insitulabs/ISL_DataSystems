@@ -1,0 +1,21 @@
+<tr data-id="{{ user._id }}" data-email="{{ user.email }}" data-deleted="{{ user.deleted }}">
+  <td class="email">
+    {{ user.email }}
+  </td>
+  <td class="name">{{ user.name }}</td>
+  <td class="admin">
+    <input class="form-check-input" type="checkbox" disabled {{ "checked" if user.admin }} />
+  </td>
+  <td class="modified">
+    <time
+      datetime="{{user.modified | formatDate('YYYY-MM-DDTHH:mm:ssZ[Z]') }}"
+      title="{{user.modified | formatDate('YYYY-MM-DDTHH:mm:ssZ[Z]') }}"
+    >
+      {{ user.modified | formatDate }}
+    </time>
+  </td>
+  <td class="source">{{ "-" if user.admin else user.sources | length }}</td>
+  <td class="views">{{ "-" if user.admin else user.views | length }}</td>
+  <td><button class="btn btn-link edit-user">edit</button></td>
+</tr>
+

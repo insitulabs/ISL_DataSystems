@@ -1,0 +1,137 @@
+{% extends "layout.njk" %}
+
+{% block styles %}
+<link href="{{ '/assets/data-viewer.css' | appendVersion }}" rel="stylesheet">
+{% endblock %}
+
+{% block scripts %}
+<script src="{{'/assets/data-viewer.js' | appendVersion }}"></script>
+{% endblock %}
+
+{% if pageTitle %}
+  {% block pageTitle %}
+  <span class="badge bg-primary">{{ pageTitle }}</span>
+  {% endblock %}
+{% endif %}
+
+{% block content %}
+
+{% if source and source.note %}
+<div class="px-2 mt-2">
+  <div class="alert alert-secondary mb-0" role="alert">{{ source.note | urlize | nl2br | safe }}</div>
+</div>
+{% endif %}
+
+<header class="sticky-top bg-white w-100">
+  <section class="p-2">
+    <div class="d-flex align-items-center justify-content-between ">
+      <div class="flex-fill">
+        <div class="d-flex align-items-center">
+          <div class="flex-fill d-flex">
+            <div class="dropdown me-2">
+              <button class="btn btn-secondary btn-sm dropdown-toggle"
+                  type="button"
+                  id="field-toggles"
+                  data-bs-toggle="dropdown"
+                  data-bs-auto-close="outside"
+                  aria-expanded="false">
+                <span class="visible-count">{{ fields | length }}</span>
+                of
+                <span class="all-count">{{ fields | length }}</span>
+              </button>
+              <ul class="dropdown-menu dropdown-menu-dark" aria-labelledby="field-toggles">
+                <li>
+                  <div class="dropdown-item d-flex align-items-center">
+                    <span class="me-2">
+                      Select
+                    </span>
+                    <button type="button" class="btn btn-link btn-sm link-light select-all">All</button>
+                    /
+                    <button type="button" class="btn btn-link btn-sm link-light select-none">None</button>
+                  </div>
+                </li>
+                {% for f in fields %}
+                  <li data-id="{{ f.name }}">
+                    <div class="dropdown-item">
+                      <div class="form-check">
+                        <input
+                            class="form-check-input"
+                            type="checkbox"
+                            value="{{ f.id }}"
+                            id="field-toggle-{{ f.id }}"
+                            checked>
+                        <label class="form-check-label d-block" for="field-toggle-{{ f.id }}">
+                          {{ f.name }}
+                        </label>
+                      </div>
+                    </div>
+                  <li>
+                {% endfor %}
+              </ul>
+            </div>
+
+            <span class="dropdown filters">
+              <button class="btn btn-secondary dropdown-toggle btn-sm"
+                  type="button"
+                  id="filter-column-dropdown"
+                  data-bs-toggle="dropdown"
+                  aria-expanded="false">
+                Filter
+              </button>
+              <ul class="dropdown-menu filters" aria-labelledby="filter-column-dropdown">
+                {% for f in fields %}
+                  <li class="add-filter" data-id="{{ f.id }}">
+                    <span class="dropdown-item btn">{{ f.name }}</span>
+                  <li>
+                {% endfor %}
+              </ul>
+            </span>
+
+            <a tabindex="0" class="btn btn-link btn-sm"
+                role="button"
+                data-bs-toggle="popover"
+                data-bs-trigger="focus"
+                data-bs-content="Query: <strong>*</strong> to find any value.<br>Query: <strong>null</strong> to find no value."
+                data-bs-html="true">?</a>
+          </div>
+
+          {% if viewId and isAdmin %}
+          <div>
+            <a href="/data-viewer/view/{{ viewId }}/edit">Edit View</a>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      {% if userCanEdit %}
+        {% if theImport %}
+        <div class="me-1">
+          <button id="btn-delete-import" class="btn btn-danger btn-sm">Delete</button>
+          <button id="btn-import-records" class="btn btn-primary btn-sm">Import Records</button>
+        </div>
+        {% endif %}
+        <div id="undo">
+          <button class="btn btn-secondary btn-sm" disabled>Undo</button>
+        </div>
+      {% endif %}
+    </div>
+
+    <div id="active-filters"></div>
+  </section>
+
+  <div id="page-error" class="mx-2 alert alert-danger
+      {% if not error %} d-none {% endif %}" role="alert">
+    ${error}
+  </div>
+</header>
+
+<section id="data" data-type="{{ dataType }}" data-id="{{ dataId }}">
+  <div id="data-loader" class="d-flex align-items-center justify-content-center mt-5">
+    <div class="spinner-border" role="status">
+      <span class="visually-hidden">Loading...</span>
+    </div>
+  </div>
+  {% include "_table.njk" %}
+</section>
+
+{% endblock %}

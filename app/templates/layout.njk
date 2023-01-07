@@ -1,0 +1,134 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>In Situ Labs App</title>
+  <meta name="description" content="">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="/assets/isl-favicon.jpg" type="image/jpeg">
+
+  <link href="/assets/lib/bootstrap.min.css" rel="stylesheet">
+  <style>
+    :root {
+      --bs-link-color: #de6e35;
+      --bs-link-hover-color: #be5b29;
+    }
+
+    .pagination {
+      --bs-pagination-active-bg: #fc7e3d;
+      --bs-pagination-active-border-color: #fc7e3d;
+    }
+
+    .btn-primary {
+    --bs-btn-bg: #fc7e3d;
+    --bs-btn-border-color: #fc7e3d;
+    --bs-btn-hover-color: #fff;
+    --bs-btn-hover-bg: #e97438;
+    --bs-btn-hover-border-color: #e97438;
+    --bs-btn-focus-shadow-rgb: 49,132,253;
+    --bs-btn-active-bg: #e97438;
+    --bs-btn-active-border-color: #e97438;
+    --bs-btn-disabled-color: #fff;
+    --bs-btn-disabled-bg: #e97438;
+    --bs-btn-disabled-border-color: #e97438
+  }
+
+  .nav-pills {
+    --bs-nav-pills-link-active-bg: #fc7e3d;
+  }
+
+  .nav {
+    --bs-nav-link-hover-color: #e97438;
+  }
+
+  .dropdown-menu {
+    --bs-dropdown-link-active-bg: #e97438;
+  }
+
+  [v-cloak] {
+    display: none;
+  }
+
+  .navbar-brand img {
+    width: 50px;
+  }
+  </style>
+  {% block styles %}{% endblock %}
+  <script>
+    const $api = function (url, options = {}) {
+      return new Promise((resolve, reject) => {
+        options.headers = options.headers || {};
+        options.headers['Accept'] = 'application/json';
+        options.headers['Content-Type'] = 'application/json';
+        if (options.body instanceof FormData) {
+          // Clear content-type when sending a FormData object. Otherwise uploads fail to work.
+          // The browser will do everything for us when working with FormData POSTs.
+          delete options.headers['Content-Type'];
+        }
+
+        fetch(url, options)
+          .then((response) => {
+            let contentType = response.headers.get('Content-Type'),
+              method = contentType && /json/.test(contentType) ? 'json' : 'text';
+
+            if (response.ok) {
+              resolve(response[method]());
+            } else {
+              response[method]().then((err) => {
+                reject(err);
+              });
+            }
+          })
+          .catch((err) => {
+            reject(err);
+          });
+      });
+    };
+  </script>
+</head>
+
+<body {%- if user %} data-user="{{ user._id }}" {%- endif -%}>
+  <nav class="navbar navbar-light bg-light">
+    <div class="container-fluid">
+      <a class="navbar-brand d-flex align-items-center" href="/">
+        <img src="/assets/isl-100x100.png" alt="In Situ Labs Logo" />
+        <span class="ms-2 fs-6">
+          For field research
+          <br />
+          By field researchers
+        </span>
+      </a>
+      {% block pageTitle %}{% endblock %}
+
+      {%- if user -%}
+      <div class="d-flex align-items-center justify-content-between flex-fill">
+        {% block nav %}<div></div>{% endblock %}
+        <ul class="navbar-nav ms-auto flex-row flex-nowrap">
+          <li class="nav-item me-4">
+            <a class="nav-link" aria-current="page" href="/data-viewer/sources">Sources</a>
+          </li>
+          <li class="nav-item me-4">
+            <a class="nav-link" aria-current="page" href="/data-viewer/views">Views</a>
+          </li>
+          {% if isAdmin %}
+          <li class="nav-item me-4">
+            <a class="nav-link" aria-current="page" href="/admin/users">Users</a>
+          </li>
+          {% endif %}
+          <li class="nav-item">
+            <a class="nav-link" aria-current="page" href="/logout">Logout</a>
+          </li>
+        </ul>
+      </div>
+      {% endif %}
+    </div>
+  </nav>
+
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+
+  <script src="/assets/lib/bootstrap.bundle.min.js"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

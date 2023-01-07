@@ -1,0 +1,12 @@
+{% extends "layout.njk" %}
+
+{% block content %}
+<div class="container-xxl">
+  <div class="mt-4 d-flex justify-content-center">
+    <div class="text-center w-75 p-3">
+      <h3>ERROR: <span>{{ statusCode }}</span></h3>
+      <div>{{ error.message }}</div>
+    </div>
+  <div>
+</div>
+{% endblock %}

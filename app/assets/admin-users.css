@@ -1,0 +1,19 @@
+.acl-list {
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+#users tr[data-deleted='true'] {
+  opacity: 0.5;
+}
+#users tr[data-deleted='true'] .email {
+  text-decoration: line-through;
+}
+
+/*
+td.email,
+td.name {
+  color: transparent;
+  text-shadow: 0 0 10px rgba(0, 0, 0, 0.4);
+}
+*/

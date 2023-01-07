@@ -1,0 +1,228 @@
+<table class="table sticky-header table-bordered">
+  <thead class="table-light">
+    <tr>
+      {# TODO multi-row headers
+       https://jsfiddle.net/vin209/ns1oko58/
+       #}
+      <th scope="col" class="id-column">ID</th>
+      {% for column in fields %}
+        <th scope="col" data-field="{{ column.id }}" data-name="{{ column.name }}"
+            class="{% if column.sortable %} sortable text-nowrap {% endif %} {% if column.isSorted %} is-sorted {% endif %}">
+          {% if column.sortable %}
+            <a href="{{ column.url }}"
+                class="text-decoration-none {% if column.isSorted %} link-dark {% else %} text-secondary {% endif %}">
+              {{ column.displayName | safe }}
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-sort-down" viewBox="0 0 16 16">
+                <path d="M3.5 2.5a.5.5 0 0 0-1 0v8.793l-1.146-1.147a.5.5 0 0 0-.708.708l2 1.999.007.007a.497.497 0 0 0 .7-.006l2-2a.5.5 0 0 0-.707-.708L3.5 11.293V2.5zm3.5 1a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zM7.5 6a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5zm0 3a.5.5 0 0 0 0 1h3a.5.5 0 0 0 0-1h-3zm0 3a.5.5 0 0 0 0 1h1a.5.5 0 0 0 0-1h-1z"/>
+              </svg>
+            </a>
+            {% if theImport %}
+              <button class="btn btn-link rename-field" title="Rename field">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-pencil-square" viewBox="0 0 16 16">
+                  <path d="M15.502 1.94a.5.5 0 0 1 0 .706L14.459 3.69l-2-2L13.502.646a.5.5 0 0 1 .707 0l1.293 1.293zm-1.75 2.456-2-2L4.939 9.21a.5.5 0 0 0-.121.196l-.805 2.414a.25.25 0 0 0 .316.316l2.414-.805a.5.5 0 0 0 .196-.12l6.813-6.814z"/>
+                  <path fill-rule="evenodd" d="M1 13.5A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-6a.5.5 0 0 0-1 0v6a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H9a.5.5 0 0 0 0-1H2.5A1.5 1.5 0 0 0 1 2.5v11z"/>
+                </svg>
+              </button>
+            {% endif %}
+          {% else %}
+            <span class="text-secondary">{{ column.displayName }}</span>
+          {% endif %}
+        </th>
+      {% endfor %}
+    </tr>
+  </thead>
+  <tbody>
+    {% if submissions.length === 0 %}
+    <tr><td colspan="100%">No results</td></tr>
+    {% endif %}
+    {% for submission in submissions %}
+    <tr class="{{submission.rowCssClass }}" data-id="{{ submission.id }}">
+      <td>
+        <div class="modal fade" id="record-{{ submission.id }}-{{ loop.index0 }}"
+            tabindex="-1" aria-labelledby="title-{{ submission.id }}" aria-hidden="true">
+          <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title" id="title-{{ submission.id }}">
+                  {{submission.sourceId}}:
+                  <a href="/data-viewer/submission/{{ submission.id }}" target="_blank">{{ submission.id }}</a>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+              </div>
+              <div class="modal-body">
+                <pre class="source-json">{{submission.source | prettyJSON }}</pre>
+              </div>
+              <div class="modal-footer justify-content-between">
+                <button class="btn btn-secondary" data-bs-dismiss="modal" aria-label="Close">Close</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <button type="button" class="btn btn-secondary"
+            data-bs-toggle="modal" data-bs-target="#record-{{ submission.id }}-{{ loop.index0 }}">
+          {{ submission.id }}
+        </button>
+      </td>
+
+      {% for field in fields %}
+        {% set attachment = submission.isAttachment(submission.flat[field.id]) %}
+        {% set isSourceField = submission.isSourceField(field.id) %}
+        {% set isUnwoundField = submission.isUnwoundField(field.id) %}
+        <td
+            data-id="{{ submission.id }}"
+
+            {% if isSourceField %}
+              data-source-field="true"
+            {% endif %}
+
+            {% if submission.subIndex === undefined %}
+                data-field="{{ field.id }}"
+            {% else %}
+              {% if not isSourceField or isUnwoundField %}
+                data-field="{{ field.id }}[{{ submission.subIndex }}]"
+              {% else %}
+                data-field="{{ field.id }}"
+              {% endif %}
+            {% endif %}
+
+            {% if field.editable and not attachment %}
+              class="editable cursor-pointer"
+              data-value="{{ submission.flat[field.id] }}"
+            {% endif %}
+        >
+          {% if attachment %}
+            {% include "_attachment.njk" %}
+          {% else %}
+            {{ submission.flat[field.id] | formatValue }}
+          {% endif %}
+        </td>
+      {% endfor %}
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% if submissions.length !== 0 %}
+<nav>
+  <div class="px-2 pb-2">
+    Showing {{ submissions.length }} of {{ pagination.totalItems | formatNumber }} submissions.
+  </div>
+
+  <ul class="pagination pagination-sm p-2">
+    <li class="page-item {% if 1 === pagination.currentPage %} disabled {% endif %}">
+      <a class="page-link" href="{{ pagePathWQuery }}&limit={{ pagination.pageSize }}"
+          {% if 1 === pagination.currentPage %} tabindex="-1" aria-disabled="true" {% endif %}>First</a>
+     </li>
+    {% for page in pagination.pages %}
+    <li class="page-item {% if page === pagination.currentPage %} active {% endif %}">
+      {% if page !== pagination.currentPage %}
+        <a class="page-link"
+          href="{{ pagePathWQuery }}&offset={{ (page - 1) * pagination.pageSize }}&limit={{ pagination.pageSize }}">{{ page }}</a>
+      {% else %}
+        <span class="page-link">{{ page }}</span>
+      {% endif %}
+      </li>
+    {% endfor %}
+    <li class="page-item {% if pagination.totalPages === pagination.currentPage %} disabled {% endif %}">
+      <a class="page-link"
+          href="{{ pagePathWQuery }}&offset={{ (pagination.totalPages - 1) * pagination.pageSize }}&limit={{ pagination.pageSize }}"
+          {% if pagination.totalPages === pagination.currentPage %} tabindex="-1" aria-disabled="true" {% endif %}>Last</a>
+    </li>
+    <li class="ms-2">
+      <div class="btn-group dropup">
+        <button type="button"
+            id="itemsPerPageBtn"
+            class="btn btn-secondary dropdown-toggle btn-sm"
+            data-bs-toggle="dropdown"
+            aria-expanded="false">
+          Show rows: {{ pagination.pageSize | formatNumber }}
+        </button>
+        <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton1">
+          <li><a class="dropdown-item {% if 50 == pagination.pageSize %} active {% endif %}"
+            href="{{ pagePathWQuery }}&limit=50">50</a></li>
+          <li><a class="dropdown-item {% if 100 == pagination.pageSize %} active {% endif %}"
+            href="{{ pagePathWQuery }}&limit=100">100</a></li>
+          <li><a class="dropdown-item {% if 500 == pagination.pageSize %} active {% endif %}"
+            href="{{ pagePathWQuery }}&limit=500">500</a></li>
+          <li><a class="dropdown-item {% if 1000 == pagination.pageSize %} active {% endif %}"
+            href="{{ pagePathWQuery }}&limit=1000">1,000</a></li>
+        </ul>
+      </div>
+    </li>
+    {% if csvLink %}
+    <li class="ms-2">
+      <div class="btn-group dropup">
+        <a class="btn btn-secondary btn-sm export-btn" href="{{ csvLink }}" role="button" download>Export</a>
+        <button type="button" class="btn btn-secondary btn-sm dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+          <span class="visually-hidden">Toggle Dropdown</span>
+        </button>
+        <ul class="dropdown-menu">
+          <li><a class="dropdown-item export-btn" href="{{ csvLink }}">Export Visible Columns</a></li>
+          <li><a class="dropdown-item" href="{{ csvLink }}">Export All Columns</a></li>
+        </ul>
+      </div>
+    </li>
+    {% endif %}
+  </ul>
+</nav>
+{% endif %}
+
+<div class="modal fade" id="edit-modal"
+    tabindex="-1" aria-labelledby="edit-modal-title" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="edit-modal-title">Edit Source:</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="input-group">
+          <select class="form-select">
+            <option value="text" selected>Text</option>
+            <option value="int">Int (10)</option>
+            <option value="float">Float (1.10)</option>
+            <option value="attachment">Attachment</option>
+          </select>
+          <input id="edit-input" type="text" class="form-control w-75"
+              aria-label="Input for new value" />
+          <input id="attachment-input" type="file" class="form-control w-75"
+              aria-label="Upload for new attachment" />
+        </div>
+      </div>
+      <div class="modal-footer justify-content-end">
+        <div class="spinner-border text-primary spinner-border-sm d-none" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+        <button class="save btn btn-primary">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if theImport %}
+<div class="modal fade" id="rename-field-modal"
+    tabindex="-1" aria-labelledby="rename-field-modal-title" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="rename-field-modal-title">Rename Field:</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="input-group">
+          <input id="rename-field-existing-id" type="hidden" />
+          <input id="rename-field-input" type="text" class="form-control w-75"
+              aria-label="Input for field name" />
+        </div>
+      </div>
+      <div class="modal-footer justify-content-end">
+        <div class="spinner-border text-primary spinner-border-sm d-none" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+        <button class="save btn btn-primary">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}

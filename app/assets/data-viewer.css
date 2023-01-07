@@ -1,0 +1,62 @@
+.modal.attachment .modal-body {
+  overflow: hidden;
+}
+.modal-body img.small {
+  width: 341px;
+}
+.modal-body img.medium {
+  width: 512px;
+}
+.modal-body img.large {
+  width: 1024px;
+}
+.modal-body .source-json {
+  max-height: 75vh;
+  overflow-y: auto;
+}
+
+.dropdown-menu {
+  max-height: 75vh;
+  overflow-y: auto;
+  /* 1 more than sticky top */
+  z-index: 1021;
+}
+
+.sticky-header {
+  position: relative;
+}
+
+.sticky-header th {
+  position: sticky;
+  top: 0;
+}
+
+#data {
+  width: 100vw;
+  overflow: auto;
+}
+
+#data tr.odd td {
+ --bs-table-accent-bg: var(--bs-table-striped-bg);
+  color: var(--bs-table-striped-color);
+}
+
+#data table[data-type="view"] td.multi-active {
+  /* outline: 2px dotted #c78533; */
+  background: #fffb0050;
+}
+
+#data td.editable:hover {
+  cursor: pointer;
+  --bs-table-accent-bg: var(--bs-table-active-bg);
+  color: var(--bs-table-active-color);
+}
+
+#data .id-column {
+  width: 275px;
+}
+
+#data > nav {
+  position: sticky;
+  left: 0;
+}
