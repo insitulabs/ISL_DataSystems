@@ -112,6 +112,11 @@ createApp({
           id = null;
         }
 
+        // Make sure field isn't a reserved word.
+        if (['_id', 'id', 'created', 'imported'].includes(id)) {
+          id = null;
+        }
+
         if (id && !this.fields.some((f) => id === f.id.toLowerCase())) {
           this.fields.push({ id: id, name: value });
           $event.target.value = '';

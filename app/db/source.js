@@ -150,7 +150,10 @@ class Source extends Base {
       // TODO If we need case insensitive sort, look at collation or normalizing a string to then sort on
       if (options.sort) {
         let sort = {};
-        sort['data.' + options.sort] = options.order === 'asc' ? 1 : -1;
+        let sortKey = ['id', 'created', 'imported'].includes(options.sort)
+          ? options.sort
+          : `data.${options.sort}`;
+        sort[sortKey] = options.order === 'asc' ? 1 : -1;
         // Include a unique value in our sort so Mongo doesn't screw up limit/skip operation.
         sort._id = 1;
         query.push({
@@ -1001,6 +1004,86 @@ class Source extends Base {
         { $unset: '_attachmentsPersisted' }
       ])
       .toArray();
+  }
+
+  /**
+   * Update a submission
+   * @param {String || ObjectId} id
+   * @param {String} field
+   * @param {*} value
+   * @param {*} currentValue
+   * @return {Object} The updated submission.
+   */
+  async updateSubmissionViewData(id, view, field, subIndex, value, currentValue) {
+    if (typeof field !== 'string') {
+      throw new Errors.BadRequest('Invalid field name type: ' + typeof field);
+    }
+
+    // Ensure subIndex is a number and greater than 0.
+    subIndex = typeof subIndex === 'number' ? Math.max(0, subIndex) : 0;
+
+    const submissions = this.collection(SUBMISSIONS);
+    let record = await this.getSubmission(id);
+
+    // this.user.validateSourcePermission(id, CurrentUser.PERMISSIONS.WRITE);
+
+    let viewId = typeof view === 'string' ? view : view._id.toString();
+    let key = `${viewId}`;
+
+    console.log(record);
+    console.log(key);
+
+    currentValue = currentValue ? currentValue : null;
+    let allViewData = record.viewData && record.viewData[viewId] ? record.viewData[viewId] : null;
+
+    if (!allViewData) {
+      allViewData = [];
+      let update = {};
+      update['viewData' + '.' + viewId] = allViewData;
+      await submissions.updateOne(
+        { _id: new ObjectId(id) },
+        {
+          $set: update
+        }
+      );
+    }
+
+    let viewData = allViewData.length > subIndex ? allViewData[subIndex] : {};
+    viewData = viewData || {};
+    let recordValue = viewData[field] || null;
+    if (currentValue != recordValue) {
+      // Optimistic Lock
+      throw new Errors.BadRequest(
+        'The data you are trying to edit is stale. Refresh the page and try again.'
+      );
+    }
+
+    viewData[field] = value;
+
+    let update = {};
+    update['viewData' + '.' + viewId + '.' + subIndex] = viewData;
+
+    // let auditRecord = {
+    //   field,
+    //   value,
+    //   modified: new Date(),
+    //   modifiedBy: {
+    //     _id: this.user._id,
+    //     email: this.user.email
+    //   }
+    // };
+
+    let results = await submissions.updateOne(
+      { _id: new ObjectId(id) },
+      {
+        $set: update
+        // $push: {
+        //   _edits: auditRecord
+        // }
+      }
+    );
+
+    return this.getSubmission(id);
   }
 }
 

@@ -22,7 +22,7 @@ class CurrentUser {
     this._id = user._id;
     this.name = user.name;
     this.email = user.email;
-    this.admin = user.admin;
+    this.admin = user.admin || isSuperAdmin;
     this.permissions = {};
     if (this.admin) {
       this.permissions[CurrentUser.PERMISSIONS.SOURCE_CREATE] = true;

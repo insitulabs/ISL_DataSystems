@@ -5,7 +5,6 @@ const CurrentUser = require('../lib/current-user');
 const Source = require('./source');
 
 const VIEWS = 'views';
-const VIEW_ENTRIES = 'viewEntries';
 const SUBMISSIONS = 'submissions';
 
 class View extends Base {
@@ -358,7 +357,8 @@ class View extends Base {
               {
                 _id: '$_id',
                 created: '$created',
-                source: '$source'
+                source: '$source',
+                viewData: '$viewData'
               },
               {
                 $switch: {
@@ -399,38 +399,16 @@ class View extends Base {
 
     pipeline.push({
       $addFields: {
-        _subIndex: '$data._unwoundIndex'
+        subIndex: '$data._unwoundIndex'
       }
     });
 
-    if (viewId) {
-      pipeline.push({
-        $lookup: {
-          from: VIEW_ENTRIES,
-          let: { id: '$_id', subIndex: { $ifNull: ['$_subIndex', 0] } },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $and: [
-                    { $eq: ['$view_id', viewId] },
-                    { $eq: ['$submission_id', '$$id'] },
-                    { $eq: ['$index', '$$subIndex'] }
-                  ]
-                }
-              }
-            },
-            {
-              // Extract only the custom fields as a new object
-              $replaceRoot: {
-                newRoot: '$custom_fields'
-              }
-            }
-          ],
-          as: '_view_data'
-        }
-      });
+    pipeline.push({
+      $unset: 'data._unwoundIndex'
+    });
 
+    // Only look for custom view data if the view is persisted and we have an ID.
+    if (viewId) {
       pipeline.push({
         $addFields: {
           data: {
@@ -438,11 +416,18 @@ class View extends Base {
               '$data',
               // Make custom view data last so it can overwrite previous values.
               {
-                $arrayElemAt: ['$_view_data', 0]
+                $cond: {
+                  if: { $eq: ['$subIndex', null] },
+                  then: { $arrayElemAt: ['$viewData.' + viewId, 0] },
+                  else: { $arrayElemAt: ['$viewData.' + viewId, '$subIndex'] }
+                }
               }
             ]
           }
         }
+      });
+      pipeline.push({
+        $unset: 'viewData'
       });
     }
 
@@ -471,7 +456,10 @@ class View extends Base {
     // TODO If we need case insensitive sort, look at collation or normalizing a string to then sort on
     if (options.sort) {
       let sort = {};
-      sort[options.sort] = options.order === 'asc' ? 1 : -1;
+      let sortKey = ['id', 'created', 'imported'].includes(options.sort)
+        ? options.sort
+        : `data.${options.sort}`;
+      sort[sortKey] = options.order === 'asc' ? 1 : -1;
       // Include a unique value in our sort so Mongo doesn't screw up limit/skip operation.
       sort._id = 1;
       pipeline.push({
@@ -609,44 +597,14 @@ class View extends Base {
       await sourceManager.updateSubmission(submission._id, submissionField, value, currentValue);
     } else {
       // Custom Field
-      let viewEntries = this.collection(VIEW_ENTRIES);
-      let existingViewEntry = await viewEntries.findOne({
-        view_id: view._id,
-        submission_id: ObjectId(id),
-        index: subIndex
-      });
-
-      if (existingViewEntry) {
-        let customFields = existingViewEntry.custom_fields;
-
-        currentValue = currentValue ? currentValue : null;
-        let customValue = customFields[field] ? customFields[field] : null;
-        if (currentValue != customValue) {
-          // Optimistic Lock
-          throw new Errors.BadRequest(
-            'The data you are trying to edit is stale. Refresh the page and try again.'
-          );
-        }
-
-        customFields[field] = value;
-        await viewEntries.updateOne(
-          { _id: existingViewEntry._id },
-          {
-            $set: {
-              custom_fields: customFields
-            }
-          }
-        );
-      } else {
-        let customFields = {};
-        customFields[field] = value;
-        await viewEntries.insertOne({
-          view_id: view._id,
-          submission_id: ObjectId(id),
-          index: subIndex,
-          custom_fields: customFields
-        });
-      }
+      await sourceManager.updateSubmissionViewData(
+        submission._id,
+        view,
+        field,
+        subIndex,
+        value,
+        currentValue
+      );
     }
 
     // Query the updated view submission.
@@ -658,7 +616,7 @@ class View extends Base {
       if (queryResponse.results.length > 1) {
         // If the updated submission was unwound, we need to return the specific results.
         return queryResponse.results.find((record) => {
-          return record['_subIndex'] === subIndex;
+          return record['subIndex'] === subIndex;
         });
       } else {
         return queryResponse.results[0];

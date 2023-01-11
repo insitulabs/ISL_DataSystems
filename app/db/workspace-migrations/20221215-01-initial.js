@@ -20,8 +20,5 @@ module.exports = async function (db) {
 
   // Ensure sources are unique
   await db.collection('sources').createIndex({ system: 1, namespace: 1 }, { unique: true });
-
-  // View Entries Indexes
-  await db.collection('viewEntries').createIndex({ submission_id: 1 });
 };
 

@@ -334,7 +334,7 @@ const emailValidator = require('./lib/email-validator');
 
     // TODO figure out why this is always returning NULL.
     // if (req.is('json')) {
-    if (/json/.test(req.get('content-type'))) {
+    if (/json/.test(req.get('content-type')) || /json/.test(req.get('accept'))) {
       res.status(500).json({ message: error.message });
     } else {
       res.status(error.statusCode || 500);

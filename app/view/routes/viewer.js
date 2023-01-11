@@ -15,12 +15,10 @@ const XLSX = require('xlsx');
 
 const NON_EDITABLE_FIELDS = [
   '_id',
-  '_sourceId',
+  '_source',
   '_created',
   '_attachments',
   '_attachmentsPresent',
-  '_odkProject',
-  '_odkForm',
   '_edits'
 ];
 
@@ -54,9 +52,9 @@ const mapSubmissionsForUI = function (results = [], isEditable = false) {
       id: result._id.toString(),
       rowCssClass,
       created: result.created,
-      subIndex: result._subIndex,
+      subIndex: result.subIndex,
       sourceId: result.source,
-      source: result.data,
+      data: result.data,
       flat: Source.flattenSubmission(result.data),
       isSourceField: (fieldId) => {
         if (fieldId && result.sourceFields) {
@@ -140,6 +138,12 @@ const extractFilters = function (req, fields, pageParams) {
 };
 
 const mapFieldsForUI = function (fields, userCanEdit = false, sort, order, pageParams) {
+  if (!fields || !fields.length) {
+    fields = [];
+  }
+
+  fields.unshift({ id: 'id', name: 'ID' }, { id: 'created', name: 'created' });
+
   return fields
     .map((f) => {
       if (typeof f === 'string') {
@@ -149,10 +153,6 @@ const mapFieldsForUI = function (fields, userCanEdit = false, sort, order, pageP
       } else {
         return f;
       }
-    })
-    .filter((f) => {
-      // TODO REVISIT FILTERING HERE
-      return !['_odkForm', '_odkProject', '_sourceId', '_attachmentsPresent'].includes(f.id);
     })
     .map((f) => {
       let filedForUI = {
@@ -427,15 +427,13 @@ module.exports = function (opts) {
         });
       }
 
-      let csvFields = mapFieldsForUI(['id', 'created']).concat(
-        fields.filter((f) => {
-          if (req.query.hidden) {
-            let hidden = req.query.hidden.split(',');
-            return !hidden.includes(f.id);
-          }
-          return true;
-        })
-      );
+      let csvFields = fields.filter((f) => {
+        if (req.query.hidden) {
+          let hidden = req.query.hidden.split(',');
+          return !hidden.includes(f.id);
+        }
+        return true;
+      });
 
       let submissions = mapSubmissionsForUI(queryResponse.results, false);
 
@@ -637,7 +635,7 @@ module.exports = function (opts) {
         value,
         html,
         submission: submissions[0],
-        submissionPretty: JSON.stringify(submissions[0].source, undefined, 2)
+        submissionPretty: JSON.stringify(submissions[0].data, undefined, 2)
       });
     } catch (err) {
       next(err);

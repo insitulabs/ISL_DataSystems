@@ -4,13 +4,12 @@
       {# TODO multi-row headers
        https://jsfiddle.net/vin209/ns1oko58/
        #}
-      <th scope="col" class="id-column">ID</th>
       {% for column in fields %}
         <th scope="col" data-field="{{ column.id }}" data-name="{{ column.name }}"
             class="{% if column.sortable %} sortable text-nowrap {% endif %} {% if column.isSorted %} is-sorted {% endif %}">
           {% if column.sortable %}
             <a href="{{ column.url }}"
-                class="text-decoration-none {% if column.isSorted %} link-dark {% else %} text-secondary {% endif %}">
+                class="text-decoration-none {% if column.isSorted %} link-dark {{ column.isSorted }} {% else %} text-secondary {% endif %}">
               {{ column.displayName | safe }}
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-sort-down" viewBox="0 0 16 16">
                 <path d="M3.5 2.5a.5.5 0 0 0-1 0v8.793l-1.146-1.147a.5.5 0 0 0-.708.708l2 1.999.007.007a.497.497 0 0 0 .7-.006l2-2a.5.5 0 0 0-.707-.708L3.5 11.293V2.5zm3.5 1a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zM7.5 6a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5zm0 3a.5.5 0 0 0 0 1h3a.5.5 0 0 0 0-1h-3zm0 3a.5.5 0 0 0 0 1h1a.5.5 0 0 0 0-1h-1z"/>
@@ -35,68 +34,81 @@
     {% if submissions.length === 0 %}
     <tr><td colspan="100%">No results</td></tr>
     {% endif %}
+
     {% for submission in submissions %}
+    {% set submissionIndex = loop.index0 %}
     <tr class="{{submission.rowCssClass }}" data-id="{{ submission.id }}">
-      <td>
-        <div class="modal fade" id="record-{{ submission.id }}-{{ loop.index0 }}"
-            tabindex="-1" aria-labelledby="title-{{ submission.id }}" aria-hidden="true">
-          <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-              <div class="modal-header">
-                <h5 class="modal-title" id="title-{{ submission.id }}">
-                  {{submission.sourceId}}:
-                  <a href="/data-viewer/submission/{{ submission.id }}" target="_blank">{{ submission.id }}</a>
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-              </div>
-              <div class="modal-body">
-                <pre class="source-json">{{submission.source | prettyJSON }}</pre>
-              </div>
-              <div class="modal-footer justify-content-between">
-                <button class="btn btn-secondary" data-bs-dismiss="modal" aria-label="Close">Close</button>
+      {% for field in fields %}
+        {% if field.id === 'id' %}
+        <td data-field="{{ field.id }}">
+          <div class="modal fade" id="record-{{ submission.id }}-{{ submissionIndex }}"
+              tabindex="-1" aria-labelledby="title-{{ submission.id }}" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title" id="title-{{ submission.id }}">
+                    {{submission.sourceId}}:
+                    <a href="/data-viewer/submission/{{ submission.id }}" target="_blank">{{ submission.id }}</a>
+                  </h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                  <pre class="source-json">{{submission.data | prettyJSON }}</pre>
+                </div>
+                <div class="modal-footer justify-content-between">
+                  <button class="btn btn-secondary" data-bs-dismiss="modal" aria-label="Close">Close</button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <button type="button" class="btn btn-secondary"
-            data-bs-toggle="modal" data-bs-target="#record-{{ submission.id }}-{{ loop.index0 }}">
-          {{ submission.id }}
-        </button>
-      </td>
-
-      {% for field in fields %}
-        {% set attachment = submission.isAttachment(submission.flat[field.id]) %}
-        {% set isSourceField = submission.isSourceField(field.id) %}
-        {% set isUnwoundField = submission.isUnwoundField(field.id) %}
-        <td
-            data-id="{{ submission.id }}"
-
-            {% if isSourceField %}
-              data-source-field="true"
-            {% endif %}
-
-            {% if submission.subIndex === undefined %}
-                data-field="{{ field.id }}"
-            {% else %}
-              {% if not isSourceField or isUnwoundField %}
-                data-field="{{ field.id }}[{{ submission.subIndex }}]"
-              {% else %}
-                data-field="{{ field.id }}"
-              {% endif %}
-            {% endif %}
-
-            {% if field.editable and not attachment %}
-              class="editable cursor-pointer"
-              data-value="{{ submission.flat[field.id] }}"
-            {% endif %}
-        >
-          {% if attachment %}
-            {% include "_attachment.njk" %}
-          {% else %}
-            {{ submission.flat[field.id] | formatValue }}
-          {% endif %}
+          <button type="button" class="btn btn-secondary"
+              data-bs-toggle="modal" data-bs-target="#record-{{ submission.id }}-{{ submissionIndex }}">
+            {{ submission.id }}
+          </button>
         </td>
+        {% elif field.id === 'created' %}
+          <td data-field="{{ field.id }}">
+            <time
+              datetime="{{submission.created | formatDate('YYYY-MM-DDTHH:mm:ssZ[Z]') }}"
+              title="{{submission.created | formatDate('YYYY-MM-DDTHH:mm:ssZ[Z]') }}"
+            >
+              {{ submission.created | formatDate }}
+            </time>
+          </td>
+        {% else %}
+          {% set attachment = submission.isAttachment(submission.flat[field.id]) %}
+          {% set isSourceField = submission.isSourceField(field.id) %}
+          {% set isUnwoundField = submission.isUnwoundField(field.id) %}
+          <td
+              data-id="{{ submission.id }}"
+
+              {% if isSourceField %}
+                data-source-field="true"
+              {% endif %}
+
+              {% if submission.subIndex === undefined or submission.subIndex === null %}
+                  data-field="{{ field.id }}"
+              {% else %}
+                {% if not isSourceField or isUnwoundField %}
+                  data-field="{{ field.id }}[{{ submission.subIndex }}]"
+                {% else %}
+                  data-field="{{ field.id }}"
+                {% endif %}
+              {% endif %}
+
+              {% if field.editable and not attachment %}
+                class="editable cursor-pointer"
+                data-value="{{ submission.flat[field.id] }}"
+              {% endif %}
+          >
+            {% if attachment %}
+              {% include "_attachment.njk" %}
+            {% else %}
+              {{ submission.flat[field.id] | formatValue }}
+            {% endif %}
+          </td>
+        {% endif %}
       {% endfor %}
     </tr>
     {% endfor %}

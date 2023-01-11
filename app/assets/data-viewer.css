@@ -41,22 +41,33 @@
   color: var(--bs-table-striped-color);
 }
 
-#data table[data-type="view"] td.multi-active {
+#data[data-type="view"] table td.multi-active {
   /* outline: 2px dotted #c78533; */
   background: #fffb0050;
 }
 
 #data td.editable:hover {
-  cursor: pointer;
-  --bs-table-accent-bg: var(--bs-table-active-bg);
+  cursor: pointer; --bs-table-accent-bg: var(--bs-table-active-bg);
   color: var(--bs-table-active-color);
 }
 
-#data .id-column {
+#data th[data-field='id'] {
   width: 275px;
+}
+
+#data th[data-field='created'] {
+  width: 120px;
+}
+
+#data th.is-sorted a.desc .bi-sort-down {
+  transform: rotate(180deg);
 }
 
 #data > nav {
   position: sticky;
   left: 0;
+}
+
+#data td {
+  vertical-align: middle;
 }

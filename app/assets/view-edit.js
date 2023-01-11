@@ -183,6 +183,12 @@ createApp({
   methods: {
     addField($event) {
       let value = $event.target.value.trim();
+
+      // Make sure field isn't a reserved word.
+      if (['_id', 'id', 'created', 'imported'].includes(value)) {
+        value = null;
+      }
+
       if (value) {
         let lowered = value.toLowerCase();
         if (!this.fields.some((f) => lowered === f.name.toLowerCase())) {
