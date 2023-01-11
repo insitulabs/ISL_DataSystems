@@ -11,46 +11,48 @@
     <a class="btn btn-primary btn-sm" href="/data-viewer/source/new">Create Source</a>
   </div>
   {% endif %}
-  <table class="table sticky-header table-striped table-bordered mt-3">
-    <thead class="table-light">
-      <tr>
-        <th scope="col" class="id-column">System</th>
-        <th scope="col" class="namespace-column">Namespace</th>
-        <th scope="col" class="name-column">Name</th>
-        <th scope="col" class="created-column">Created</th>
-        {% if isAdmin %}
-        <th scope="col"></th>
+  <div class="table-responsive-md">
+    <table class="table sticky-header table-striped table-bordered mt-3">
+      <thead class="table-light">
+        <tr>
+          <th scope="col" class="id-column">System</th>
+          <th scope="col" class="namespace-column">Namespace</th>
+          <th scope="col" class="name-column">Name</th>
+          <th scope="col" class="created-column">Created</th>
+          {% if isAdmin %}
+          <th scope="col"></th>
+          {% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% if results.length === 0 %}
+        <tr><td colspan="100%">No results</td></tr>
         {% endif %}
-      </tr>
-    </thead>
-    <tbody>
-      {% if results.length === 0 %}
-      <tr><td colspan="100%">No results</td></tr>
-      {% endif %}
-      {% for source in results %}
-      <tr>
-        <td>{{ source.system }}</td>
-        <td>{{ source.namespace }}</td>
-        <td>
-          <a href="/data-viewer/source/{{ source._id }}">{{ source.name }}</a>
-        </td>
-        <td><time title="{{ source.created }}">{{ source.created | formatDate }}</time></td>
-        {% if isAdmin %}
-        <td>
-          <a
-            href="/data-viewer/source/{{ source._id }}/edit"
-            title="Edit source"
-            ><i class="bi bi-pencil-square"></i></a>
-          <a
-            href="/data-viewer/source/{{ source._id }}/import"
-            class="ms-2"
-            title="Import data"><i class="bi bi-cloud-upload"></i></a>
-        </td>
-        {% endif %}
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+        {% for source in results %}
+        <tr>
+          <td>{{ source.system }}</td>
+          <td>{{ source.namespace }}</td>
+          <td>
+            <a href="/data-viewer/source/{{ source._id }}">{{ source.name }}</a>
+          </td>
+          <td><time title="{{ source.created }}">{{ source.created | formatDate }}</time></td>
+          {% if isAdmin %}
+          <td>
+            <a
+              href="/data-viewer/source/{{ source._id }}/edit"
+              title="Edit source"
+              ><i class="bi bi-pencil-square"></i></a>
+            <a
+              href="/data-viewer/source/{{ source._id }}/import"
+              class="ms-2"
+              title="Import data"><i class="bi bi-cloud-upload"></i></a>
+          </td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 
   {% if results.length !== 0 %}
   <nav>

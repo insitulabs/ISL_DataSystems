@@ -31,6 +31,7 @@ class CurrentUser {
     this._user = user;
     this.workspace = workspace;
     this.isSuperAdmin = isSuperAdmin;
+    this.firstName = this.#getFirstName();
   }
 
   sourceIds(asObjectIds = true) {
@@ -114,6 +115,23 @@ class CurrentUser {
     }
 
     return null;
+  }
+
+  /**
+   * Try to extract a first name out of the name field or the beginning of an email.
+   * @return {string}
+   */
+  #getFirstName() {
+    // If we have a name and it's not an email address, use it
+    if (this.name && this.name.indexOf('@') === -1) {
+      return this.name.split(' ')[0];
+    }
+
+    if (this.email) {
+      return this.email.split('@')[0];
+    }
+
+    return this.email;
   }
 }
 

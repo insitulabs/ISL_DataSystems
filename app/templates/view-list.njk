@@ -12,38 +12,40 @@
   </div>
   {% endif %}
 
-  <table class="table sticky-header table-striped table-bordered mt-3">
-    <thead class="table-light">
-      <tr>
-        <th scope="col" class="id-column">Name</th>
-        <th scope="col" class="created-column">Created</th>
-        {% if isAdmin %}
-        <th scope="col"></th>
+  <div class="table-responsive-md">
+    <table class="table sticky-header table-striped table-bordered mt-3">
+      <thead class="table-light">
+        <tr>
+          <th scope="col" class="id-column">Name</th>
+          <th scope="col" class="created-column">Created</th>
+          {% if isAdmin %}
+          <th scope="col"></th>
+          {% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% if results.length === 0 %}
+        <tr><td colspan="100%">No results</td></tr>
         {% endif %}
-      </tr>
-    </thead>
-    <tbody>
-      {% if results.length === 0 %}
-      <tr><td colspan="100%">No results</td></tr>
-      {% endif %}
-      {% for view in results %}
-      <tr>
-        <td>
-          <a href="/data-viewer/view/{{ view._id }}">{{ view.name }}</a>
-        </td>
-        <td><time title="{{ view.created }}">{{ view.created | formatDate }}</time></td>
-        {% if isAdmin %}
-        <td>
-          <a
-            href="/data-viewer/view/{{ view._id }}/edit"
-            title="Edit view"
-            ><i class="bi bi-pencil-square"></i></a>
-        </td>
-        {% endif %}
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+        {% for view in results %}
+        <tr>
+          <td>
+            <a href="/data-viewer/view/{{ view._id }}">{{ view.name }}</a>
+          </td>
+          <td><time title="{{ view.created }}">{{ view.created | formatDate }}</time></td>
+          {% if isAdmin %}
+          <td>
+            <a
+              href="/data-viewer/view/{{ view._id }}/edit"
+              title="Edit view"
+              ><i class="bi bi-pencil-square"></i></a>
+          </td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 
   {% if results.length !== 0 %}
   <nav>

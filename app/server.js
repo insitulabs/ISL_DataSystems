@@ -229,7 +229,7 @@ const emailValidator = require('./lib/email-validator');
         if (decoded && decoded.email) {
           // Set session cookie and redirect to orig destination or homepage.
           let user = await userManager.getUser(decoded.email);
-          let superAdmin = await appManager.isSuperAdmin(decoded.email);
+          let superAdmin = await appManager.getSuperAdmin(decoded.email);
           if (user || superAdmin) {
             req.session.auth = decoded.email;
             req.session.save((sessionError) => {
@@ -253,7 +253,7 @@ const emailValidator = require('./lib/email-validator');
       return next(new Error('Invalid Auth Token'));
     } else if (req.session && req.session.auth) {
       try {
-        let superAdmin = await appManager.isSuperAdmin(req.session.auth);
+        let superAdmin = await appManager.getSuperAdmin(req.session.auth);
         let user = await userManager.getUser(req.session.auth);
 
         if (user && !user.deleted) {
