@@ -258,12 +258,16 @@ const emailValidator = require('./lib/email-validator');
         let user = await userManager.getUser(req.session.auth);
 
         if (user && !user.deleted) {
-          res.locals.user = new CurrentUser(user, res.locals.workspace, superAdmin ? true : false);
+          res.locals.user = new CurrentUser(
+            user,
+            res.locals.workspace,
+            superAdmin ? 'member' : false
+          );
           res.locals.isAdmin = res.locals.user.admin;
           return next();
         } else if (superAdmin) {
           // No workspace user, but we are a super admin
-          res.locals.user = new CurrentUser(superAdmin, res.locals.workspace, true);
+          res.locals.user = new CurrentUser(superAdmin, res.locals.workspace, 'guest');
           res.locals.isAdmin = res.locals.user.admin;
           return next();
         } else {

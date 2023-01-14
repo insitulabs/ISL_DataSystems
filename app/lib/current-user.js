@@ -22,7 +22,7 @@ class CurrentUser {
     this._id = user._id;
     this.name = user.name;
     this.email = user.email;
-    this.admin = user.admin || isSuperAdmin;
+    this.admin = user.admin || !!isSuperAdmin;
     this.permissions = {};
     if (this.admin) {
       this.permissions[CurrentUser.PERMISSIONS.SOURCE_CREATE] = true;
@@ -30,7 +30,8 @@ class CurrentUser {
     }
     this._user = user;
     this.workspace = workspace;
-    this.isSuperAdmin = isSuperAdmin;
+    this.isSuperAdmin = isSuperAdmin === 'guest' || isSuperAdmin === 'member';
+    this.preventAudit = isSuperAdmin === 'guest';
     this.firstName = this.#getFirstName();
   }
 

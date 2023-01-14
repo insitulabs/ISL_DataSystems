@@ -115,6 +115,10 @@ class Audit extends Base {
    * @param {string} page The path of the page the user is on.
    */
   async logUserActivity(page) {
+    if (this.user.preventAudit) {
+      return;
+    }
+
     let events = this.collection(AUDIT_EVENTS);
 
     // Rollup user activity per hour.
@@ -147,6 +151,10 @@ class Audit extends Base {
    * @param {object} data The data to log with this export.
    */
   async logExport(data) {
+    if (this.user.preventAudit) {
+      return;
+    }
+
     let events = this.collection(AUDIT_EVENTS);
     let record = this.#userEvent(AuditEvent.Export, data);
     return events.insertOne(record).catch(this.#onError);
@@ -157,6 +165,10 @@ class Audit extends Base {
    * @param {object} data  The data to log with this edit.
    */
   async logEdit(data) {
+    if (this.user.preventAudit) {
+      return;
+    }
+
     let events = this.collection(AUDIT_EVENTS);
     let record = this.#userEvent(AuditEvent.Edit, data);
     return events.insertOne(record).catch(this.#onError);
@@ -167,6 +179,10 @@ class Audit extends Base {
    * @param {string} file The file path.
    */
   async logFileDownload(file) {
+    if (this.user.preventAudit) {
+      return;
+    }
+
     let events = this.collection(AUDIT_EVENTS);
     let record = this.#userEvent(AuditEvent.Download, { file });
     return events.insertOne(record).catch(this.#onError);
