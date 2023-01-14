@@ -36,6 +36,7 @@ const emailValidator = require('./lib/email-validator');
   const AppDB = require('./db/app');
   const User = require('./db/user');
   const Source = require('./db/source');
+  const Audit = require('./db/audit').Audit;
   let appManager = new AppDB();
 
   app.use(
@@ -282,6 +283,17 @@ const emailValidator = require('./lib/email-validator');
     }
   });
 
+  // Audit user page activity.
+  app.use((req, res, next) => {
+    let path = req.originalUrl;
+    if (path.indexOf('/api/') === -1 && path.indexOf('/admin/') === -1) {
+      const auditManager = new Audit(res.locals.user);
+      auditManager.logUserActivity(path);
+    }
+
+    next();
+  });
+
   // Admin routes
   app.use(
     '/admin',
@@ -315,7 +327,10 @@ const emailValidator = require('./lib/email-validator');
 
   // 404 handler
   app.use((req, res, next) => {
-    res.status(404).send('Not Found');
+    res.render('error', {
+      error: new Error('Not Found'),
+      statusCode: 404
+    });
   });
 
   // Error handler

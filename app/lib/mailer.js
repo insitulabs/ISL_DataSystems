@@ -10,7 +10,7 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-const FROM_ADDRESS = `${CONFIG.SITE_NAME} <${CONFIG.SMTP_USER}>`;
+const FROM_ADDRESS = `${CONFIG.SITE_NAME} <${CONFIG.SMTP_FROM}>`;
 
 module.exports = {
   sendError: async (error, context) => {

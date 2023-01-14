@@ -41,6 +41,11 @@ class Base {
     return _mongoClient.db(this.DB_NAME);
   }
 
+  /**
+   * Returns a reference to a MongoDB Collection. If it does not exist it will be created implicitly.
+   * @param {string} name The DB collection name.
+   * @return {Collection}
+   */
   collection(name) {
     return _mongoClient.db(this.DB_NAME).collection(name);
   }

@@ -185,7 +185,7 @@ module.exports = function () {
         }
       }
 
-      let result = await userManager.addOrUpdateUser(
+      let updated = await userManager.addOrUpdateUser(
         {
           _id: req.body._id,
           email,
@@ -198,7 +198,7 @@ module.exports = function () {
         res.locals.user._id
       );
 
-      return res.render('admin/_user', { user: result.value });
+      return res.render('admin/_user', { user: updated });
     } catch (error) {
       next(error);
     }

@@ -9,6 +9,7 @@ const { writeToBuffer } = require('@fast-csv/format');
 const View = require('../../db/view');
 const Source = require('../../db/source');
 const User = require('../../db/user');
+const Audit = require('../../db/audit').Audit;
 const CurrentUser = require('../../lib/current-user');
 const { getCurrentUser } = require('../../lib/route-helpers');
 const XLSX = require('xlsx');
@@ -382,6 +383,7 @@ module.exports = function (opts) {
     try {
       const sourceManager = new Source(getCurrentUser(res));
       const viewManager = new View(getCurrentUser(res));
+      const auditManager = new Audit(getCurrentUser(res));
       let type = req.params.type;
       if (type !== 'source' && type !== 'view') {
         throw new Errors.BadRequest();
@@ -409,6 +411,7 @@ module.exports = function (opts) {
       // Parse column filters
       let filters = extractFilters(req, fields);
       let queryResponse = null;
+      let auditRecord = {};
       if (view) {
         queryResponse = await viewManager.queryView(view._id, view.fields, view.sources, {
           sort,
@@ -417,6 +420,12 @@ module.exports = function (opts) {
           offset,
           filters
         });
+        auditRecord = {
+          type: 'view',
+          _id: view._id,
+          name: view.name,
+          filters
+        };
       } else {
         queryResponse = await sourceManager.getSubmissions(source, {
           sort,
@@ -425,6 +434,12 @@ module.exports = function (opts) {
           offset,
           filters
         });
+        auditRecord = {
+          type: 'source',
+          _id: source._id,
+          name: source.name,
+          filters
+        };
       }
 
       let csvFields = fields.filter((f) => {
@@ -436,6 +451,8 @@ module.exports = function (opts) {
       });
 
       let submissions = mapSubmissionsForUI(queryResponse.results, false);
+
+      auditManager.logExport(auditRecord);
 
       return sendCSV(
         res,
@@ -467,6 +484,12 @@ module.exports = function (opts) {
       }
 
       // TODO permissions?
+
+      // Only audit full downloads, not previews.
+      if (!size) {
+        const auditManager = new Audit(getCurrentUser(res));
+        auditManager.logFileDownload(key);
+      }
 
       let url = uploader.getSignedUrl(key);
       res.redirect(url);
@@ -628,6 +651,28 @@ module.exports = function (opts) {
       }
 
       let submissions = mapSubmissionsForUI([submission], true);
+
+      if (originType !== 'import') {
+        const auditManager = new Audit(getCurrentUser(res));
+        let auditRecord = {
+          type: originType,
+          submissionId: submission._id,
+          submissionSource: submission.source,
+          field,
+          value: value,
+          previous: currentValue
+        };
+
+        if (view) {
+          auditRecord.subIndex = subIndex;
+          auditRecord.view = {
+            _id: view._id,
+            name: view.name
+          };
+        }
+
+        auditManager.logEdit(auditRecord);
+      }
 
       res.json({
         success: updated,

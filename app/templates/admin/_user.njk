@@ -14,6 +14,16 @@
       {{ user.modified | formatDate }}
     </time>
   </td>
+  <td class="lastActivity">
+    {% if user.lastActivity %}
+    <time
+      datetime="{{user.lastActivity | formatDate('YYYY-MM-DDTHH:mm:ssZ[Z]') }}"
+      title="{{user.lastActivity | formatDate('YYYY-MM-DDTHH:mm:ssZ[Z]') }}"
+    >
+      {{ user.lastActivity | formatDate }}
+    </time>
+    {% endif %}
+  </td>
   <td class="source">{{ "-" if user.admin else user.sources | length }}</td>
   <td class="views">{{ "-" if user.admin else user.views | length }}</td>
   <td><button class="btn btn-link edit-user">edit</button></td>

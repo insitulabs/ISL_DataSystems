@@ -20,5 +20,13 @@ module.exports = async function (db) {
 
   // Ensure sources are unique
   await db.collection('sources').createIndex({ system: 1, namespace: 1 }, { unique: true });
+
+  // Add indexes for audit performance
+  await db.collection('audit').createIndex({ 'user.email': 1 });
+  await db.collection('audit').createIndex({ 'user._id': 1 });
+  await db.collection('audit').createIndex({ type: 1 });
+  await db.collection('audit').createIndex({ created: 1 });
+  await db.collection('audit').createIndex({ created: 1, type: 1, 'user.email': 1 });
+  await db.collection('audit').createIndex({ type: 1, 'user._id': 1 });
 };
 

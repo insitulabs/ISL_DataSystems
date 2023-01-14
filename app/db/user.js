@@ -17,6 +17,12 @@ class User extends Base {
     super(workspace);
   }
 
+  /**
+   * List the workspace users.
+   * @param {boolean} includeDeleted
+   * @param {object} options Query options: sort, order, _id
+   * @return {array[object]} Users
+   */
   async listUsers(includeDeleted = false, options = {}) {
     const col = this.collection(USERS);
     let query = {};
@@ -24,14 +30,72 @@ class User extends Base {
       query.deleted = { $ne: true };
     }
 
+    if (options._id) {
+      query._id = typeof options._id === 'string' ? new ObjectId(options._id) : options._id;
+    }
+
     let sort = {};
     if (options.sort) {
       sort[options.sort] = options.order === 'asc' ? 1 : -1;
     } else {
-      sort[email] = 1;
+      sort['email'] = 1;
     }
 
-    return col.find(query).sort(sort).toArray();
+    let pipeline = [];
+    if (Object.keys(query).length) {
+      pipeline.push({ $match: query });
+    }
+
+    // Join lastActivity data
+    pipeline.push({
+      $lookup: {
+        from: 'audit',
+        localField: '_id',
+        foreignField: 'user._id',
+        as: 'recentActivity',
+        pipeline: [
+          {
+            $match: {
+              type: 'user-activity'
+            }
+          },
+          {
+            $sort: {
+              _id: -1
+            }
+          },
+          {
+            $limit: 1
+          },
+          {
+            $project: {
+              _id: 0,
+              lastActivity: '$created'
+            }
+          }
+        ]
+      }
+    });
+    pipeline.push({
+      $replaceRoot: {
+        newRoot: {
+          $mergeObjects: [
+            '$$ROOT',
+            {
+              $arrayElemAt: ['$recentActivity', 0]
+            }
+          ]
+        }
+      }
+    });
+
+    pipeline.push({
+      $unset: 'recentActivity'
+    });
+
+    pipeline.push({ $sort: sort });
+
+    return col.aggregate(pipeline).toArray();
   }
 
   async getUserById(id, includeDeleted = false) {
@@ -132,7 +196,17 @@ class User extends Base {
     const update = {
       $set: userToUpdate
     };
-    return col.findOneAndUpdate(query, update, { upsert: true, returnDocument: 'after' });
+
+    let result = await col.findOneAndUpdate(query, update, {
+      upsert: true,
+      returnDocument: 'after'
+    });
+
+    // Query the single user again to join audit info
+    let updatedUsers = await this.listUsers(true, {
+      _id: result.value._id
+    });
+    return updatedUsers[0];
   }
 
   async listUsersBySource(source, includeDeleted = false) {
