@@ -3,6 +3,7 @@ const Source = require('../../db/source');
 const Error = require('../../lib/errors');
 const { getCurrentUser } = require('../../lib/route-helpers');
 const CurrentUser = require('../../lib/current-user');
+const Audit = require('../../db/audit').Audit;
 
 const SYSTEM_ONLY_FIELDS = ['_odkForm', '_odkProject', '_sourceId', '_attachmentsPresent'];
 
@@ -177,10 +178,10 @@ module.exports = function (opts) {
     try {
       getCurrentUser(res).validate(CurrentUser.PERMISSIONS.SOURCE_CREATE);
       const sourceManager = new Source(getCurrentUser(res));
-
-      // TODO security
-      let view = await sourceManager.createSource(req.body, res.locals.user);
-      res.json(view);
+      const auditManager = new Audit(getCurrentUser(res));
+      let source = await sourceManager.createSource(req.body, res.locals.user);
+      auditManager.logSourceCreate(source);
+      res.json(source);
     } catch (error) {
       next(error);
     }
@@ -191,10 +192,9 @@ module.exports = function (opts) {
     try {
       getCurrentUser(res).validate(CurrentUser.PERMISSIONS.SOURCE_CREATE);
       const sourceManager = new Source(getCurrentUser(res));
-
-      // TODO security
-      // let view = viewManager.getView(req.params.id);
+      const auditManager = new Audit(getCurrentUser(res));
       let updated = await sourceManager.updateSource(req.body, res.locals.user);
+      auditManager.logSourceEdit(updated);
       res.json(updated);
     } catch (error) {
       next(error);

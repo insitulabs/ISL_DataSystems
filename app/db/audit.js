@@ -7,8 +7,13 @@ const AUDIT_EVENTS = 'audit';
 const AuditEvent = Object.freeze({
   UserActivity: 'user-activity',
   Export: 'export',
-  Edit: 'edit',
-  Download: 'download'
+  SubmissionEdit: 'submission-edit',
+  Download: 'download',
+  ViewEdit: 'view-edit',
+  ViewCreate: 'view-create',
+  SourceEdit: 'source-edit',
+  SourceCreate: 'source-create',
+  UserEdit: 'user-edit'
 });
 
 class Audit extends Base {
@@ -164,13 +169,13 @@ class Audit extends Base {
    * Log a submission edit via a source or view.
    * @param {object} data  The data to log with this edit.
    */
-  async logEdit(data) {
+  async logSubmissionEdit(data) {
     if (this.user.preventAudit) {
       return;
     }
 
     let events = this.collection(AUDIT_EVENTS);
-    let record = this.#userEvent(AuditEvent.Edit, data);
+    let record = this.#userEvent(AuditEvent.SubmissionEdit, data);
     return events.insertOne(record).catch(this.#onError);
   }
 
@@ -185,6 +190,145 @@ class Audit extends Base {
 
     let events = this.collection(AUDIT_EVENTS);
     let record = this.#userEvent(AuditEvent.Download, { file });
+    return events.insertOne(record).catch(this.#onError);
+  }
+
+  /**
+   * Log a source create.
+   * @param {object} source The source.
+   */
+  async logSourceCreate(source) {
+    if (this.user.preventAudit) {
+      return;
+    }
+
+    let events = this.collection(AUDIT_EVENTS);
+    let record = this.#userEvent(AuditEvent.SourceCreate, {
+      _id: source._id,
+      name: source.name,
+      submissionKey: source.submissionKey
+    });
+    return events.insertOne(record).catch(this.#onError);
+  }
+
+  /**
+   * Log a source edit.
+   * @param {object} source The source.
+   */
+  async logSourceEdit(source) {
+    if (this.user.preventAudit) {
+      return;
+    }
+
+    let events = this.collection(AUDIT_EVENTS);
+    let record = this.#userEvent(AuditEvent.SourceEdit, {
+      _id: source._id,
+      name: source.name,
+      submissionKey: source.submissionKey
+    });
+    return events.insertOne(record).catch(this.#onError);
+  }
+
+  /**
+   * Log a view create.
+   * @param {object} view The view.
+   */
+  async logViewCreate(view) {
+    if (this.user.preventAudit) {
+      return;
+    }
+
+    let events = this.collection(AUDIT_EVENTS);
+    let record = this.#userEvent(AuditEvent.ViewCreate, {
+      _id: view._id,
+      name: view.name
+    });
+    return events.insertOne(record).catch(this.#onError);
+  }
+
+  /**
+   * Log a view edit.
+   * @param {object} view The view.
+   */
+  async logViewEdit(view) {
+    if (this.user.preventAudit) {
+      return;
+    }
+
+    let events = this.collection(AUDIT_EVENTS);
+    let record = this.#userEvent(AuditEvent.ViewEdit, {
+      _id: view._id,
+      name: view.name
+    });
+    return events.insertOne(record).catch(this.#onError);
+  }
+
+  /**
+   * Log a user edit/create.
+   * @param {object} user The user.
+   * @param {object} previous The user state before edit. Null if a create.
+   */
+  async logUserEdit(user, previous = null) {
+    if (this.user.preventAudit) {
+      return;
+    }
+
+    let events = this.collection(AUDIT_EVENTS);
+    let data = {
+      _id: user._id,
+      email: user.email
+    };
+
+    if (previous) {
+      data.delta = {};
+      if (user.admin !== previous.admin) {
+        data.delta.admin = {
+          before: previous.admin,
+          after: user.admin
+        };
+      }
+
+      if (user.email !== previous.email) {
+        data.delta.email = {
+          before: previous.email,
+          after: user.email
+        };
+      }
+
+      if (user.name !== previous.name) {
+        data.delta.name = {
+          before: previous.name,
+          after: user.name
+        };
+      }
+
+      if (user.deleted !== previous.deleted) {
+        data.delta.deleted = {
+          before: previous.deleted,
+          after: user.deleted
+        };
+      }
+
+      let sourcesA = JSON.stringify(user.sources);
+      let sourcesB = JSON.stringify(previous.sources);
+      if (sourcesA !== sourcesB) {
+        data.delta.sources = {
+          before: previous.sources,
+          after: user.sources
+        };
+      }
+
+      let viewsA = JSON.stringify(user.views);
+      let viewsB = JSON.stringify(previous.views);
+      if (viewsA !== viewsB) {
+        data.delta.views = {
+          before: previous.views,
+          after: user.views
+        };
+      }
+    }
+
+    let record = this.#userEvent(AuditEvent.UserEdit, data);
     return events.insertOne(record).catch(this.#onError);
   }
 }

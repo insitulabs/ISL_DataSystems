@@ -6,6 +6,7 @@ const Errors = require('../../lib/errors');
 const emailValidator = require('../../lib/email-validator');
 const { getCurrentUser } = require('../../lib/route-helpers');
 const { ObjectId } = require('mongodb');
+const Audit = require('../../db/audit').Audit;
 
 module.exports = function () {
   const router = express.Router();
@@ -197,6 +198,9 @@ module.exports = function () {
         },
         res.locals.user._id
       );
+
+      const auditManager = new Audit(getCurrentUser(res));
+      auditManager.logUserEdit(updated, existingUser);
 
       return res.render('admin/_user', { user: updated });
     } catch (error) {

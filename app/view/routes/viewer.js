@@ -656,8 +656,8 @@ module.exports = function (opts) {
         const auditManager = new Audit(getCurrentUser(res));
         let auditRecord = {
           type: originType,
-          submissionId: submission._id,
-          submissionSource: submission.source,
+          _id: submission._id,
+          source: submission.source,
           field,
           value: value,
           previous: currentValue
@@ -671,7 +671,7 @@ module.exports = function (opts) {
           };
         }
 
-        auditManager.logEdit(auditRecord);
+        auditManager.logSubmissionEdit(auditRecord);
       }
 
       res.json({

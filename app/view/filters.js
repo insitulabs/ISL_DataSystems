@@ -108,5 +108,16 @@ module.exports = function (nunjucks) {
   nunjucks.addFilter('prettyJSON', (value) => {
     return JSON.stringify(value, undefined, 2);
   });
+
+  nunjucks.addFilter('userAuditDelta', (delta) => {
+    if (delta) {
+      let keys = Object.keys(delta);
+      keys.sort((a, b) => {
+        return a.toLowerCase().localeCompare(b.toLowerCase());
+      });
+      return keys.join(', ');
+    }
+    return '';
+  });
 };
 
