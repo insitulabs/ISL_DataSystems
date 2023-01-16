@@ -55,17 +55,18 @@ module.exports = function (opts) {
     try {
       let auditManager = new Audit(getCurrentUser(res));
       const pagePath = `${req.baseUrl}${req.path}`;
+      const pageParams = new URLSearchParams();
 
       let offset = 0;
       if (req.query.offset) {
         offset = parseInt(req.query.offset);
       }
 
-      let limit = 10;
+      let limit = 50;
       if (req.query.limit) {
         limit = parseInt(req.query.limit);
         if (isNaN(limit) || limit < 1 || limit > 1000) {
-          limit = 10;
+          limit = 50;
         }
       }
 
@@ -96,8 +97,12 @@ module.exports = function (opts) {
         return links;
       }, {});
 
+      pageParams.set('sort', sort);
+      pageParams.set('order', order);
+
       let model = {
         pagePath,
+        pagePathWQuery: pagePath + '?' + pageParams.toString(),
         pagination,
         results: queryResponse.results,
         sort,
