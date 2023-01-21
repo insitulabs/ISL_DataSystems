@@ -2,65 +2,15 @@
 
 {% block styles %}
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.2/font/bootstrap-icons.css" rel="stylesheet" />
-{% endblock %}
-
-{% block scripts %}
-<script>
-  document.getElementById('name-filter').select();
-</script>
+<link href="{{ '/assets/admin-audit.css' | appendVersion }}" rel="stylesheet" />
 {% endblock %}
 
 {% block content %}
-<div class="container-xxl">
-  {% if isAdmin %}
-  <div class="my-3">
-    <a class="btn btn-primary btn-sm" href="/data-viewer/source/new">Create Source</a>
-  </div>
-  {% endif %}
+<div class="container-xxl mt-2" id="app">
   <div class="table-responsive-md">
-    <form>
-      <div class="input-group">
-        <input
-          id="name-filter"
-          type="text"
-          name="name"
-          value="{{ nameQuery }}"
-          class="form-control"
-          placeholder="Filter by name..."
-          aria-label="Filter by name..."
-          aria-describedby="name-filter-btn"
-          maxlength="255"
-        >
-        <button class="btn btn-primary" type="submit" id="name-filter-btn">Filter</button>
-      </div>
-    </form>
-    <table class="table sticky-header table-striped table-bordered mt-1">
-      <thead class="table-light">
+    <table class="table table-striped" id="audit" ref="audit">
+      <thead>
         <tr>
-          <th scope="col" class="{{ 'is-sorted' if sort === "system" }}">
-            <a href="{{ sortLinks.system }}" class="text-decoration-none {{ order }} {{ "link-dark" if sort === "system" else "text-secondary" }}">
-              System
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-sort-down" viewBox="0 0 16 16">
-                <path d="M3.5 2.5a.5.5 0 0 0-1 0v8.793l-1.146-1.147a.5.5 0 0 0-.708.708l2 1.999.007.007a.497.497 0 0 0 .7-.006l2-2a.5.5 0 0 0-.707-.708L3.5 11.293V2.5zm3.5 1a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zM7.5 6a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5zm0 3a.5.5 0 0 0 0 1h3a.5.5 0 0 0 0-1h-3zm0 3a.5.5 0 0 0 0 1h1a.5.5 0 0 0 0-1h-1z"/>
-              </svg>
-            </a>
-          </th>
-          <th scope="col" class="{{ 'is-sorted' if sort === "namespace" }}">
-            <a href="{{ sortLinks.namespace }}" class="text-decoration-none {{ order }} {{ "link-dark" if sort === "namespace" else "text-secondary" }}">
-              Namespace
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-sort-down" viewBox="0 0 16 16">
-                <path d="M3.5 2.5a.5.5 0 0 0-1 0v8.793l-1.146-1.147a.5.5 0 0 0-.708.708l2 1.999.007.007a.497.497 0 0 0 .7-.006l2-2a.5.5 0 0 0-.707-.708L3.5 11.293V2.5zm3.5 1a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zM7.5 6a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5zm0 3a.5.5 0 0 0 0 1h3a.5.5 0 0 0 0-1h-3zm0 3a.5.5 0 0 0 0 1h1a.5.5 0 0 0 0-1h-1z"/>
-              </svg>
-            </a>
-          </th>
-          <th scope="col" class="{{ 'is-sorted' if sort === "name" }}">
-            <a href="{{ sortLinks.name }}" class="text-decoration-none {{ order }} {{ "link-dark" if sort === "name" else "text-secondary" }}">
-              Name
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-sort-down" viewBox="0 0 16 16">
-                <path d="M3.5 2.5a.5.5 0 0 0-1 0v8.793l-1.146-1.147a.5.5 0 0 0-.708.708l2 1.999.007.007a.497.497 0 0 0 .7-.006l2-2a.5.5 0 0 0-.707-.708L3.5 11.293V2.5zm3.5 1a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zM7.5 6a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5zm0 3a.5.5 0 0 0 0 1h3a.5.5 0 0 0 0-1h-3zm0 3a.5.5 0 0 0 0 1h1a.5.5 0 0 0 0-1h-1z"/>
-              </svg>
-            </a>
-          </th>
           <th scope="col" class="{{ 'is-sorted' if sort === "created" }}">
             <a href="{{ sortLinks.created }}" class="text-decoration-none {{ order }} {{ "link-dark" if sort === "created" else "text-secondary" }}">
               Created
@@ -69,43 +19,76 @@
               </svg>
             </a>
           </th>
-
-          {% if isAdmin %}
-          <th scope="col"></th>
-          {% endif %}
+          <th scope="col" class="{{ 'is-sorted' if sort === "email" }}">
+            <a href="{{ sortLinks.email }}" class="text-decoration-none {{ order }} {{ "link-dark" if sort === "email" else "text-secondary" }}">
+              Actor
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-sort-down" viewBox="0 0 16 16">
+                <path d="M3.5 2.5a.5.5 0 0 0-1 0v8.793l-1.146-1.147a.5.5 0 0 0-.708.708l2 1.999.007.007a.497.497 0 0 0 .7-.006l2-2a.5.5 0 0 0-.707-.708L3.5 11.293V2.5zm3.5 1a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zM7.5 6a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5zm0 3a.5.5 0 0 0 0 1h3a.5.5 0 0 0 0-1h-3zm0 3a.5.5 0 0 0 0 1h1a.5.5 0 0 0 0-1h-1z"/>
+              </svg>
+            </a>
+          </th>
+          <th scope="col" class="{{ 'is-sorted' if sort === "type" }}">
+            <a href="{{ sortLinks.type }}" class="text-decoration-none {{ order }} {{ "link-dark" if sort === "type" else "text-secondary" }}">
+              Type
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-sort-down" viewBox="0 0 16 16">
+                <path d="M3.5 2.5a.5.5 0 0 0-1 0v8.793l-1.146-1.147a.5.5 0 0 0-.708.708l2 1.999.007.007a.497.497 0 0 0 .7-.006l2-2a.5.5 0 0 0-.707-.708L3.5 11.293V2.5zm3.5 1a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zM7.5 6a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5zm0 3a.5.5 0 0 0 0 1h3a.5.5 0 0 0 0-1h-3zm0 3a.5.5 0 0 0 0 1h1a.5.5 0 0 0 0-1h-1z"/>
+              </svg>
+            </a>
+          </th>
+          <th class="text-secondary">
+            Context
+          </th>
         </tr>
       </thead>
       <tbody>
         {% if results.length === 0 %}
-        <tr><td colspan="100%">No results</td></tr>
-        {% endif %}
-        {% for source in results %}
         <tr>
-          <td>{{ source.system }}</td>
-          <td>{{ source.namespace }}</td>
+          <td colspan="100%">No results</td>
+        </tr>
+        {% endif %}
+        {% for result in results %}
+        <tr>
           <td>
-            <a href="/data-viewer/source/{{ source._id }}">{{ source.name }}</a>
+            <time
+              datetime="{{ result.created | formatDate('YYYY-MM-DDTHH:mm:ssZ[Z]') }}"
+              title="{{ result.created | formatDate('YYYY-MM-DDTHH:mm:ssZ[Z]') }}"
+            >
+              {{ result.created | formatDate('YYYY-MM-DDTHH:mm:ssZ[Z]') }}
+            </time>
           </td>
-          <td><time title="{{ source.created }}">{{ source.created | formatDate }}</time></td>
-          {% if isAdmin %}
+          <td>{{ result.user.email }}</td>
+          <td>{{ result.type }}</td>
           <td>
-            <a
-              href="/data-viewer/source/{{ source._id }}/edit"
-              title="Edit source"
-              ><i class="bi bi-pencil-square"></i></a>
-            <a
-              href="/data-viewer/source/{{ source._id }}/import"
-              class="ms-2"
-              title="Import data"><i class="bi bi-cloud-upload"></i></a>
+            {% if result.type === 'user-activity' %}
+              {{ result.data.pages.length }} page views
+            {% elseif result.type === 'user-edit' %}
+              {{ result.data.email }}
+              {% if result.data.delta %}
+              - Edit: {{ result.data.delta | userAuditDelta }}
+              {% else %}
+              - Create
+              {% endif %}
+            {% elseif result.type === 'export' %}
+              {{ result.data.type }} - {{ result.data.name }}
+            {% elseif result.type === 'submission-edit' %}
+              {{ result.data.type }} - {{ result.data.source }}
+            {% elseif result.type === 'source-edit' %}
+              {{ result.data.name }}
+            {% elseif result.type === 'source-create' %}
+              {{ result.data.name }}
+            {% elseif result.type === 'view-edit' %}
+              {{ result.data.name }}
+            {% elseif result.type === 'view-create' %}
+              {{ result.data.name }}
+            {% endif %}
           </td>
-          {% endif %}
         </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
 
-  {% if results.length !== 0 %}
+ {% if results.length !== 0 %}
   <nav>
     <div class="px-2 pb-2">
       Showing {{ results.length }} of {{ pagination.totalItems | formatNumber }} sources.
@@ -141,10 +124,14 @@
             Show rows: {{ pagination.pageSize | formatNumber }}
           </button>
           <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton1">
-            <li><a class="dropdown-item {% if 20 == pagination.pageSize %} active {% endif %}"
-              href="{{ pagePathWQuery }}&limit=20">20</a></li>
-            <li><a class="dropdown-item {% if 100 == pagination.pageSize %} active {% endif %}"
+            <li><a class="dropdown-item {% if 50 == pagination.pageSize %} active {% endif %}"
               href="{{ pagePathWQuery }}&limit=50">50</a></li>
+            <li><a class="dropdown-item {% if 100 == pagination.pageSize %} active {% endif %}"
+              href="{{ pagePathWQuery }}&limit=100">100</a></li>
+            <li><a class="dropdown-item {% if 500 == pagination.pageSize %} active {% endif %}"
+              href="{{ pagePathWQuery }}&limit=500">500</a></li>
+            <li><a class="dropdown-item {% if 1000 == pagination.pageSize %} active {% endif %}"
+              href="{{ pagePathWQuery }}&limit=1000">1,000</a></li>
           </ul>
         </div>
       </li>
@@ -152,6 +139,5 @@
   </nav>
   {% endif %}
 </div>
-
 {% endblock %}
 

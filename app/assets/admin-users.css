@@ -10,10 +10,6 @@
   text-decoration: line-through;
 }
 
-#users th.is-sorted a.desc .bi-sort-down {
-  transform: rotate(180deg);
-}
-
 /*
 td.email,
 td.name {

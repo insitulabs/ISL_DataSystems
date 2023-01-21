@@ -56,12 +56,19 @@ class View extends Base {
   async listViews(options = {}) {
     let pipeline = [];
 
+    let $match = {};
     if (!this.user.admin && !this.user.isSuperAdmin) {
-      pipeline.push({
-        $match: {
-          _id: { $in: this.user.viewIds() }
-        }
-      });
+      $match._id = { $in: this.user.viewIds() };
+    }
+
+    if (options.name && typeof options.name === 'string') {
+      // Escape for regex.
+      let nameQuery = options.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      $match.name = { $regex: new RegExp(nameQuery, 'i') };
+    }
+
+    if (Object.keys($match).length) {
+      pipeline.push({ $match: $match });
     }
 
     let views = this.collection(VIEWS);

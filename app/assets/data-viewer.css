@@ -59,10 +59,6 @@
   width: 120px;
 }
 
-#data th.is-sorted a.desc .bi-sort-down {
-  transform: rotate(180deg);
-}
-
 #data > nav {
   position: sticky;
   left: 0;

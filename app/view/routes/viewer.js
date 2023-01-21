@@ -165,19 +165,19 @@ const mapFieldsForUI = function (fields, userCanEdit = false, sort, order, pageP
         editable: userCanEdit && !NON_EDITABLE_FIELDS.includes(f.id)
       };
 
-      let dir = 'desc';
       if (sort === f.id) {
-        if (order === 'desc') {
-          dir = 'asc';
-        }
-        filedForUI.isSorted = dir;
+        filedForUI.isSorted = order === 'desc' ? 'desc' : 'asc';
       }
 
       if (pageParams) {
         const sortParams = new URLSearchParams(pageParams.toString());
         sortParams.set('sort', f.id);
-        sortParams.set('order', dir);
-        // filedForUI.url = pagePath + '?' + sortParams.toString();
+
+        if (sort === f.id && order === 'asc') {
+          sortParams.set('order', 'desc');
+        } else if (sort === f.id && order === 'desc') {
+          sortParams.set('order', 'asc');
+        }
         filedForUI.url = '?' + sortParams.toString();
       }
 
@@ -710,8 +710,29 @@ module.exports = function (opts) {
         }
       }
 
+      let nameQuery = null;
+      if (req.query.name && req.query.name.length && req.query.name.length < 255) {
+        nameQuery = req.query.name;
+      }
+
       let sort = req.query.sort || 'name';
       let order = req.query.order || 'asc';
+
+      let sortLinks = ['name', 'created'].reduce((links, col) => {
+        let url = '?sort=' + col;
+        if (sort === col && order === 'asc') {
+          url += '&order=' + 'desc';
+        } else if (sort === col && order === 'desc') {
+          url += '&order=' + 'asc';
+        }
+
+        if (nameQuery) {
+          url += '&name=' + encodeURIComponent(nameQuery);
+        }
+        links[col] = url;
+        return links;
+      }, {});
+
       pageParams.set('sort', sort);
       pageParams.set('order', order);
 
@@ -719,7 +740,8 @@ module.exports = function (opts) {
         offset,
         limit,
         sort,
-        order
+        order,
+        name: nameQuery
       });
 
       let currentPage = Math.floor(offset / limit) + 1;
@@ -729,7 +751,11 @@ module.exports = function (opts) {
         ...viewData,
         pagePathWQuery: pagePath + '?' + pageParams.toString(),
         pagination,
-        results: queryResponse.results
+        results: queryResponse.results,
+        sort,
+        order,
+        sortLinks,
+        nameQuery
       };
 
       res.render('view-list', model);
@@ -910,6 +936,27 @@ module.exports = function (opts) {
 
       let sort = req.query.sort || 'created';
       let order = req.query.order || 'desc';
+
+      let nameQuery = null;
+      if (req.query.name && req.query.name.length && req.query.name.length < 255) {
+        nameQuery = req.query.name;
+      }
+
+      let sortLinks = ['created', 'system', 'namespace', 'name'].reduce((links, col) => {
+        let url = '?sort=' + col;
+        if (sort === col && order === 'asc') {
+          url += '&order=' + 'desc';
+        } else if (sort === col && order === 'desc') {
+          url += '&order=' + 'asc';
+        }
+
+        if (nameQuery) {
+          url += '&name=' + encodeURIComponent(nameQuery);
+        }
+        links[col] = url;
+        return links;
+      }, {});
+
       pageParams.set('sort', sort);
       pageParams.set('order', order);
 
@@ -917,7 +964,8 @@ module.exports = function (opts) {
         offset,
         limit,
         sort,
-        order
+        order,
+        name: nameQuery
       });
 
       let currentPage = Math.floor(offset / limit) + 1;
@@ -927,7 +975,11 @@ module.exports = function (opts) {
         ...viewData,
         pagePathWQuery: pagePath + '?' + pageParams.toString(),
         pagination,
-        results: queryResponse.results
+        results: queryResponse.results,
+        sort,
+        order,
+        sortLinks,
+        nameQuery
       };
 
       res.render('source-list', model);
