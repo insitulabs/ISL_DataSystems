@@ -4,71 +4,75 @@ const $data = document.getElementById('data');
 const ORIGIN_TYPE = $data.dataset.type;
 const ORIGIN_ID = $data.dataset.id;
 
-const updateSubmission = function (id, field, value, currentValue, valueType) {
+const updateSubmission = function (target, field, value, currentValue, valueType) {
   const formData = new FormData();
-  formData.append('id', id);
-  formData.append('field', field);
-  formData.append('value', value);
+
+  if (target.fields && target.fields.length) {
+    formData.append('fields', JSON.stringify(target.fields));
+  } else if (target.ids && target.ids.length) {
+    formData.append('ids', target.ids);
+    formData.append('field', field);
+  } else if (target.filter) {
+    formData.append('filter', target.filter);
+    formData.append('field', field);
+  }
+
   formData.append('currentValue', currentValue);
+  formData.append('value', value);
   formData.append('valueType', valueType);
 
   formData.append('originType', ORIGIN_TYPE);
   formData.append('originId', ORIGIN_ID);
 
-  return $api('/data-viewer/api/edit', {
+  let url = `/data-viewer/api/edit/${ORIGIN_TYPE}`;
+  let isAttachment = false;
+  if (ORIGIN_TYPE === 'source' && value instanceof File) {
+    isAttachment = true;
+    url = '/data-viewer/api/edit/attachment';
+  }
+
+  return $api(url, {
     method: 'POST',
     body: formData
   }).then((response) => {
-    let tds = $data.querySelectorAll(`table td[data-id="${id}"][data-field="${field}"]`);
+    if (target.ids) {
+      let trs = [...$data.querySelectorAll('table tr')].filter(($tr) =>
+        target.ids.includes($tr.dataset.id)
+      );
 
-    tds.forEach((td) => {
-      td.innerHTML = response.html;
+      trs.forEach(($tr) => {
+        let $td = $tr.querySelector(`td[data-field="${field}"]`);
+        if ($td) {
+          if (isAttachment) {
+            $td.classList.remove('editable');
+          } else {
+            $td.classList.add('editable');
+          }
+          $td.dataset.value = response.value !== null ? response.value : '';
+          $td.innerHTML = response.html;
+        }
 
-      if (response.isAttachment) {
-        td.classList.remove('editable');
-      } else {
-        td.classList.add('editable');
-        td.dataset.value = response.value !== null ? response.value : '';
-      }
-      let jsonSource = td.closest('tr').querySelector('.source-json');
-      if (jsonSource) {
-        jsonSource.innerText = response.submissionPretty;
-      }
-    });
+        $tr.querySelector('.record-source').classList.add('loading');
+      });
+    } else if (target.fields) {
+      target.fields.forEach((f) => {
+        let tds = $data.querySelectorAll(`tr[data-id="${f.id}"] > td[data-field="${f.field}"]`);
+        tds.forEach(($td) => {
+          $td.classList.add('editable');
+          $td.dataset.value = response.value !== null ? response.value : '';
+          $td.innerHTML = response.html;
+          $td.closest('tr').querySelector('.record-source').classList.add('loading');
+        });
+      });
+    }
 
     return response;
   });
 };
 
-const edit = function (event) {
-  let td = event.target.closest('td');
-  let curValue = td.dataset.value;
-  editModal.editing = {
-    id: td.dataset.id,
-    field: td.dataset.field,
-    value: curValue
-  };
-
-  editModal.$attachment.classList.add('d-none');
-  editModal.$attachment.value = '';
-  editModal.$input.classList.remove('d-none');
-  editModal.$input.value = curValue || '';
-
-  let type = 'text';
-  // Is number?
-  if (curValue && /^[\d\.]+$/.test(curValue)) {
-    type = 'int';
-    if (curValue.indexOf('.') > -1) {
-      type = 'float';
-    }
-  }
-
-  editModal.editing.type = type;
-
-  let inputType = editModal.$el.querySelector('select');
-  inputType.value = type;
-  editModal.modal.show();
-};
+// #######################################################
+// # EDITING & UNDO STACK
+// #######################################################
 
 const undoStack = [];
 const $undo = document.getElementById('undo');
@@ -79,7 +83,7 @@ if ($undo) {
     }
     let toUndo = undoStack.pop();
     $undo.querySelector('button').setAttribute('disabled', 'disabled');
-    updateSubmission(toUndo.id, toUndo.field, toUndo.value, toUndo.currentValue, toUndo.type)
+    updateSubmission(toUndo.target, toUndo.field, toUndo.value, toUndo.currentValue, toUndo.type)
       .catch((error) => {
         alert(error && error.message ? error.message : error);
       })
@@ -141,8 +145,10 @@ const saveEdit = function () {
   }
 
   editModal.$save.previousElementSibling.classList.remove('d-none');
+  editModal.$el.querySelector('.btn-close').setAttribute('disabled', 'disabled');
+
   updateSubmission(
-    editModal.editing.id,
+    editModal.editing.target,
     editModal.editing.field,
     newValue,
     editModal.editing.value,
@@ -153,9 +159,17 @@ const saveEdit = function () {
         pushUndo({ ...editModal.editing, currentValue: newValue });
       }
 
+      if (editModal.onClose) {
+        // Trigger modal on close, indicating a save ocurred.
+        editModal.onClose(true);
+        // Prevent double call of onClose
+        editModal.onClose = null;
+      }
+
       editModal.modal.hide();
     })
     .catch((error) => {
+      console.error(error);
       alert(error && error.message ? error.message : error);
       if (inputType !== 'attachment') {
         input.select();
@@ -172,16 +186,47 @@ const editModal = {
   $el: el,
   $input: document.getElementById('edit-input'),
   $attachment: document.getElementById('attachment-input'),
+  $bulkWarning: document.getElementById('edit-count-warning'),
   $type: el.querySelector('select'),
-  $save: el.querySelector('.btn-primary')
+  $save: el.querySelector('.btn-primary'),
+  getEditTarget: (td) => {
+    let target = {};
+
+    // Views need to update individual fields on unique submissions
+    if (ORIGIN_TYPE === 'view' && td) {
+      let tdIndex = [...td.parentNode.children].indexOf(td);
+      let fields = {};
+      $data.querySelectorAll('.submission-check:checked').forEach(($check) => {
+        let id = $check.dataset.id;
+        let field = $check.closest('tr').children[tdIndex].dataset.field;
+        fields[`${id}${field}`] = { id, field };
+      });
+      target.fields = Object.values(fields);
+    } else {
+      // Sources can edit a lot of stuff in bulk
+      let ids = [];
+      $data.querySelectorAll('.submission-check:checked').forEach((el) => {
+        ids.push(el.dataset.id);
+      });
+
+      if (ids.length) {
+        target.ids = ids;
+      }
+    }
+
+    return target;
+  }
 };
 
-editModal.modal = new bootstrap.Modal(editModal.$el, {
-  // keyboard: false
-  focus: false
-});
+editModal.modal = new bootstrap.Modal(editModal.$el);
 editModal.$el.addEventListener('shown.bs.modal', (event) => {
   editModal.$input.select();
+});
+editModal.$el.addEventListener('hide.bs.modal', (event) => {
+  editModal.$el.querySelector('.btn-close').removeAttribute('disabled');
+  if (editModal.onClose) {
+    editModal.onClose();
+  }
 });
 editModal.$save.addEventListener('click', saveEdit);
 editModal.$input.addEventListener('keyup', (event) => {
@@ -203,9 +248,117 @@ editModal.$type.addEventListener('change', (event) => {
 $data.addEventListener('dblclick', function (event) {
   let td = event.target.closest('td.editable');
   if (td) {
-    edit(event);
+    let curValue = td.dataset.value;
+
+    // Ensure current row is checked
+    let wasChecked = false;
+    let $checkbox = td.closest('tr').querySelector('.submission-check');
+    if (!$checkbox.checked) {
+      $checkbox.checked = true;
+      wasChecked = true;
+    }
+
+    let target = editModal.getEditTarget(td);
+    let checkedCount = $data.querySelectorAll('.submission-check:checked').length;
+
+    editModal.onClose = (saved = false) => {
+      // On save, only one, clear
+      // On cancel, only one, clear
+      // On cancel, multiple, clear target if it wasn't originally checked
+      if (checkedCount === 1) {
+        $checkbox.checked = false;
+      } else if (!saved && wasChecked) {
+        $checkbox.checked = false;
+      }
+    };
+
+    editModal.editing = {
+      target: target,
+      field: td.dataset.field,
+      value: curValue
+    };
+
+    editModal.$attachment.classList.add('d-none');
+    editModal.$attachment.value = '';
+    editModal.$input.classList.remove('d-none');
+    editModal.$input.value = curValue || '';
+
+    let type = 'text';
+    // Is number?
+    if (curValue && /^[\d\.]+$/.test(curValue)) {
+      type = 'int';
+      if (curValue.indexOf('.') > -1) {
+        type = 'float';
+      }
+    }
+
+    editModal.editing.type = type;
+
+    let inputType = editModal.$el.querySelector('select');
+    inputType.value = type;
+
+    if (checkedCount > 1) {
+      const numberFormatter = new Intl.NumberFormat();
+      editModal.$bulkWarning.querySelector('span').innerText = numberFormatter.format(checkedCount);
+      editModal.$bulkWarning.classList.remove('d-none');
+    } else {
+      editModal.$bulkWarning.classList.add('d-none');
+    }
+
+    editModal.modal.show();
   }
 });
+
+// #######################################################
+// # CHECKBOX LOGIC
+// #######################################################
+
+$data.addEventListener('click', (event) => {
+  let $checkAll = document.getElementById('check-all');
+
+  // Check all event handler
+  if ($checkAll && (event.target === $checkAll || event.target.matches('th.checkbox'))) {
+    if (event.target.matches('th.checkbox')) {
+      $checkAll.checked = !$checkAll.checked;
+      $checkAll.indeterminate = false;
+    }
+
+    let checked = $checkAll.checked;
+    let indeterminate = $checkAll.indeterminate;
+    let checkAll = checked && !indeterminate;
+
+    $data.querySelectorAll('.submission-check').forEach((el) => {
+      el.checked = checkAll;
+    });
+
+    return;
+  }
+
+  // Row check event handler
+  let $checkbox = event.target.closest('.submission-check');
+  if ($checkbox && $checkAll && $checkAll.checked) {
+    let total = $data.querySelectorAll('.submission-check').length;
+    let totalChecked = $data.querySelectorAll('.submission-check:checked').length;
+    $checkAll.indeterminate = total !== totalChecked;
+    return;
+  }
+
+  // Checkbox TD helper.
+  if (event.target.classList.contains('for-submission-check')) {
+    let $checkbox = event.target.querySelector('.submission-check');
+    $checkbox.checked = !$checkbox.checked;
+    if ($checkAll && $checkAll.checked) {
+      let total = $data.querySelectorAll('.submission-check').length;
+      let totalChecked = $data.querySelectorAll('.submission-check:checked').length;
+      $checkAll.indeterminate = total !== totalChecked;
+    }
+    return;
+  }
+});
+
+// #######################################################
+// # VIEW ONLY LOGIC
+// #######################################################
 
 // Views can have multi-column edit effect
 if (ORIGIN_TYPE === 'view') {
@@ -227,6 +380,10 @@ if (ORIGIN_TYPE === 'view') {
     }
   });
 }
+
+// #######################################################
+// # SOURCE IMPORT ONLY LOGIC
+// #######################################################
 
 if (ORIGIN_TYPE === 'import') {
   let renameFieldModalEl = document.getElementById('rename-field-modal');
@@ -275,10 +432,7 @@ if (ORIGIN_TYPE === 'import') {
     $input: renameFieldModalEl.querySelector('input[type=text]'),
     $hidden: renameFieldModalEl.querySelector('input[type=hidden]')
   };
-  renameFieldModal.modal = new bootstrap.Modal(renameFieldModal.$el, {
-    // keyboard: false
-    focus: false
-  });
+  renameFieldModal.modal = new bootstrap.Modal(renameFieldModal.$el);
   renameFieldModal.$el.addEventListener('shown.bs.modal', (event) => {
     renameFieldModal.$input.select();
   });
@@ -342,7 +496,9 @@ if (ORIGIN_TYPE === 'import') {
   });
 }
 
-// FILTERS
+// #######################################################
+// # FILTERS
+// #######################################################
 
 let currentFilters = {};
 let queryWithoutFilters = null;
@@ -538,12 +694,9 @@ function hideFields(hiddenFields) {
   }
 }
 
-function initBootstrap() {
-  // Init Bootstrap popovers
-  document.querySelectorAll('[data-bs-toggle="popover"]').forEach((popoverTriggerEl) => {
-    return new bootstrap.Popover(popoverTriggerEl);
-  });
-}
+// #######################################################
+// # VISIBLE COLUMNS
+// #######################################################
 
 const updateExportLinks = (hidden) => {
   document.querySelectorAll('#data .export-btn').forEach(($a) => {
@@ -623,31 +776,96 @@ function setFormPref(field, value) {
   return prefs;
 }
 
-function onLoad() {
-  initFilter();
-  initBootstrap();
-  let prefs = getFormPrefs();
-  initFieldToggles(prefs.hiddenFields);
-  document.getElementById('data-loader').classList.add('d-none');
-  getFormPrefs();
-  window.addEventListener('resize', resize);
-}
+// #######################################################
+// # Record Source Modal Fetching.
+// #######################################################
 
-function resize() {
-  let headerRect = document.body.querySelector('main > header').getBoundingClientRect();
-  $data.style.height = window.innerHeight - (headerRect.top + headerRect.height) + 'px';
-}
+$data.addEventListener('show.bs.modal', (event) => {
+  if (event.target.matches('.modal.record-source.loading')) {
+    let url = null;
+    if (ORIGIN_TYPE == 'import') {
+      let [match, sourceId, importId] = /\/source\/([^\/]+)\/import\/([^\/]+)/i.exec(
+        window.location.pathname
+      );
+      url = `/api/source/${sourceId}/submission/${event.target.dataset.id}?staged=true`;
+    } else {
+      url = `/api/${ORIGIN_TYPE}/${ORIGIN_ID}/submission/${event.target.dataset.id}`;
+    }
 
-// Global attachment image error handler.
-window.onAttachmentPreviewError = function (img) {
-  let modal = img.parentElement.closest('.modal-content');
-  if (modal) {
-    modal.querySelectorAll('.rotate-btn').forEach((el) => {
-      el.setAttribute('disabled', 'disabled');
-    });
+    return $api(url, {
+      method: 'GET'
+    })
+      .then((response) => {
+        let data = null;
+        if (ORIGIN_TYPE === 'view') {
+          if (response.results?.length) {
+            let index = parseInt(event.target.dataset.index);
+            data = response.results[isNaN(index) ? 0 : index].data;
+          }
+        } else {
+          data = response.data;
+        }
+        event.target.querySelector('.source-json').innerText = JSON.stringify(data, undefined, 2);
+      })
+      .catch((error) => {
+        event.target.querySelector('.source-json').innerText = error.message
+          ? error.message
+          : error;
+      })
+      .finally(() => {
+        event.target.classList.remove('loading');
+      });
   }
-  img.parentElement.innerText = 'No preview available';
-};
+});
+
+// #######################################################
+// # NEW SUBMISSION LOGIC
+// #######################################################
+
+let $createModal = document.getElementById('new-submission-modal');
+if ($createModal) {
+  $createModal.addEventListener('shown.bs.modal', (event) => {
+    let $firstInput = $createModal.querySelector('input.field-value');
+    if ($firstInput) {
+      $firstInput.focus();
+    }
+  });
+
+  $createModal.querySelector('.btn.save').addEventListener('click', (event) => {
+    let $save = event.target;
+    $save.setAttribute('disabled', 'disabled');
+    $save.previousElementSibling.classList.remove('d-none');
+    $createModal.querySelector('.btn-close').setAttribute('disabled', 'disabled');
+
+    let submission = {};
+    $createModal.querySelectorAll('.field-value').forEach(($input) => {
+      let value = $input.value.trim();
+      if (value) {
+        submission[$input.name] = value;
+      }
+    });
+
+    $api(`/api/source/${ORIGIN_ID}/submission`, {
+      method: 'POST',
+      body: JSON.stringify(submission)
+    })
+      .then(() => {
+        window.location.reload();
+      })
+      .catch((error) => {
+        alert(error && error.message ? error.message : error);
+      })
+      .finally(() => {
+        $save.removeAttribute('disabled');
+        $save.previousElementSibling.classList.add('d-none');
+        $createModal.querySelector('.btn-close').removeAttribute('disabled');
+      });
+  });
+}
+
+// #######################################################
+// # ATTACHMENT MODAL LOGIC
+// #######################################################
 
 document.addEventListener('click', (event) => {
   let rotateBtn = event.target.closest('.rotate-btn');
@@ -686,6 +904,53 @@ document.addEventListener('click', (event) => {
     });
   }
 });
+
+// Global attachment image error handler. Registered inline on images from _attachment.njk
+window.onAttachmentPreviewError = function (img) {
+  let modal = img.parentElement.closest('.modal-content');
+  if (modal) {
+    modal.querySelectorAll('.rotate-btn').forEach((el) => {
+      el.setAttribute('disabled', 'disabled');
+    });
+  }
+  img.parentElement.innerText = 'No preview available';
+};
+
+// #######################################################
+// # INIT
+// #######################################################
+
+function resize() {
+  let headerRect = document.body.querySelector('main > header').getBoundingClientRect();
+  $data.style.height = window.innerHeight - (headerRect.top + headerRect.height) + 'px';
+}
+
+function onLoad() {
+  initFilter();
+
+  // Init Bootstrap popovers (help tips)
+  document.querySelectorAll('[data-bs-toggle="popover"]').forEach((popoverTriggerEl) => {
+    return new bootstrap.Popover(popoverTriggerEl);
+  });
+
+  // Focus on first row so keyboard works well with up/down.
+  document.querySelector('tbody tr').focus();
+
+  // When we use arrow keys, focus on data for scrolling.
+  window.addEventListener('keydown', (event) => {
+    if (['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
+      if (event.target.closest('input[type=text],select,textarea,.dropdown-menu.modal') === null) {
+        document.querySelector('tbody tr').focus();
+      }
+    }
+  });
+
+  let prefs = getFormPrefs();
+  initFieldToggles(prefs.hiddenFields);
+  document.getElementById('data-loader').classList.add('d-none');
+  getFormPrefs();
+  window.addEventListener('resize', resize);
+}
 
 onLoad();
 

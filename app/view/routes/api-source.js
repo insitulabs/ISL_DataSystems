@@ -35,9 +35,8 @@ module.exports = function (opts) {
         throw new Error.BadRequest('Invalid source');
       }
 
-      // TODO permissions?
       const sourceManager = new Source(getCurrentUser(res));
-      // getCurrentUser(res).validateSourcePermission()
+      getCurrentUser(res).validateSourcePermission(source, CurrentUser.PERMISSIONS.READ);
 
       let projectId = parseInt(parts[1]);
       let formId = parts[2];
@@ -150,6 +149,19 @@ module.exports = function (opts) {
         throw new Error.BadRequest('Mismatch import to source');
       }
       await sourceManager.deleteImport(theImport);
+
+      const auditManager = new Audit(getCurrentUser(res));
+      let auditRecord = {
+        type: 'source',
+        source: {
+          _id: source._id,
+          name: source.name,
+          submissionKey: source.submissionKey
+        },
+        import: theImport
+      };
+      auditManager.logImportDelete(auditRecord);
+
       res.json({});
     } catch (error) {
       next(error);
@@ -166,7 +178,21 @@ module.exports = function (opts) {
       if (!source._id.equals(theImport.sourceId)) {
         throw new Error.BadRequest('Mismatch import to source');
       }
-      await sourceManager.commitImport(theImport);
+      let count = await sourceManager.commitImport(theImport);
+
+      const auditManager = new Audit(getCurrentUser(res));
+      let auditRecord = {
+        type: 'source',
+        source: {
+          _id: source._id,
+          name: source.name,
+          submissionKey: source.submissionKey
+        },
+        count,
+        import: theImport
+      };
+      auditManager.logImportCommit(auditRecord);
+
       res.json({});
     } catch (error) {
       next(error);
@@ -196,6 +222,59 @@ module.exports = function (opts) {
       let updated = await sourceManager.updateSource(req.body, res.locals.user);
       auditManager.logSourceEdit(updated);
       res.json(updated);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  /**
+   * Get a submission from a source.
+   */
+  router.get('/:id/submission/:submissionId', async (req, res, next) => {
+    try {
+      const sourceManager = new Source(getCurrentUser(res));
+      const source = await sourceManager.getSource(req.params.id);
+      getCurrentUser(res).validateSourcePermission(source, CurrentUser.PERMISSIONS.READ);
+
+      let submission;
+      if (req.query.staged) {
+        submission = await sourceManager.getStagedSubmission(req.params.submissionId);
+      } else {
+        submission = await sourceManager.getSubmission(req.params.submissionId);
+      }
+      res.json(submission);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Create a submission for a source.
+  router.post('/:id/submission', async (req, res, next) => {
+    try {
+      const sourceManager = new Source(getCurrentUser(res));
+      const auditManager = new Audit(getCurrentUser(res));
+      const source = await sourceManager.getSource(req.params.id);
+      getCurrentUser(res).validateSourcePermission(source, CurrentUser.PERMISSIONS.WRITE);
+
+      let submission = req.body;
+      if (!submission || Object.keys(submission).length === 0) {
+        throw new Error.BadRequest('Invalid submission data');
+      }
+
+      let ids = await sourceManager.insertSubmissions(source, [submission]);
+      let created = await sourceManager.getSubmission(ids[0]);
+
+      auditManager.logSubmissionCreate({
+        type: 'source',
+        source: {
+          _id: source._id,
+          name: source.name,
+          submissionKey: source.submissionKey
+        },
+        submission: created
+      });
+
+      res.json(created);
     } catch (error) {
       next(error);
     }

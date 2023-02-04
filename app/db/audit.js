@@ -7,6 +7,10 @@ const AUDIT_EVENTS = 'audit';
 const AuditEvent = Object.freeze({
   UserActivity: 'user-activity',
   Export: 'export',
+  ImportCommit: 'import-commit',
+  ImportCreate: 'import-create',
+  ImportDelete: 'import-delete',
+  SubmissionCreate: 'submission-create',
   SubmissionEdit: 'submission-edit',
   Download: 'download',
   ViewEdit: 'view-edit',
@@ -87,7 +91,7 @@ class Audit extends Base {
 
       sort[sortField] = options.order === 'asc' ? 1 : -1;
       // Include a unique value in our sort so Mongo doesn't screw up limit/skip operation.
-      sort._id = 1;
+      sort._id = sort[sortField];
       pipeline.push({
         $sort: sort
       });
@@ -162,6 +166,62 @@ class Audit extends Base {
 
     let events = this.collection(AUDIT_EVENTS);
     let record = this.#userEvent(AuditEvent.Export, data);
+    return events.insertOne(record).catch(this.#onError);
+  }
+
+  /**
+   * Log a source import.
+   * @param {object} data The data to log with this import.
+   */
+  async logImportCommit(data) {
+    if (this.user.preventAudit) {
+      return;
+    }
+
+    let events = this.collection(AUDIT_EVENTS);
+    let record = this.#userEvent(AuditEvent.ImportCommit, data);
+    return events.insertOne(record).catch(this.#onError);
+  }
+
+  /**
+   * Log a source import create.
+   * @param {object} data The data to log with this event.
+   */
+  async logImportCreate(data) {
+    if (this.user.preventAudit) {
+      return;
+    }
+
+    let events = this.collection(AUDIT_EVENTS);
+    let record = this.#userEvent(AuditEvent.ImportCreate, data);
+    return events.insertOne(record).catch(this.#onError);
+  }
+
+  /**
+   * Log a source import delete.
+   * @param {object} data The data to log with this event.
+   */
+  async logImportDelete(data) {
+    if (this.user.preventAudit) {
+      return;
+    }
+
+    let events = this.collection(AUDIT_EVENTS);
+    let record = this.#userEvent(AuditEvent.ImportDelete, data);
+    return events.insertOne(record).catch(this.#onError);
+  }
+
+  /**
+   * Log a submission create.
+   * @param {object} data The data to log with this event.
+   */
+  async logSubmissionCreate(data) {
+    if (this.user.preventAudit) {
+      return;
+    }
+
+    let events = this.collection(AUDIT_EVENTS);
+    let record = this.#userEvent(AuditEvent.SubmissionCreate, data);
     return events.insertOne(record).catch(this.#onError);
   }
 

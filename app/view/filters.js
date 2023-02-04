@@ -109,6 +109,14 @@ module.exports = function (nunjucks) {
     return JSON.stringify(value, undefined, 2);
   });
 
+  nunjucks.addFilter('shortenID', (value) => {
+    if (value && typeof value === 'string') {
+      let len = value.length;
+      return value.substring(len - 5, len);
+    }
+    return null;
+  });
+
   nunjucks.addFilter('userAuditDelta', (delta) => {
     if (delta) {
       let keys = Object.keys(delta);

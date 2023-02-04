@@ -82,7 +82,7 @@ class View extends Base {
       let sort = {};
       sort[options.sort] = options.order === 'asc' ? 1 : -1;
       // Include a unique value in our sort so Mongo doesn't screw up limit/skip operation.
-      sort._id = 1;
+      sort._id = sort[options.sort];
       pipeline.push({
         $sort: sort
       });
@@ -136,6 +136,7 @@ class View extends Base {
     let now = new Date();
     let toPersist = {
       name: view.name,
+      note: view.note,
       fields: view.fields,
       sources: sources,
       created: now,
@@ -186,6 +187,7 @@ class View extends Base {
     let now = new Date();
     let toPersist = {
       name: view.name,
+      note: view.note,
       fields: view.fields,
       sources: sources,
       modified: now
@@ -402,17 +404,23 @@ class View extends Base {
           }
         });
       });
+
+      pipeline.push({
+        $addFields: {
+          subIndex: '$data._unwoundIndex'
+        }
+      });
+
+      pipeline.push({
+        $unset: 'data._unwoundIndex'
+      });
+    } else {
+      pipeline.push({
+        $addFields: {
+          subIndex: null
+        }
+      });
     }
-
-    pipeline.push({
-      $addFields: {
-        subIndex: '$data._unwoundIndex'
-      }
-    });
-
-    pipeline.push({
-      $unset: 'data._unwoundIndex'
-    });
 
     // Only look for custom view data if the view is persisted and we have an ID.
     if (viewId) {
@@ -463,12 +471,18 @@ class View extends Base {
     // TODO If we need case insensitive sort, look at collation or normalizing a string to then sort on
     if (options.sort) {
       let sort = {};
-      let sortKey = ['id', 'created', 'imported'].includes(options.sort)
+      let sortKey = ['_id', 'created', 'imported'].includes(options.sort)
         ? options.sort
         : `data.${options.sort}`;
       sort[sortKey] = options.order === 'asc' ? 1 : -1;
+
+      // When unwinding fields, make sure we respect the unwound order.
+      if (unwindFields.size) {
+        sort.subIndex = 1;
+      }
+
       // Include a unique value in our sort so Mongo doesn't screw up limit/skip operation.
-      sort._id = 1;
+      sort._id = sort[sortKey];
       pipeline.push({
         $sort: sort
       });

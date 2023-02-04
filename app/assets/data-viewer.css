@@ -10,7 +10,30 @@
 .modal-body img.large {
   width: 1024px;
 }
-.modal-body .source-json {
+
+.record-source .modal-body .source-json {
+  max-height: 75vh;
+  overflow-y: auto;
+}
+
+.record-source .modal-body .spinner-border {
+  display: none;
+}
+
+.record-source.loading .modal-body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.record-source.loading .modal-body .spinner-border {
+  display: block;
+}
+
+.record-source.loading .modal-body .source-json {
+  display: none;
+}
+.modal-body.record-source.loading {
   max-height: 75vh;
   overflow-y: auto;
 }
@@ -51,8 +74,12 @@
   color: var(--bs-table-active-color);
 }
 
-#data th[data-field='id'] {
-  width: 275px;
+#data th.checkbox {
+  width: 31px;
+}
+
+#data th[data-field='_id'] {
+  width: 60px;
 }
 
 #data th[data-field='created'] {
@@ -64,6 +91,28 @@
   left: 0;
 }
 
+#data tr:focus-visible {
+  outline: none;
+}
+
 #data td {
   vertical-align: middle;
+}
+
+#new-submission-modal .modal-body {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+#new-submission-modal .form-floating > label {
+  opacity: 1
+}
+
+#new-submission-modal .field-value {
+  height: calc(3.5rem + 2px);
+  line-height: 1.25;
+}
+
+#data-loader {
+  z-index: 1;
 }

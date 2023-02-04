@@ -16,6 +16,7 @@ createApp({
       tab: 'edit',
       id: data._id,
       name: data.name,
+      note: data.note || '',
       fields: data.fields,
       sources: data.sources,
       editingFieldIndex: null,
@@ -327,7 +328,12 @@ createApp({
       let url = isUpdate ? `/api/view/${this.id}` : '/api/view';
       let method = isUpdate ? 'PUT' : 'POST';
 
-      let body = { name: this.name.trim(), fields: this.fields, sources: this.sources };
+      let body = {
+        name: this.name.trim(),
+        note: this.note.trim(),
+        fields: this.fields,
+        sources: this.sources
+      };
       if (this.id) {
         body._id = this.id;
       }
@@ -339,6 +345,7 @@ createApp({
         .then((data) => {
           this.id = data._id;
           this.name = data.name;
+          this.note = data.note;
           this.fields = data.fields;
           this.sources = data.sources;
           if (!this.isUpdate) {
