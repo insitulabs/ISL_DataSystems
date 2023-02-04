@@ -93,11 +93,11 @@ module.exports = async function (workspace, sourceManager, SOURCE_SYSTEM = 'ODK'
             createdKey: '_created'
           });
 
-          debug(`${SOURCE_NAMESPACE}: Submission Inserted: ${inserted}`);
+          debug(`${SOURCE_NAMESPACE}: Submission Inserted: ${inserted.length}`);
           await sourceManager.setLastSync(source, {
             date: new Date(),
             lastSubmission,
-            inserted,
+            inserted: inserted.length,
             status: 'SUCCESS'
           });
         } else {

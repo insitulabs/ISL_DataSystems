@@ -35,6 +35,23 @@ module.exports = function (opts) {
     }
   });
 
+  /**
+   * Get a submission from a view.
+   */
+  router.get('/:id/submission/:submissionId', async (req, res, next) => {
+    try {
+      const viewManager = new View(getCurrentUser(res));
+      const view = await viewManager.getView(req.params.id);
+      getCurrentUser(res).validateViewPermission(view, CurrentUser.PERMISSIONS.READ);
+      let queryResponse = await viewManager.queryView(view._id, view.fields, view.sources, {
+        id: req.params.submissionId
+      });
+      res.json(queryResponse);
+    } catch (error) {
+      next(error);
+    }
+  });
+
   return router;
 };
 

@@ -17,7 +17,7 @@ const XLSX = require('xlsx');
 const NON_EDITABLE_FIELDS = [
   '_id',
   '_source',
-  '_created',
+  'created',
   '_attachments',
   '_attachmentsPresent',
   '_edits'
@@ -143,7 +143,7 @@ const mapFieldsForUI = function (fields, userCanEdit = false, sort, order, pageP
     fields = [];
   }
 
-  fields.unshift({ id: 'id', name: 'ID' }, { id: 'created', name: 'created' });
+  fields.unshift({ id: '_id', name: 'ID' }, { id: 'created', name: 'created' });
 
   return fields
     .map((f) => {
@@ -248,6 +248,7 @@ module.exports = function (opts) {
 
     let fields = [];
     let userCanEdit = false;
+    let userCanCreate = false;
     let view = null;
     let source = null;
     let theImport = null;
@@ -255,6 +256,7 @@ module.exports = function (opts) {
     let csvLink = null;
     let dataId = null;
     let dataType = null;
+    let editLink = null;
 
     if (query.view) {
       view = query.view;
@@ -265,6 +267,16 @@ module.exports = function (opts) {
       pageTitle = view.name;
       userCanEdit = currentUser.hasViewPermission(view, CurrentUser.PERMISSIONS.WRITE);
       csvLink = '/data-viewer/csv/view/' + query.view._id.toString();
+      editLink = '/data-viewer/view/' + view._id.toString() + '/edit';
+    } else if (query.import) {
+      source = query.source;
+      theImport = query.import;
+      fields = theImport.fields;
+      dataType = 'import';
+      dataId = theImport._id;
+      pageTitle = 'Import for ' + theImport.sourceName;
+      userCanEdit = true;
+      editLink = '/data-viewer/source/' + theImport.sourceId.toString() + '/edit';
     } else if (query.source) {
       source = query.source;
       fields = source.fields;
@@ -273,14 +285,9 @@ module.exports = function (opts) {
       pageParams.set('source', query.source._id.toString());
       pageTitle = source.name;
       userCanEdit = currentUser.hasSourcePermission(source, CurrentUser.PERMISSIONS.WRITE);
+      userCanCreate = userCanEdit;
       csvLink = '/data-viewer/csv/source/' + query.source._id.toString();
-    } else if (query.import) {
-      theImport = query.import;
-      fields = theImport.fields;
-      dataType = 'import';
-      dataId = theImport._id;
-      pageTitle = 'Import for ' + theImport.sourceName;
-      userCanEdit = true;
+      editLink = '/data-viewer/source/' + source._id.toString() + '/edit';
     } else {
       return next(new Errors.BadRequest());
     }
@@ -299,8 +306,8 @@ module.exports = function (opts) {
         filters,
         id: idFilter
       });
-    } else if (source) {
-      queryResponse = await sourceManager.getSubmissions(source, {
+    } else if (theImport) {
+      queryResponse = await sourceManager.getStagedSubmissions(theImport, {
         sort,
         order,
         limit,
@@ -308,8 +315,8 @@ module.exports = function (opts) {
         filters,
         id: idFilter
       });
-    } else if (theImport) {
-      queryResponse = await sourceManager.getStagedSubmissions(theImport, {
+    } else if (source) {
+      queryResponse = await sourceManager.getSubmissions(source, {
         sort,
         order,
         limit,
@@ -320,7 +327,6 @@ module.exports = function (opts) {
     }
 
     let submissions = mapSubmissionsForUI(queryResponse.results, userCanEdit);
-
     let currentPage = Math.floor(offset / limit) + 1;
     let pagination = paginate(queryResponse.totalResults, currentPage, limit, 10);
 
@@ -331,13 +337,15 @@ module.exports = function (opts) {
       fields: fields,
       submissions: submissions,
       pagination: pagination,
+      userCanCreate,
       userCanEdit,
       view,
       source,
       theImport,
       dataType,
       dataId,
-      pageTitle
+      pageTitle,
+      editLink: currentUser.admin ? editLink : null
     };
 
     let template = isXHR ? '_table' : 'viewer';
@@ -499,188 +507,335 @@ module.exports = function (opts) {
   });
 
   /**
-   * POST endpoint for editing a submission field.
+   * POST endpoint for editing submissions.
    */
-  router.post('/api/edit', async (req, res, next) => {
+  router.post('/api/edit/source', async (req, res, next) => {
     const currentUser = getCurrentUser(res);
-    let originType = null;
-    let originId = null;
-    let id = null;
-    let subIndex = null;
-    let field = null;
-    let value = null;
-    let currentValue = null;
     try {
       let body = await getFormBody(req);
-      originType = body.fields.originType;
-      originId = body.fields.originId;
+      const originType = body.fields.originType;
+      const originId = body.fields.originId;
       if (!originId || !originType) {
         throw new Errors.BadRequest('Invalid params');
       }
 
-      id = body.fields.id;
-      field = body.fields.field;
-
-      // Check if field is an unwound multi-field
-      subIndex = /(.+)\[(\d+)\]$/.exec(field);
-      if (subIndex) {
-        field = subIndex[1];
-        subIndex = parseInt(subIndex[2]);
+      let ids = body.fields.ids ? body.fields.ids.split(',') : null;
+      if (!ids || !ids.length) {
+        throw new Errors.BadRequest('Invalid submission target');
       }
 
-      currentValue = body.fields.currentValue;
-      if (!id || !field) {
+      const field = body.fields.field;
+      if (!field) {
         throw new Errors.BadRequest('Invalid params');
       }
 
+      const currentValue = body.fields.currentValue;
+
       const sourceManager = new Source(currentUser);
-      const viewManager = new View(currentUser);
-      let view = null;
-      let source = null;
-      let theImport = null;
-      let submission = null;
+      let source = await sourceManager.getSource(originId);
+      getCurrentUser(res).validateSourcePermission(source, CurrentUser.PERMISSIONS.WRITE);
 
-      if (originType === 'source') {
-        source = await sourceManager.getSource(originId);
-        getCurrentUser(res).validateSourcePermission(source, CurrentUser.PERMISSIONS.WRITE);
+      let value = body.fields.value;
+      // Make sure empty strings are turned into null db values.
+      if (value === '') {
+        value = null;
+      }
 
+      let valueType = body.fields.valueType || 'text';
+      if (value !== null && valueType === 'int') {
+        value = parseInt(value);
+      } else if (value !== null && valueType === 'float') {
+        value = parseFloat(value);
+      }
+
+      let html = value ? value : '';
+      if (ids.length === 1) {
         // Validate submission belongs to source.
-        submission = await sourceManager.getSubmission(id);
+        let submission = await sourceManager.getSubmission(ids[0]);
         if (submission.source !== source.submissionKey) {
           throw new Errors.BadRequest('Invalid submission for source');
         }
-      } else if (originType === 'view') {
-        view = await viewManager.getView(originId);
-        getCurrentUser(res).validateViewPermission(view, CurrentUser.PERMISSIONS.WRITE);
-
-        // Validate submission belongs to view set of sources.
-        submission = await sourceManager.getSubmission(id);
-        if (!view.sources.some((s) => submission.source === s.source.submissionKey)) {
-          throw new Errors.BadRequest('Invalid submission for view');
-        }
-      } else if (originType === 'import') {
-        // Write permissions are factored into getImport, no need to double check.
-        theImport = await sourceManager.getImport(originId);
-
-        submission = await sourceManager.getStagedSubmission(id);
-        if (!submission.import.equals(theImport._id)) {
-          throw new Errors.BadRequest('Invalid staged submission for import');
-        }
+        submission = await sourceManager.updateSubmission(ids[0], field, value, currentValue);
       } else {
-        throw new Errors.BadRequest('Invalid origin type');
+        await sourceManager.updateBulkSubmissions(source, ids, field, value);
       }
 
-      let updated = false;
-      let html = null;
-      let isAttachment = false;
-      if (Object.keys(body.fields).includes('value')) {
-        value = body.fields.value;
-        // Make sure empty strings are turned into null db values.
-        if (value === '') {
-          value = null;
-        }
-
-        let valueType = body.fields.valueType || 'text';
-        if (value !== null && valueType === 'int') {
-          value = parseInt(value);
-        } else if (value !== null && valueType === 'float') {
-          value = parseFloat(value);
-        }
-
-        html = value ? value : '';
-        if (source) {
-          submission = await sourceManager.updateSubmission(id, field, value, currentValue);
-        } else if (view) {
-          submission = await viewManager.updateSubmission(
-            view,
-            id,
-            subIndex,
-            field,
-            value,
-            currentValue
-          );
-        } else if (theImport) {
-          submission = await sourceManager.updateStagedSubmission(id, field, value, currentValue);
-        }
-      } else if (body.files.value) {
-        if (view) {
-          throw Errors.BadRequest('Attachments are not yet supported on views.');
-        }
-        if (theImport) {
-          throw Errors.BadRequest(
-            'Attachments are not supported for draft submissions. Save the import first.'
-          );
-        }
-
-        isAttachment = true;
-        let tempFile = body.files.value;
-        let fileName = tempFile.originalFilename;
-        try {
-          let attachment = await uploader.uploadAttachment(
-            res.locals.workspace,
-            source,
-            id,
-            fileName,
-            tempFile.size,
-            tempFile.filepath,
-            true
-          );
-
-          value = fileName;
-          submission = await sourceManager.addSubmissionAttachments(id, [attachment]);
-          submission = await sourceManager.updateSubmission(id, field, value, currentValue);
-          html = nunjucks.render('_attachment.njk', {
-            submission: {
-              id: submission._id.toString()
-            },
-            field: {
-              name: field
-            },
-            attachment: {
-              ...attachment,
-              id: `file-${Date.now()}-${submission._id.toString()}`,
-              editable: true
-            }
-          });
-
-          tempFile.destroy();
-        } catch (error) {
-          tempFile.destroy();
-          throw error;
-        }
-      }
-
-      let submissions = mapSubmissionsForUI([submission], true);
-
-      if (originType !== 'import') {
-        const auditManager = new Audit(getCurrentUser(res));
-        let auditRecord = {
-          type: originType,
-          _id: submission._id,
-          source: submission.source,
-          field,
-          value: value,
-          previous: currentValue
-        };
-
-        if (view) {
-          auditRecord.subIndex = subIndex;
-          auditRecord.view = {
-            _id: view._id,
-            name: view.name
-          };
-        }
-
-        auditManager.logSubmissionEdit(auditRecord);
-      }
+      const auditManager = new Audit(currentUser);
+      let auditRecord = {
+        type: originType,
+        count: ids.length,
+        ids: ids,
+        source: {
+          _id: source._id,
+          name: source.name,
+          submissionKey: source.submissionKey
+        },
+        field,
+        value: value
+      };
+      auditManager.logSubmissionEdit(auditRecord);
 
       res.json({
-        success: updated,
-        isAttachment,
+        ids: ids,
+        isAttachment: false,
         value,
-        html,
-        submission: submissions[0],
-        submissionPretty: JSON.stringify(submissions[0].data, undefined, 2)
+        html
+      });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.post('/api/edit/attachment', async (req, res, next) => {
+    const currentUser = getCurrentUser(res);
+    const sourceManager = new Source(currentUser);
+    try {
+      let body = await getFormBody(req);
+      const originType = body.fields.originType;
+      const originId = body.fields.originId;
+      if (!originId || !originType) {
+        throw new Errors.BadRequest('Invalid params');
+      }
+
+      if (originType !== 'source') {
+        throw new Errors.BadRequest('Attachments are only supported on single source edit.');
+      }
+
+      let ids = body.fields.ids ? body.fields.ids.split(',') : null;
+      if (!ids || !ids.length) {
+        throw new Errors.BadRequest('Invalid submission target');
+      }
+      if (ids.length > 1) {
+        throw new Errors.BadRequest('Attachments are not supported for bulk edit.');
+      }
+
+      const field = body.fields.field;
+      if (!field) {
+        throw new Errors.BadRequest('Invalid field param');
+      }
+
+      if (!body.files?.value) {
+        throw new Errors.BadRequest('Invalid file param');
+      }
+
+      const id = ids[0];
+      let submission = await sourceManager.getSubmission(id);
+      let source = await sourceManager.getSourceBySubmissionKey(submission.source);
+      currentUser.validateSourcePermission(source, CurrentUser.PERMISSIONS.WRITE);
+
+      let tempFile = body.files.value;
+      let fileName = tempFile.originalFilename;
+      let currentValue = body.fields.currentValue;
+      try {
+        let attachment = await uploader.uploadAttachment(
+          res.locals.workspace,
+          source,
+          id,
+          fileName,
+          tempFile.size,
+          tempFile.filepath
+        );
+
+        let value = fileName;
+        submission = await sourceManager.addSubmissionAttachments(id, [attachment]);
+        submission = await sourceManager.updateSubmission(id, field, value, currentValue);
+        let html = nunjucks.render('_attachment.njk', {
+          submission: {
+            id: submission._id.toString()
+          },
+          field: {
+            name: field
+          },
+          attachment: {
+            ...attachment,
+            id: `file-${Date.now()}-${submission._id.toString()}`,
+            editable: true
+          }
+        });
+
+        tempFile.destroy();
+
+        const auditManager = new Audit(currentUser);
+        let auditRecord = {
+          type: originType,
+          count: 1,
+          id: id,
+          ids: id[0],
+          source: {
+            _id: source._id,
+            name: source.name,
+            submissionKey: source.submissionKey
+          },
+          field,
+          value: value,
+          previous: currentValue,
+          isAttachment: true
+        };
+        auditManager.logSubmissionEdit(auditRecord);
+
+        res.json({
+          ids: ids,
+          isAttachment: true,
+          value,
+          html
+        });
+      } catch (error) {
+        tempFile.destroy();
+        throw error;
+      }
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.post('/api/edit/view', async (req, res, next) => {
+    const currentUser = getCurrentUser(res);
+    try {
+      const viewManager = new View(currentUser);
+      let body = await getFormBody(req);
+      const originType = body.fields.originType;
+      const originId = body.fields.originId;
+      if (!originId || !originType) {
+        throw new Errors.BadRequest('Invalid params');
+      }
+
+      let fields = body.fields.fields ? JSON.parse(body.fields.fields) : null;
+      if (!fields || !fields.length) {
+        throw new Errors.BadRequest('Invalid submission target');
+      }
+
+      if (fields.some((f) => !f.id || !f.field)) {
+        throw new Errors.BadRequest('Invalid fields');
+      }
+
+      let value = body.fields.value;
+      // Make sure empty strings are turned into null db values.
+      if (value === '') {
+        value = null;
+      }
+
+      let valueType = body.fields.valueType || 'text';
+      if (value !== null && valueType === 'int') {
+        value = parseInt(value);
+      } else if (value !== null && valueType === 'float') {
+        value = parseFloat(value);
+      }
+
+      let html = value ? value : '';
+
+      let view = await viewManager.getView(originId);
+      getCurrentUser(res).validateViewPermission(view, CurrentUser.PERMISSIONS.WRITE);
+
+      // TODO
+      // Validate submission belongs to view set of sources.
+      // submission = await sourceManager.getSubmission(id);
+      // if (!view.sources.some((s) => submission.source === s.source.submissionKey)) {
+      //   throw new Errors.BadRequest('Invalid submission for view');
+      // }
+
+      let currentValue = body.fields.currentValue;
+
+      for (let toUpdate of fields) {
+        let field = toUpdate.field;
+
+        // Check if field is an unwound multi-field
+        let subIndex = /(.+)\[(\d+)\]$/.exec(field);
+        if (subIndex) {
+          field = subIndex[1];
+          subIndex = parseInt(subIndex[2]);
+        }
+
+        submission = await viewManager.updateSubmission(view, toUpdate.id, subIndex, field, value);
+      }
+
+      const auditManager = new Audit(currentUser);
+      let auditRecord = {
+        type: originType,
+        count: fields.length,
+        fields: fields,
+        value: value,
+        view: {
+          _id: view._id,
+          name: view.name
+        }
+      };
+      auditManager.logSubmissionEdit(auditRecord);
+
+      res.json({
+        isAttachment: false,
+        fields,
+        value,
+        html
+      });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.post('/api/edit/import', async (req, res, next) => {
+    const currentUser = getCurrentUser(res);
+    try {
+      const sourceManager = new Source(currentUser);
+      let body = await getFormBody(req);
+      const originType = body.fields.originType;
+      const originId = body.fields.originId;
+      if (!originId || !originType) {
+        throw new Errors.BadRequest('Invalid params');
+      }
+
+      let ids = body.fields.ids ? body.fields.ids.split(',') : null;
+      if (!ids || !ids.length) {
+        throw new Errors.BadRequest('Invalid submission target');
+      }
+
+      const field = body.fields.field;
+      if (!field) {
+        throw new Errors.BadRequest('Invalid params');
+      }
+
+      const currentValue = body.fields.currentValue;
+
+      // Write permissions are factored into getImport(), no need to double check.
+      let theImport = await sourceManager.getImport(originId);
+      let source = await sourceManager.getSource(theImport.sourceId);
+
+      let value = body.fields.value;
+      // Make sure empty strings are turned into null db values.
+      if (value === '') {
+        value = null;
+      }
+
+      let valueType = body.fields.valueType || 'text';
+      if (value !== null && valueType === 'int') {
+        value = parseInt(value);
+      } else if (value !== null && valueType === 'float') {
+        value = parseFloat(value);
+      }
+
+      let html = value ? value : '';
+
+      await sourceManager.updateBulkStagedSubmissions(theImport, ids, field, value);
+
+      const auditManager = new Audit(currentUser);
+      let auditRecord = {
+        type: originType,
+        count: ids.length,
+        ids: ids,
+        source: {
+          _id: source._id,
+          name: source.name,
+          submissionKey: source.submissionKey
+        },
+        field,
+        value: value
+      };
+      auditManager.logSubmissionEdit(auditRecord);
+
+      res.json({
+        ids: ids,
+        isAttachment: false,
+        value,
+        html
       });
     } catch (err) {
       next(err);
@@ -1099,7 +1254,7 @@ module.exports = function (opts) {
         // https://www.npmjs.com/package/xlsx#parsing-options
         let workbook = XLSX.readFile(tempFile.filepath, {});
         if (!workbook.SheetNames.length) {
-          throw Errors.BadRequest('No sheets in spreadsheet');
+          throw new Errors.BadRequest('No sheets in spreadsheet');
         }
 
         let worksheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -1111,6 +1266,18 @@ module.exports = function (opts) {
           headers.push(worksheet[`${XLSX.utils.encode_col(i)}1`].v);
         }
         let newImport = await sourceManager.createImport(source, headers, data);
+
+        const auditManager = new Audit(getCurrentUser(res));
+        let auditRecord = {
+          type: 'source',
+          source: {
+            _id: source._id,
+            name: source.name,
+            submissionKey: source.submissionKey
+          },
+          import: newImport
+        };
+        auditManager.logImportCreate(auditRecord);
 
         tempFile.destroy();
 
@@ -1132,7 +1299,11 @@ module.exports = function (opts) {
       currentUser.validateSourcePermission(source, CurrentUser.PERMISSIONS.WRITE);
       let theImport = await sourceManager.getImport(req.params.id);
 
-      return await renderPageOfResults({ import: theImport }, req, res, next);
+      if (!theImport) {
+        return next();
+      }
+
+      return await renderPageOfResults({ import: theImport, source }, req, res, next);
     } catch (err) {
       next(err);
     }

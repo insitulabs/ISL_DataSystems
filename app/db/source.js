@@ -150,12 +150,12 @@ class Source extends Base {
       // TODO If we need case insensitive sort, look at collation or normalizing a string to then sort on
       if (options.sort) {
         let sort = {};
-        let sortKey = ['id', 'created', 'imported'].includes(options.sort)
+        let sortKey = ['_id', 'created', 'imported'].includes(options.sort)
           ? options.sort
           : `data.${options.sort}`;
         sort[sortKey] = options.order === 'asc' ? 1 : -1;
         // Include a unique value in our sort so Mongo doesn't screw up limit/skip operation.
-        sort._id = 1;
+        sort._id = sort[sortKey];
         query.push({
           $sort: sort
         });
@@ -398,7 +398,7 @@ class Source extends Base {
       let sort = {};
       sort[options.sort] = options.order === 'asc' ? 1 : -1;
       // Include a unique value in our sort so Mongo doesn't screw up limit/skip operation.
-      sort._id = 1;
+      sort._id = sort[options.sort];
       pipeline.push({
         $sort: sort
       });
@@ -579,17 +579,18 @@ class Source extends Base {
       throw new Errors.BadRequest('Invalid field name type: ' + typeof field);
     }
 
-    // this.user.validateSourcePermission(id, CurrentUser.PERMISSIONS.WRITE);
+    if (currentValue !== undefined) {
+      let flatRecord = Source.flattenSubmission(record.data);
+      currentValue = currentValue && currentValue !== '0' ? currentValue : null;
+      let recordValue = flatRecord[field] ? flatRecord[field] : null;
+      recordValue = recordValue && recordValue !== '0' ? recordValue : null;
 
-    let flatRecord = Source.flattenSubmission(record.data);
-    currentValue = currentValue ? currentValue : null;
-    let recordValue = flatRecord[field] ? flatRecord[field] : null;
-
-    if (currentValue != recordValue) {
-      // Optimistic Lock
-      throw new Errors.BadRequest(
-        'The data you are trying to edit is stale. Refresh the page and try again.'
-      );
+      if (currentValue != recordValue) {
+        // Optimistic Lock
+        throw new Errors.BadRequest(
+          'The data you are trying to edit is stale. Refresh the page and try again.'
+        );
+      }
     }
 
     let update = {};
@@ -618,7 +619,68 @@ class Source extends Base {
     return this.getSubmission(id);
   }
 
+  /**
+   * Update submissions in bulk.
+   * @param {object} source
+   * @param {Array[String || ObjectId]} id
+   * @param {String} field
+   * @param {*} value
+   * @return {number} The number of updated submissions.
+   */
+  async updateBulkSubmissions(source, ids, field, value) {
+    const submissions = this.collection(SUBMISSIONS);
+
+    if (!source && !ids && !ids.length) {
+      throw new Errors.BadRequest('Invalid bulk update params');
+    }
+
+    if (typeof field !== 'string') {
+      throw new Errors.BadRequest('Invalid field name type: ' + typeof field);
+    }
+
+    // this.user.validateSourcePermission(id, CurrentUser.PERMISSIONS.WRITE);
+    let update = {};
+    update['data.' + field] = value;
+
+    let auditRecord = {
+      field,
+      value,
+      modified: new Date(),
+      modifiedBy: {
+        _id: this.user._id,
+        email: this.user.email
+      }
+    };
+
+    let $match = {
+      source: source.submissionKey
+    };
+
+    $match._id = {
+      $in: ids.map((id) => new ObjectId(id))
+    };
+
+    let results = await submissions.updateMany($match, {
+      $set: update,
+      $push: {
+        _edits: auditRecord
+      }
+    });
+
+    return results.modifiedCount;
+  }
+
+  /**
+   * Create submissions.
+   * @param {object} source
+   * @param {array} submissions
+   * @param {object} options Options to use on insert. Can include:
+   *   - originIdKey {string} To filter out existing submissions.
+   *   - createdKey {string} To use as the create date.
+   * @return {array} Array of new submission IDs.
+   */
   async insertSubmissions(source, submissions, options = {}) {
+    console.log(submissions);
     const col = this.collection(SUBMISSIONS);
 
     let toInsert = submissions;
@@ -678,10 +740,10 @@ class Source extends Base {
       });
 
       let resp = await col.insertMany(toInsert);
-      return resp.insertedCount;
+      return Object.values(resp.insertedIds);
     }
 
-    return 0;
+    return [];
   }
 
   /**
@@ -850,8 +912,8 @@ class Source extends Base {
     const stagedSubmissions = this.collection(SUBMISSIONS_STAGED);
 
     let flatRecord = Source.flattenSubmission(record.data);
-    currentValue = currentValue ? currentValue : null;
-    let recordValue = flatRecord[field] ? flatRecord[field] : null;
+    currentValue = currentValue && currentValue !== '0' ? currentValue : null;
+    let recordValue = flatRecord[field] && flatRecord[field] !== '0' ? flatRecord[field] : null;
 
     if (currentValue != recordValue) {
       // Optimistic Lock
@@ -871,6 +933,43 @@ class Source extends Base {
     );
 
     return this.getStagedSubmission(id);
+  }
+
+  /**
+   * Update staged submissions in bulk.
+   * @param {object} theImport
+   * @param {Array[String || ObjectId]} id
+   * @param {String} field
+   * @param {*} value
+   * @return {number} The number of updated submissions.
+   */
+  async updateBulkStagedSubmissions(theImport, ids, field, value) {
+    const stagedSubmissions = this.collection(SUBMISSIONS_STAGED);
+
+    if (!theImport && !ids && !ids.length) {
+      throw new Errors.BadRequest('Invalid bulk update params');
+    }
+
+    if (typeof field !== 'string') {
+      throw new Errors.BadRequest('Invalid field name type: ' + typeof field);
+    }
+
+    let update = {};
+    update['data.' + field] = value;
+
+    let $match = {
+      import: theImport._id
+    };
+
+    $match._id = {
+      $in: ids.map((id) => new ObjectId(id))
+    };
+
+    let results = await stagedSubmissions.updateMany($match, {
+      $set: update
+    });
+
+    return results.modifiedCount;
   }
 
   async updateImportField(id, field, newField) {
@@ -926,6 +1025,7 @@ class Source extends Base {
   /**
    * Commit the  he given import.
    * @param {object} theImport
+   * @return {number} The count of imported submissions.
    */
   async commitImport(theImport) {
     if (!theImport) {
@@ -938,8 +1038,9 @@ class Source extends Base {
     let toCreate = queryResponse.results.map((r) => {
       return r.data;
     });
-    await this.insertSubmissions(source, toCreate);
+    let ids = await this.insertSubmissions(source, toCreate);
     await this.deleteImport(theImport);
+    return ids.length;
   }
 
   /**
@@ -1035,14 +1136,7 @@ class Source extends Base {
     // this.user.validateSourcePermission(id, CurrentUser.PERMISSIONS.WRITE);
 
     let viewId = typeof view === 'string' ? view : view._id.toString();
-    let key = `${viewId}`;
-
-    console.log(record);
-    console.log(key);
-
-    currentValue = currentValue ? currentValue : null;
     let allViewData = record.viewData && record.viewData[viewId] ? record.viewData[viewId] : null;
-
     if (!allViewData) {
       allViewData = [];
       let update = {};
@@ -1057,12 +1151,16 @@ class Source extends Base {
 
     let viewData = allViewData.length > subIndex ? allViewData[subIndex] : {};
     viewData = viewData || {};
-    let recordValue = viewData[field] || null;
-    if (currentValue != recordValue) {
-      // Optimistic Lock
-      throw new Errors.BadRequest(
-        'The data you are trying to edit is stale. Refresh the page and try again.'
-      );
+
+    if (currentValue !== undefined) {
+      currentValue = currentValue && currentValue !== '0' ? currentValue : null;
+      let recordValue = viewData[field] && viewData[field] !== '0' ? viewData[field] : null;
+      if (currentValue != recordValue) {
+        // Optimistic Lock
+        throw new Errors.BadRequest(
+          'The data you are trying to edit is stale. Refresh the page and try again.'
+        );
+      }
     }
 
     viewData[field] = value;
@@ -1070,23 +1168,24 @@ class Source extends Base {
     let update = {};
     update['viewData' + '.' + viewId + '.' + subIndex] = viewData;
 
-    // let auditRecord = {
-    //   field,
-    //   value,
-    //   modified: new Date(),
-    //   modifiedBy: {
-    //     _id: this.user._id,
-    //     email: this.user.email
-    //   }
-    // };
+    let auditRecord = {
+      viewData: 'viewData' + '.' + viewId + '.' + subIndex,
+      field,
+      value,
+      modified: new Date(),
+      modifiedBy: {
+        _id: this.user._id,
+        email: this.user.email
+      }
+    };
 
     let results = await submissions.updateOne(
       { _id: new ObjectId(id) },
       {
-        $set: update
-        // $push: {
-        //   _edits: auditRecord
-        // }
+        $set: update,
+        $push: {
+          _edits: auditRecord
+        }
       }
     );
 

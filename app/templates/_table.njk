@@ -1,9 +1,12 @@
 <table class="table sticky-header table-bordered">
   <thead class="table-light">
     <tr>
-      {# TODO multi-row headers
-       https://jsfiddle.net/vin209/ns1oko58/
-       #}
+      {% if userCanEdit %}
+      <th class="checkbox">
+        <input id="check-all" type="checkbox" class="form-check-input"
+          {{ 'disabled' if submissions.length === 0 }} />
+      </th>
+      {% endif %}
       {% for column in fields %}
         <th scope="col" data-field="{{ column.id }}" data-name="{{ column.name }}"
             class="{% if column.sortable %} sortable text-nowrap {% endif %} {% if column.isSorted %} is-sorted {% endif %}">
@@ -32,17 +35,31 @@
   </thead>
   <tbody>
     {% if submissions.length === 0 %}
-    <tr><td colspan="100%">No results</td></tr>
+    <tr  tabindex="0"><td colspan="100%">No results</td></tr>
     {% endif %}
 
     {% for submission in submissions %}
     {% set submissionIndex = loop.index0 %}
-    <tr class="{{submission.rowCssClass }}" data-id="{{ submission.id }}">
+    <tr class="{{submission.rowCssClass }}" data-id="{{ submission.id }}" {% if submissionIndex === 0 %} tabindex="0" {% endif%}>
+      {% if userCanEdit %}
+      <td class="for-submission-check">
+        <input
+          type="checkbox"
+          class="form-check-input submission-check"
+          data-id="{{ submission.id }}" />
+      </td>
+      {% endif %}
       {% for field in fields %}
-        {% if field.id === 'id' %}
+        {% if field.id === '_id' %}
         <td data-field="{{ field.id }}">
-          <div class="modal fade" id="record-{{ submission.id }}-{{ submissionIndex }}"
-              tabindex="-1" aria-labelledby="title-{{ submission.id }}" aria-hidden="true">
+          <div
+            id="record-{{ submission.id }}-{{ submissionIndex }}"
+            class="modal fade record-source"
+            data-id="{{ submission.id }}"
+            data-index="{{ submission.subIndex }}"
+            tabindex="-1"
+            aria-labelledby="title-{{ submission.id }}"
+            aria-hidden="true">
             <div class="modal-dialog modal-lg">
               <div class="modal-content">
                 <div class="modal-header">
@@ -53,6 +70,9 @@
                   <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
+                  <div class="spinner-border text-primary spinner-border-sm" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                  </div>
                   <pre class="source-json">{{submission.data | prettyJSON }}</pre>
                 </div>
                 <div class="modal-footer justify-content-between">
@@ -62,9 +82,9 @@
             </div>
           </div>
 
-          <button type="button" class="btn btn-secondary"
+          <button type="button" class="btn btn-secondary btn-sm"
               data-bs-toggle="modal" data-bs-target="#record-{{ submission.id }}-{{ submissionIndex }}">
-            {{ submission.id }}
+            {{ submission.id | shortenID }}
           </button>
         </td>
         {% elif field.id === 'created' %}
@@ -185,7 +205,7 @@
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="edit-modal-title">Edit Source:</h5>
+        <h5 class="modal-title" id="edit-modal-title">Edit Submission</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
@@ -194,7 +214,10 @@
             <option value="text" selected>Text</option>
             <option value="int">Int (10)</option>
             <option value="float">Float (1.10)</option>
-            <option value="attachment">Attachment</option>
+            <option
+              value="attachment"
+              {{'disabled' if dataType !== 'source' }}
+            >Attachment</option>
           </select>
           <input id="edit-input" type="text" class="form-control w-75"
               aria-label="Input for new value" />
@@ -203,6 +226,11 @@
         </div>
       </div>
       <div class="modal-footer justify-content-end">
+        <div id="edit-count-warning" class="text-danger d-none" role="alert">
+          NOTE: This is a bulk edit of <span></span> records.
+          <br/>
+          Undo operations may not work perfectly with bulk operations.
+        </div>
         <div class="spinner-border text-primary spinner-border-sm d-none" role="status">
           <span class="visually-hidden">Loading...</span>
         </div>
@@ -238,3 +266,4 @@
   </div>
 </div>
 {% endif %}
+

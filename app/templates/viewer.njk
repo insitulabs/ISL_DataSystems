@@ -10,7 +10,16 @@
 
 {% if pageTitle %}
   {% block pageTitle %}
-  <span class="badge bg-primary">{{ pageTitle }}</span>
+  <span class="badge bg-primary">
+    {{ pageTitle }}
+    {% if editLink %}
+    <a
+      href="{{ editLink }}"
+      title="Edit source"
+      class="text-white ms-1"
+      ><i class="bi bi-pencil-square"></i></a>
+    {% endif %}
+  </span>
   {% endblock %}
 {% endif %}
 
@@ -19,6 +28,12 @@
 {% if source and source.note %}
 <div class="px-2 mt-2">
   <div class="alert alert-secondary mb-0" role="alert">{{ source.note | urlize | nl2br | safe }}</div>
+</div>
+{% endif %}
+
+{% if view and view.note %}
+<div class="px-2 mt-2">
+  <div class="alert alert-secondary mb-0" role="alert">{{ view.note | urlize | nl2br | safe }}</div>
 </div>
 {% endif %}
 
@@ -94,12 +109,6 @@
                 data-bs-content="Query: <strong>*</strong> to find any value.<br>Query: <strong>null</strong> to find no value."
                 data-bs-html="true">?</a>
           </div>
-
-          {% if viewId and isAdmin %}
-          <div>
-            <a href="/data-viewer/view/{{ viewId }}/edit">Edit View</a>
-          </div>
-          {% endif %}
         </div>
       </div>
 
@@ -110,6 +119,16 @@
           <button id="btn-import-records" class="btn btn-primary btn-sm">Import Records</button>
         </div>
         {% endif %}
+
+        {% if userCanCreate %}
+        <div class="me-1">
+          <button type="button" class="btn btn-secondary btn-sm"
+              data-bs-toggle="modal" data-bs-target="#new-submission-modal">
+            New Submission
+          </button>
+        </div>
+        {% endif %}
+
         <div id="undo">
           <button class="btn btn-secondary btn-sm" disabled>Undo</button>
         </div>
@@ -126,12 +145,74 @@
 </header>
 
 <section id="data" data-type="{{ dataType }}" data-id="{{ dataId }}">
-  <div id="data-loader" class="d-flex align-items-center justify-content-center mt-5">
+  <div id="data-loader" class="d-flex align-items-center justify-content-center position-fixed top-50 start-50 translate-middle">
     <div class="spinner-border" role="status">
       <span class="visually-hidden">Loading...</span>
     </div>
   </div>
   {% include "_table.njk" %}
 </section>
+
+{% if userCanCreate %}
+<div
+  class="modal fade"
+  id="new-submission-modal"
+  tabindex="-1"
+  aria-labelledby="new-submission-modal-title"
+  aria-hidden="true"
+>
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="new-submission-modal-title">New Submission</h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+          aria-label="Close"
+        ></button>
+      </div>
+      <div class="modal-body">
+        {% for field in fields %}
+          {% if field.editable %}
+          <div class="row align-items-center py-1">
+            <div class="col">
+              <div class="form-floating flex-fill field">
+                <input
+                  id="new-submission-field-{{ field.id }}"
+                  type="text"
+                  class="form-control"
+                  :placeholder="field.id"
+                  disabled
+                  value="{{ field.name if field.name !== field.id }}"
+                />
+                <label
+                  for="new-submission-field-{{ field.id }}"
+                  class="text-secondary"
+                  >{{ field.id }}</label>
+              </div>
+
+            </div>
+            <div class="col">
+              <input
+                type="text"
+                name="{{ field.id }}"
+                class="form-control field-value"
+              />
+            </div>
+          </div>
+          {% endif %}
+        {% endfor %}
+      </div>
+      <div class="modal-footer justify-content-end">
+        <div class="spinner-border text-primary spinner-border-sm d-none" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+        <button class="save btn btn-primary">Create</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
 
 {% endblock %}

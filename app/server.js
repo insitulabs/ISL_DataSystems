@@ -5,6 +5,7 @@ const path = require('path');
 const express = require('express');
 const bodyParser = require('body-parser');
 const session = require('express-session');
+const { noCacheMiddleware } = require('./lib/route-helpers');
 
 const Agenda = require('agenda');
 const crypto = require('./lib/crypto');
@@ -120,8 +121,8 @@ const emailValidator = require('./lib/email-validator');
     });
   };
 
-  app.get('/status', async (req, res) => {
-    return res.send('Up and Up');
+  app.get('/status', noCacheMiddleware, (req, res) => {
+    res.send('Up and Up');
   });
 
   app.use('/assets', express.static(path.join(__dirname, 'assets')));
@@ -160,11 +161,11 @@ const emailValidator = require('./lib/email-validator');
       });
   });
 
-  app.get('/logout', (req, res, next) => {
+  app.get('/logout', noCacheMiddleware, (req, res, next) => {
     logout(req, res, next);
   });
 
-  app.get('/hello', (req, res) => {
+  app.get('/hello', noCacheMiddleware, (req, res) => {
     let model = {
       sent: req.query.ok == 1,
       expired: req.query.expired == 1,
@@ -173,7 +174,7 @@ const emailValidator = require('./lib/email-validator');
     return res.render('hello', model);
   });
 
-  app.post('/hello', async (req, res, next) => {
+  app.post('/hello', noCacheMiddleware, async (req, res, next) => {
     try {
       let email = req?.body?.email.trim();
       if (emailValidator(email)) {
@@ -301,6 +302,7 @@ const emailValidator = require('./lib/email-validator');
   // Admin routes
   app.use(
     '/admin',
+    noCacheMiddleware,
     (req, res, next) => {
       if (res.locals.user && res.locals.user.admin === true) {
         next();
@@ -317,13 +319,14 @@ const emailValidator = require('./lib/email-validator');
   });
 
   // Register API routes
-  app.use('/api/source', require('./view/routes/api-source')());
-  app.use('/api/view', require('./view/routes/api-view')());
-  app.use('/api/user', require('./view/routes/api-user')());
+  app.use('/api/source', noCacheMiddleware, require('./view/routes/api-source')());
+  app.use('/api/view', noCacheMiddleware, require('./view/routes/api-view')());
+  app.use('/api/user', noCacheMiddleware, require('./view/routes/api-user')());
 
   // /data-viewer
   app.use(
     `/${DATA_VIEWER_PATH}`,
+    noCacheMiddleware,
     require('./view/routes/viewer')({
       nunjucks: nunjucksEnv
     })
