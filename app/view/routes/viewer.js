@@ -120,7 +120,7 @@ const extractFilters = function (req, fields, pageParams) {
         return false;
       }
 
-      return fieldNames.includes(key);
+      return fieldNames.includes(key) || ['created', 'imported'].includes(key);
     })
     .forEach((key) => {
       let values = Array.isArray(req.query[key]) ? req.query[key] : [req.query[key]];
