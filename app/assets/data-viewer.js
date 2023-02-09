@@ -516,17 +516,37 @@ const allFilters = Array.from($data.querySelectorAll('.table thead th')).reduce(
 const filters = {
   $dropdownBtn: document.querySelector('.dropdown.filters'),
   $dropdown: document.querySelector('.dropdown-menu.filters'),
-  $activeFilters: document.getElementById('active-filters')
+  $activeFilters: document.getElementById('active-filters'),
+  $search: document.getElementById('filter-search')
 };
 
 // Select new filter
-filters.$dropdown.addEventListener('click', (event) => {
+document.body.addEventListener('click', (event) => {
   let $item = event.target.closest('.add-filter');
   if ($item) {
     let filter = $item.dataset.id;
     currentFilters[filter] = currentFilters[filter] || [];
     addFilter(filter);
   }
+});
+
+// Search filter dropdown
+filters.$dropdownBtn.addEventListener('shown.bs.dropdown', (event) => {
+  filters.$search.select();
+});
+filters.$search.addEventListener('keyup', (event) => {
+  let query = event.target.value.toLowerCase();
+  filters.$dropdown.querySelectorAll('.add-filter').forEach((el) => {
+    if (
+      !query ||
+      el.dataset.name.toLowerCase().indexOf(query) >= 0 ||
+      el.dataset.id.toLowerCase().indexOf(query) >= 0
+    ) {
+      el.classList.remove('d-none');
+    } else {
+      el.classList.add('d-none');
+    }
+  });
 });
 
 filters.$activeFilters.addEventListener('click', (event) => {
@@ -710,30 +730,50 @@ const updateExportLinks = (hidden) => {
 };
 
 function initFieldToggles(initHiddenFields) {
-  const fieldTogglesBtn = document.getElementById('field-toggles');
-  const fieldToggles = fieldTogglesBtn.nextElementSibling;
-  const allFieldsCount = parseInt(fieldTogglesBtn.querySelector('.all-count').innerText.trim());
+  const $fieldTogglesBtn = document.getElementById('field-toggles');
+  const $fieldToggles = $fieldTogglesBtn.nextElementSibling;
+  const $fieldTogglesSearch = document.getElementById('field-toggles-search');
+  const allFieldsCount = parseInt($fieldTogglesBtn.querySelector('.all-count').innerText.trim());
 
-  fieldTogglesBtn.addEventListener('hide.bs.dropdown', () => {
+  // Search filter dropdown
+  $fieldTogglesBtn.addEventListener('shown.bs.dropdown', (event) => {
+    $fieldTogglesSearch.select();
+  });
+  $fieldTogglesSearch.addEventListener('keyup', (event) => {
+    let query = event.target.value.toLowerCase();
+    $fieldToggles.querySelectorAll('.toggle').forEach((el) => {
+      if (
+        !query ||
+        el.dataset.name.toLowerCase().indexOf(query) >= 0 ||
+        el.dataset.id.toLowerCase().indexOf(query) >= 0
+      ) {
+        el.classList.remove('d-none');
+      } else {
+        el.classList.add('d-none');
+      }
+    });
+  });
+
+  $fieldTogglesBtn.addEventListener('hide.bs.dropdown', () => {
     let hidden = Array.from(
-      fieldToggles.querySelectorAll('input[type=checkbox]:not(:checked)')
+      $fieldToggles.querySelectorAll('input[type=checkbox]:not(:checked)')
     ).map((el) => {
       return el.value;
     });
 
     hideFields(hidden);
-    fieldTogglesBtn.querySelector('.visible-count').innerText = allFieldsCount - hidden.length;
+    $fieldTogglesBtn.querySelector('.visible-count').innerText = allFieldsCount - hidden.length;
     updateExportLinks(hidden);
     setFormPref('hiddenFields', hidden);
   });
 
-  fieldToggles.querySelector('.btn.select-all').addEventListener('click', () => {
-    fieldToggles.querySelectorAll('input[type=checkbox]').forEach((el) => {
+  $fieldToggles.querySelector('.btn.select-all').addEventListener('click', () => {
+    $fieldToggles.querySelectorAll('.toggle:not(.d-none) input[type=checkbox]').forEach((el) => {
       el.checked = true;
     });
   });
-  fieldToggles.querySelector('.btn.select-none').addEventListener('click', () => {
-    fieldToggles.querySelectorAll('input[type=checkbox]').forEach((el) => {
+  $fieldToggles.querySelector('.btn.select-none').addEventListener('click', () => {
+    $fieldToggles.querySelectorAll('.toggle:not(.d-none) input[type=checkbox]').forEach((el) => {
       el.checked = false;
     });
   });
@@ -741,9 +781,9 @@ function initFieldToggles(initHiddenFields) {
   if (initHiddenFields) {
     hideFields(initHiddenFields);
     updateExportLinks(initHiddenFields);
-    fieldTogglesBtn.querySelector('.visible-count').innerText =
+    $fieldTogglesBtn.querySelector('.visible-count').innerText =
       allFieldsCount - initHiddenFields.length;
-    fieldToggles.querySelectorAll('input[type=checkbox]').forEach((el) => {
+    $fieldToggles.querySelectorAll('input[type=checkbox]').forEach((el) => {
       if (initHiddenFields.includes(el.value)) {
         el.checked = false;
       }

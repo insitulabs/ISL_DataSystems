@@ -81,41 +81,6 @@ class Source extends Base {
   }
 
   #buildSubmissionQuery($match, options, forCount = false) {
-    // Cast fields to filter as string, so regex works correctly on numbers.
-    let match = {};
-    let fieldsToStr = {};
-    if (options.filters) {
-      Object.keys(options.filters).forEach((field) => {
-        let filterField = '_filter.' + field;
-        fieldsToStr[filterField] = {
-          $toString: '$data.' + field
-        };
-        let values = options.filters[field];
-
-        // If truthy or falsy search?
-        const findAny = values.some((v) => v && v.trim() === '*');
-        const findNull = values.some((v) => v && v.trim() === 'null');
-
-        if (findAny) {
-          match[filterField] = { $exists: true, $ne: null };
-        } else if (findNull) {
-          match[filterField] = null;
-        } else {
-          let queries = values.map((v) => {
-            // Escape for regex.
-            let escapedV = v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            return new RegExp(escapedV, 'i');
-          });
-
-          if (queries.length == 1) {
-            match[filterField] = { $regex: queries[0] };
-          } else {
-            match[filterField] = { $in: queries };
-          }
-        }
-      });
-    }
-
     let query = [
       {
         $match: $match
@@ -128,13 +93,16 @@ class Source extends Base {
       options.limit = -1;
     }
 
-    if (Object.keys(fieldsToStr).length) {
-      query.push({ $addFields: fieldsToStr });
+    // Build match and field casts for filters.
+    const { match, addFields } = this.filterSubmissions(options.filters);
+
+    if (Object.keys(addFields).length) {
+      query.push({ $addFields: addFields });
     }
     if (Object.keys(match).length) {
       query.push({ $match: match });
     }
-    if (Object.keys(fieldsToStr).length) {
+    if (Object.keys(addFields).length) {
       query.push({ $unset: '_filter' });
     }
 
@@ -150,9 +118,7 @@ class Source extends Base {
       // TODO If we need case insensitive sort, look at collation or normalizing a string to then sort on
       if (options.sort) {
         let sort = {};
-        let sortKey = ['_id', 'created', 'imported'].includes(options.sort)
-          ? options.sort
-          : `data.${options.sort}`;
+        let sortKey = this.getFieldKey(options.sort);
         sort[sortKey] = options.order === 'asc' ? 1 : -1;
         // Include a unique value in our sort so Mongo doesn't screw up limit/skip operation.
         sort._id = sort[sortKey];
@@ -259,6 +225,8 @@ class Source extends Base {
 
     let countQuery = this.#buildSubmissionQuery($match, options, true);
     let fullQuery = this.#buildSubmissionQuery($match, options, false);
+
+    // this.debug(fullQuery);
 
     let totalResults = await col.aggregate([...countQuery, { $count: 'totalResults' }]).toArray();
     totalResults = totalResults && totalResults.length ? totalResults[0].totalResults : 0;
@@ -680,7 +648,6 @@ class Source extends Base {
    * @return {array} Array of new submission IDs.
    */
   async insertSubmissions(source, submissions, options = {}) {
-    console.log(submissions);
     const col = this.collection(SUBMISSIONS);
 
     let toInsert = submissions;

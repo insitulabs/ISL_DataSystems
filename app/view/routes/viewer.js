@@ -292,10 +292,11 @@ module.exports = function (opts) {
       return next(new Errors.BadRequest());
     }
 
+    // Parse column filters and set on pageParams
+    let filters = extractFilters(req, fields, pageParams);
+
     fields = mapFieldsForUI(fields, userCanEdit, sort, order, pageParams);
 
-    // Parse column filters
-    let filters = extractFilters(req, fields, pageParams);
     let queryResponse = [];
     if (view) {
       queryResponse = await viewManager.queryView(view._id, view.fields, view.sources, {

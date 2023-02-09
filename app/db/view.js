@@ -311,41 +311,6 @@ class View extends Base {
       });
     });
 
-    // Cast fields to filter as string, so regex works correctly on numbers.
-    let match = {};
-    let fieldsToStr = {};
-    if (options.filters) {
-      Object.keys(options.filters).forEach((field) => {
-        let filterField = '_filter.' + field;
-        fieldsToStr[filterField] = {
-          $toString: '$data.' + field
-        };
-        let values = options.filters[field];
-
-        // If truthy or falsy search?
-        const findAny = values.some((v) => v && v.trim() === '*');
-        const findNull = values.some((v) => v && v.trim() === 'null');
-
-        if (findAny) {
-          match[filterField] = { $exists: true, $ne: null };
-        } else if (findNull) {
-          match[filterField] = null;
-        } else {
-          let queries = values.map((v) => {
-            // Escape for regex.
-            let escapedV = v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            return new RegExp(escapedV, 'i');
-          });
-
-          if (queries.length == 1) {
-            match[filterField] = { $regex: queries[0] };
-          } else {
-            match[filterField] = { $in: queries };
-          }
-        }
-      });
-    }
-
     let $match = viewSource;
 
     // If we have an single ID filter, include it in match.
@@ -446,9 +411,12 @@ class View extends Base {
       });
     }
 
+    // Build match and field casts for filters.
+    const { match, addFields } = this.filterSubmissions(options.filters);
+
     // If we're filtering, cast fields we want to filter by to a string.
-    if (Object.keys(fieldsToStr).length) {
-      pipeline.push({ $addFields: fieldsToStr });
+    if (Object.keys(addFields).length) {
+      pipeline.push({ $addFields: addFields });
     }
 
     // If we're filtering, apply filter.
@@ -457,7 +425,7 @@ class View extends Base {
     }
 
     // If we're filtering, remove casted filter-only fields.
-    if (Object.keys(fieldsToStr).length) {
+    if (Object.keys(addFields).length) {
       pipeline.push({ $unset: '_filter' });
     }
 
@@ -471,9 +439,7 @@ class View extends Base {
     // TODO If we need case insensitive sort, look at collation or normalizing a string to then sort on
     if (options.sort) {
       let sort = {};
-      let sortKey = ['_id', 'created', 'imported'].includes(options.sort)
-        ? options.sort
-        : `data.${options.sort}`;
+      let sortKey = this.getFieldKey(options.sort);
       sort[sortKey] = options.order === 'asc' ? 1 : -1;
 
       // When unwinding fields, make sure we respect the unwound order.

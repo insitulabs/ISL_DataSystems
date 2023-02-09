@@ -116,3 +116,7 @@
 #data-loader {
   z-index: 1;
 }
+
+.filter-instruction-popover {
+  --bs-popover-max-width: 500px;
+}

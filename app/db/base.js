@@ -53,6 +53,158 @@ class Base {
   debug(data) {
     console.log(util.inspect(data, { showHidden: false, depth: null, maxArrayLength: null }));
   }
+
+  /**
+   * Get the field mapping for a given key.
+   * @param {string} field
+   * @return {string}
+   */
+  getFieldKey(field) {
+    if (!field) {
+      return null;
+    }
+
+    if (['_id', 'created', 'imported'].includes(field)) {
+      return field;
+    }
+
+    return `data.${field}`;
+  }
+
+  /**
+   * Build the match and addFields aggregation steps for filtering submissions.
+   * @param {object} filters
+   * @returns  {object} Object with match and addFields keys
+   */
+  filterSubmissions(filters) {
+    // Cast fields to filter as string, so regex works correctly on numbers.
+    let match = {};
+    let addFields = {};
+    if (filters) {
+      let filterBy = Object.keys(filters).map((field) => {
+        let values = filters[field];
+        let valueFilters = values.map((value) => {
+          let expression = {};
+          let castTo = 'string';
+          let onError = null;
+
+          // > 2022-33-02 && < 2022-23-02
+          let dateCompare =
+            /^([[<>=]+)\s*(\d{4}-\d{2}-\d{2})(?:\s+(?:and|&&?)\s+([[<>=]+)\s*(\d{4}-\d{2}-\d{2}))?/.exec(
+              value
+            );
+
+          // > 10 && <= 20
+          let numericalCompare =
+            /^([[<>=]+)\s*([\d.]+)(?:\s+(?:and|&&?)\s+([[<>=]+)\s*([\d.]+))?/.exec(value);
+
+          if (dateCompare) {
+            castTo = 'date';
+            onError = null;
+            let operator = '$eq';
+            if (dateCompare[1] === '>') {
+              operator = '$gt';
+            } else if (dateCompare[1] === '>=') {
+              operator = '$gte';
+            } else if (dateCompare[1] === '<') {
+              operator = '$lt';
+            } else if (dateCompare[1] === '<=') {
+              operator = '$lte';
+            }
+
+            expression[operator] = new Date(dateCompare[2]);
+            if (dateCompare.filter(Boolean).length === 5) {
+              let secOperator = '$eq';
+              if (dateCompare[3] === '>') {
+                secOperator = '$gt';
+              } else if (dateCompare[3] === '>=') {
+                secOperator = '$gte';
+              } else if (dateCompare[3] === '<') {
+                secOperator = '$lt';
+              } else if (dateCompare[3] === '<=') {
+                secOperator = '$lte';
+              }
+              expression[secOperator] = new Date(dateCompare[4]);
+            }
+          } else if (numericalCompare) {
+            castTo = 'double';
+            onError = 0;
+            let operator = '$eq';
+            if (numericalCompare[1] === '>') {
+              operator = '$gt';
+            } else if (numericalCompare[1] === '>=') {
+              operator = '$gte';
+            } else if (numericalCompare[1] === '<') {
+              operator = '$lt';
+            } else if (numericalCompare[1] === '<=') {
+              operator = '$lte';
+            }
+
+            expression[operator] = parseFloat(numericalCompare[2]);
+            if (numericalCompare.filter(Boolean).length === 5) {
+              let secOperator = '$eq';
+              if (numericalCompare[3] === '>') {
+                secOperator = '$gt';
+              } else if (numericalCompare[3] === '>=') {
+                secOperator = '$gte';
+              } else if (numericalCompare[3] === '<') {
+                secOperator = '$lt';
+              } else if (numericalCompare[3] === '<=') {
+                secOperator = '$lte';
+              }
+              expression[secOperator] = parseFloat(numericalCompare[4]);
+            }
+          } else if (value.trim() === '*') {
+            expression = { $exists: true, $ne: null };
+          } else if (value.trim() === 'null') {
+            expression = null;
+          } else {
+            let escapedV = value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            expression['$regex'] = new RegExp(escapedV, 'i');
+          }
+
+          let filterField = '_filter.' + field + '_' + castTo;
+          addFields[filterField] = {
+            $convert: {
+              input: '$' + this.getFieldKey(field),
+              to: castTo,
+              onError: onError,
+              onNull: onError
+            }
+          };
+
+          let filter = {};
+          filter[filterField] = expression;
+          return filter;
+        });
+
+        if (valueFilters.length === 1) {
+          return valueFilters[0];
+        } else {
+          return valueFilters;
+        }
+      });
+
+      let $or = [];
+      for (let filter of filterBy) {
+        if (Array.isArray(filter)) {
+          $or = $or.concat(filter);
+        } else {
+          let [key, value] = Object.entries(filter)[0];
+          match[key] = value;
+        }
+      }
+
+      if ($or.length) {
+        match.$or = $or;
+      }
+    }
+
+    return {
+      match,
+      addFields
+    };
+  }
 }
 
 module.exports = Base;

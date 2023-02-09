@@ -55,6 +55,14 @@
                 <span class="all-count">{{ fields | length }}</span>
               </button>
               <ul class="dropdown-menu dropdown-menu-dark" aria-labelledby="field-toggles">
+                <li class="px-2">
+                  <input
+                    id="field-toggles-search"
+                    type="text"
+                    class="form-control"
+                    placeholder="Filter Field Name..."
+                   />
+                </li>
                 <li>
                   <div class="dropdown-item d-flex align-items-center">
                     <span class="me-2">
@@ -66,7 +74,7 @@
                   </div>
                 </li>
                 {% for f in fields %}
-                  <li data-id="{{ f.name }}">
+                  <li class="toggle" data-id="{{ f.id }}" data-name="{{ f.name }}">
                     <div class="dropdown-item">
                       <div class="form-check">
                         <input
@@ -93,9 +101,17 @@
                   aria-expanded="false">
                 Filter
               </button>
-              <ul class="dropdown-menu filters" aria-labelledby="filter-column-dropdown">
+              <ul class="dropdown-menu filters dropdown-menu-dark" aria-labelledby="filter-column-dropdown">
+                <li class="px-2">
+                  <input
+                    id="filter-search"
+                    type="text"
+                    class="form-control"
+                    placeholder="Filter Field Name..."
+                   />
+                </li>
                 {% for f in fields %}
-                  <li class="add-filter" data-id="{{ f.id }}">
+                  <li class="add-filter" data-id="{{ f.id }}" data-name="{{ f.name }}">
                     <span class="dropdown-item btn">{{ f.name }}</span>
                   <li>
                 {% endfor %}
@@ -106,7 +122,21 @@
                 role="button"
                 data-bs-toggle="popover"
                 data-bs-trigger="focus"
-                data-bs-content="Query: <strong>*</strong> to find any value.<br>Query: <strong>null</strong> to find no value."
+                data-bs-custom-class="filter-instruction-popover"
+                data-bs-content="
+                  Query: <strong>*</strong> to find any value.<br>
+                  Query: <strong>null</strong> to find empty value.<br>
+
+                  <br>
+                  <h6>Numerical Comparison</h6>
+                  Query: <strong>&gt; 20.5</strong><br>
+                  Query: <strong>&gt; 20.5 && &lt;= 30</strong><br>
+
+                  <br>
+                  <h6>Date Comparison</h6>
+                  Query: <strong>&gt; 1984-05-04</strong><br>
+                  Query: <strong>&gt; 1984-05-04 && &lt;= 1984-06-04</strong>
+                "
                 data-bs-html="true">?</a>
           </div>
         </div>
