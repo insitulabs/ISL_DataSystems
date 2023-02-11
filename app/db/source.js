@@ -675,8 +675,15 @@ class Source extends Base {
         let { _attachmentsPresent, ...rest } = s;
 
         if (options.createdKey && s[options.createdKey]) {
-          created = s[options.createdKey];
-          delete rest[options.createdKey];
+          let createDate = s[options.createdKey];
+          if (typeof createDate === 'string') {
+            createDate = new Date(createDate);
+          }
+
+          if (createDate instanceof Date && createDate.toString() !== 'Invalid Date') {
+            created = createDate;
+            delete rest[options.createdKey];
+          }
         }
 
         let originId = null;
