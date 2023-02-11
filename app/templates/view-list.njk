@@ -3,19 +3,36 @@
 {% block scripts %}
 <script>
   document.getElementById('name-filter').select();
+  {% if isAdmin %}
+  document.getElementById('show-deleted').addEventListener('click', (event) => {
+    event.target.closest('form').submit();
+  });
+  {% endif %}
 </script>
 {% endblock %}
 
 
 {% block content %}
 <div class="container-xxl">
-  {% if isAdmin %}
-  <div class="my-3">
-    <a class="btn btn-primary btn-sm" href="/data-viewer/view/new">Create View</a>
-  </div>
-  {% endif %}
-
-  <form>
+  <form class="my-3">
+    <input type="hidden" name="sort" value="{{ sort }}" />
+    <input type="hidden" name="order" value="{{ order }}" />
+    {% if isAdmin %}
+    <div class="mb-3 d-flex align-items-center justify-content-between">
+      <a class="btn btn-primary btn-sm" href="/data-viewer/view/new">Create View</a>
+      <div class="form-check form-switch">
+        <input
+          class="form-check-input"
+          type="checkbox"
+          role="switch"
+          id="show-deleted" {{ "checked" if deleted }}
+          name="deleted"
+          value="1"
+        />
+        <label class="form-check-label" for="show-deleted">Archived?</label>
+      </div>
+    </div>
+    {% endif %}
     <div class="input-group">
       <input
         id="name-filter"

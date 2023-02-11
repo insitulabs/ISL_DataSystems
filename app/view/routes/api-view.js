@@ -1,5 +1,6 @@
 const express = require('express');
 const View = require('../../db/view');
+const User = require('../../db/user');
 const { getCurrentUser } = require('../../lib/route-helpers');
 const CurrentUser = require('../../lib/current-user');
 const Audit = require('../../db/audit').Audit;
@@ -30,6 +31,50 @@ module.exports = function (opts) {
       const auditManager = new Audit(getCurrentUser(res));
       auditManager.logViewEdit(updated);
       res.json(updated);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Delete a view.
+  router.post('/:id/delete', async (req, res, next) => {
+    try {
+      let currentUser = getCurrentUser(res);
+      currentUser.validate(CurrentUser.PERMISSIONS.VIEW_CREATE);
+      const viewManager = new View(currentUser);
+      const userManager = new User(currentUser.workspace);
+      const auditManager = new Audit(currentUser);
+
+      const view = await viewManager.getView(req.params.id);
+      if (view.deleted === true) {
+        throw new Error.BadRequest('View already deleted');
+      }
+
+      await viewManager.deleteView(view, currentUser);
+      await userManager.removeViewFromUsers(view);
+      await auditManager.logViewDelete(view);
+
+      res.redirect(`/data-viewer/view/${view._id}/edit`);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Restore a view.
+  router.post('/:id/restore', async (req, res, next) => {
+    try {
+      getCurrentUser(res).validate(CurrentUser.PERMISSIONS.VIEW_CREATE);
+      const viewManager = new View(getCurrentUser(res));
+      const auditManager = new Audit(getCurrentUser(res));
+
+      const view = await viewManager.getView(req.params.id);
+      if (view.deleted !== true) {
+        throw new Error.BadRequest('View is not deleted');
+      }
+
+      await viewManager.restoreDeletedView(view, getCurrentUser(res));
+      await auditManager.logViewRestore(view);
+      res.redirect(`/data-viewer/view/${view._id}/edit`);
     } catch (error) {
       next(error);
     }

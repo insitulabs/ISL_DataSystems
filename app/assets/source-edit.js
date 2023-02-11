@@ -13,6 +13,7 @@ createApp({
     return {
       tab: 'edit',
       id: data._id,
+      deleted: data.deleted,
       system: data.system,
       namespace: data.namespace,
       name: data.name,
@@ -31,6 +32,9 @@ createApp({
   computed: {
     isNew() {
       return !this.id;
+    },
+    isDeleted() {
+      return this.deleted === true;
     },
     sample() {
       if (this.samples && this.samples.length) {
@@ -217,6 +221,16 @@ createApp({
       });
 
       this.fields.splice(index, 1);
+    },
+
+    /**
+     * On source delete click.
+     * @param {Event} event
+     */
+    onDeleteForm(event) {
+      if (!window.confirm('Are you sure you want to delete this source?')) {
+        event.preventDefault();
+      }
     }
   }
 }).mount('#app');

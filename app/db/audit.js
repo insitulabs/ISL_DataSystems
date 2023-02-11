@@ -15,8 +15,12 @@ const AuditEvent = Object.freeze({
   Download: 'download',
   ViewEdit: 'view-edit',
   ViewCreate: 'view-create',
+  ViewDelete: 'view-delete',
+  ViewRestore: 'view-restore',
   SourceEdit: 'source-edit',
   SourceCreate: 'source-create',
+  SourceDelete: 'source-delete',
+  SourceRestore: 'source-restore',
   UserEdit: 'user-edit'
 });
 
@@ -272,6 +276,42 @@ class Audit extends Base {
   }
 
   /**
+   * Log a source delete.
+   * @param {object} source The source.
+   */
+  async logSourceDelete(source) {
+    if (this.user.preventAudit) {
+      return;
+    }
+
+    let events = this.collection(AUDIT_EVENTS);
+    let record = this.#userEvent(AuditEvent.SourceDelete, {
+      _id: source._id,
+      name: source.name,
+      submissionKey: source.submissionKey
+    });
+    return events.insertOne(record).catch(this.#onError);
+  }
+
+  /**
+   * Log a source restore.
+   * @param {object} source The source.
+   */
+  async logSourceRestore(source) {
+    if (this.user.preventAudit) {
+      return;
+    }
+
+    let events = this.collection(AUDIT_EVENTS);
+    let record = this.#userEvent(AuditEvent.SourceRestore, {
+      _id: source._id,
+      name: source.name,
+      submissionKey: source.submissionKey
+    });
+    return events.insertOne(record).catch(this.#onError);
+  }
+
+  /**
    * Log a source edit.
    * @param {object} source The source.
    */
@@ -300,6 +340,40 @@ class Audit extends Base {
 
     let events = this.collection(AUDIT_EVENTS);
     let record = this.#userEvent(AuditEvent.ViewCreate, {
+      _id: view._id,
+      name: view.name
+    });
+    return events.insertOne(record).catch(this.#onError);
+  }
+
+  /**
+   * Log a view delete.
+   * @param {object} view The view.
+   */
+  async logViewDelete(view) {
+    if (this.user.preventAudit) {
+      return;
+    }
+
+    let events = this.collection(AUDIT_EVENTS);
+    let record = this.#userEvent(AuditEvent.ViewDelete, {
+      _id: view._id,
+      name: view.name
+    });
+    return events.insertOne(record).catch(this.#onError);
+  }
+
+  /**
+   * Log a view restore.
+   * @param {object} view The view.
+   */
+  async logViewRestore(view) {
+    if (this.user.preventAudit) {
+      return;
+    }
+
+    let events = this.collection(AUDIT_EVENTS);
+    let record = this.#userEvent(AuditEvent.ViewRestore, {
       _id: view._id,
       name: view.name
     });

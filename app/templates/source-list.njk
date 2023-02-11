@@ -3,33 +3,52 @@
 {% block scripts %}
 <script>
   document.getElementById('name-filter').select();
+
+  {% if isAdmin %}
+  document.getElementById('show-deleted').addEventListener('click', (event) => {
+    event.target.closest('form').submit();
+  });
+  {% endif %}
 </script>
 {% endblock %}
 
 {% block content %}
 <div class="container-xxl">
-  {% if isAdmin %}
-  <div class="my-3">
-    <a class="btn btn-primary btn-sm" href="/data-viewer/source/new">Create Source</a>
-  </div>
-  {% endif %}
-  <div class="table-responsive-md">
-    <form>
-      <div class="input-group">
+  <form class="my-3">
+    <input type="hidden" name="sort" value="{{ sort }}" />
+    <input type="hidden" name="order" value="{{ order }}" />
+    {% if isAdmin %}
+    <div class="mb-3 d-flex align-items-center justify-content-between">
+      <a class="btn btn-primary btn-sm" href="/data-viewer/source/new">Create Source</a>
+      <div class="form-check form-switch">
         <input
-          id="name-filter"
-          type="text"
-          name="name"
-          value="{{ nameQuery }}"
-          class="form-control"
-          placeholder="Filter by name..."
-          aria-label="Filter by name..."
-          aria-describedby="name-filter-btn"
-          maxlength="255"
-        >
-        <button class="btn btn-primary" type="submit" id="name-filter-btn">Filter</button>
+          class="form-check-input"
+          type="checkbox"
+          role="switch"
+          id="show-deleted" {{ "checked" if deleted }}
+          name="deleted"
+          value="1"
+        />
+        <label class="form-check-label" for="show-deleted">Archived?</label>
       </div>
-    </form>
+    </div>
+    {% endif %}
+    <div class="input-group">
+      <input
+        id="name-filter"
+        type="text"
+        name="name"
+        value="{{ nameQuery }}"
+        class="form-control"
+        placeholder="Filter by name..."
+        aria-label="Filter by name..."
+        aria-describedby="name-filter-btn"
+        maxlength="255"
+      >
+      <button class="btn btn-primary" type="submit" id="name-filter-btn">Filter</button>
+    </div>
+  </form>
+  <div class="table-responsive-md">
     <table class="table sticky-header table-striped table-bordered mt-1">
       <thead class="table-light">
         <tr>
@@ -83,7 +102,7 @@
               ><i class="bi bi-pencil-square"></i></a>
             <a
               href="/data-viewer/source/{{ source._id }}/import"
-              class="ms-2"
+              class="ms-2 {{ 'btn btn-link disabled p-0' if source.deleted }}"
               title="Import data"><i class="bi bi-cloud-upload"></i></a>
           </td>
           {% endif %}

@@ -265,7 +265,8 @@ module.exports = function (opts) {
       dataId = view._id;
       pageParams.set('view', query.view._id.toString());
       pageTitle = view.name;
-      userCanEdit = currentUser.hasViewPermission(view, CurrentUser.PERMISSIONS.WRITE);
+      userCanEdit =
+        !view.deleted && currentUser.hasViewPermission(view, CurrentUser.PERMISSIONS.WRITE);
       csvLink = '/data-viewer/csv/view/' + query.view._id.toString();
       editLink = '/data-viewer/view/' + view._id.toString() + '/edit';
     } else if (query.import) {
@@ -284,7 +285,8 @@ module.exports = function (opts) {
       dataId = source._id;
       pageParams.set('source', query.source._id.toString());
       pageTitle = source.name;
-      userCanEdit = currentUser.hasSourcePermission(source, CurrentUser.PERMISSIONS.WRITE);
+      userCanEdit =
+        !source.deleted && currentUser.hasSourcePermission(source, CurrentUser.PERMISSIONS.WRITE);
       userCanCreate = userCanEdit;
       csvLink = '/data-viewer/csv/source/' + query.source._id.toString();
       editLink = '/data-viewer/source/' + source._id.toString() + '/edit';
@@ -871,6 +873,11 @@ module.exports = function (opts) {
         nameQuery = req.query.name;
       }
 
+      let deleted = false;
+      if (req.query.deleted) {
+        deleted = true;
+      }
+
       let sort = req.query.sort || 'name';
       let order = req.query.order || 'asc';
 
@@ -885,19 +892,29 @@ module.exports = function (opts) {
         if (nameQuery) {
           url += '&name=' + encodeURIComponent(nameQuery);
         }
+        if (deleted) {
+          url += '&deleted=1';
+        }
         links[col] = url;
         return links;
       }, {});
 
       pageParams.set('sort', sort);
       pageParams.set('order', order);
+      if (deleted) {
+        pageParams.set('deleted', 1);
+      }
+      if (nameQuery) {
+        pageParams.set('name', nameQuery);
+      }
 
       let queryResponse = await viewManager.listViews({
         offset,
         limit,
         sort,
         order,
-        name: nameQuery
+        name: nameQuery,
+        deleted: deleted
       });
 
       let currentPage = Math.floor(offset / limit) + 1;
@@ -911,7 +928,8 @@ module.exports = function (opts) {
         sort,
         order,
         sortLinks,
-        nameQuery
+        nameQuery,
+        deleted
       };
 
       res.render('view-list', model);
@@ -1098,6 +1116,11 @@ module.exports = function (opts) {
         nameQuery = req.query.name;
       }
 
+      let deleted = false;
+      if (req.query.deleted) {
+        deleted = true;
+      }
+
       let sortLinks = ['created', 'system', 'namespace', 'name'].reduce((links, col) => {
         let url = '?sort=' + col;
         if (sort === col && order === 'asc') {
@@ -1109,19 +1132,29 @@ module.exports = function (opts) {
         if (nameQuery) {
           url += '&name=' + encodeURIComponent(nameQuery);
         }
+        if (deleted) {
+          url += '&deleted=1';
+        }
         links[col] = url;
         return links;
       }, {});
 
       pageParams.set('sort', sort);
       pageParams.set('order', order);
+      if (deleted) {
+        pageParams.set('deleted', 1);
+      }
+      if (nameQuery) {
+        pageParams.set('name', nameQuery);
+      }
 
       let queryResponse = await sourceManager.listSources({
         offset,
         limit,
         sort,
         order,
-        name: nameQuery
+        name: nameQuery,
+        deleted: deleted
       });
 
       let currentPage = Math.floor(offset / limit) + 1;
@@ -1135,7 +1168,8 @@ module.exports = function (opts) {
         sort,
         order,
         sortLinks,
-        nameQuery
+        nameQuery,
+        deleted
       };
 
       res.render('source-list', model);
@@ -1225,6 +1259,11 @@ module.exports = function (opts) {
       const sourceManager = new Source(currentUser);
       let source = await sourceManager.getSource(req.params.id);
       currentUser.validateSourcePermission(source, CurrentUser.PERMISSIONS.WRITE);
+
+      if (source.deleted) {
+        throw new Errors.BadRequest('Deleted sources cannot be added to');
+      }
+
       const viewData = await getPageRenderData(req, res);
       let imports = await sourceManager.listImports(source);
       let model = {

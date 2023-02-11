@@ -50,14 +50,19 @@ class View extends Base {
 
   /**
    * List views.
-   * @param {Object} options Query params (sort, order, limit (-1 for all), offset)
+   * @param {Object} options Query params (sort, order, limit (-1 for all), offset, deleted: true)
    * @return {Object} Query result object with, results, totalResults, offset.
    */
   async listViews(options = {}) {
     let pipeline = [];
 
-    let $match = {};
-    if (!this.user.admin && !this.user.isSuperAdmin) {
+    let $match = { deleted: { $ne: true } };
+    if (this.user.admin) {
+      // Only admins can view deleted sources
+      if (options.deleted === true) {
+        $match.deleted = true;
+      }
+    } else {
       $match._id = { $in: this.user.viewIds() };
     }
 
@@ -212,6 +217,72 @@ class View extends Base {
       }
     );
 
+    return await this.getView(existing._id);
+  }
+
+  /**
+   * Delete view.
+   * @param {Object} view
+   * @param {Object} user
+   * @returns {Object} The updated view.
+   */
+  async deleteView(view, user) {
+    let existing = await this.getView(view._id);
+    let now = new Date();
+
+    let toPersist = {
+      deleted: true,
+      modified: now
+    };
+
+    if (user) {
+      toPersist.modifiedBy = {
+        id: ObjectId(user._id),
+        name: user.name,
+        email: user.email
+      };
+    }
+
+    const views = this.collection(VIEWS);
+    await views.updateOne(
+      { _id: existing._id },
+      {
+        $set: toPersist
+      }
+    );
+    return await this.getView(existing._id);
+  }
+
+  /**
+   * Restore deleted view.
+   * @param {Object} view
+   * @param {Object} user
+   * @returns {Object} The updated view.
+   */
+  async restoreDeletedView(view, user) {
+    let existing = await this.getView(view._id);
+    let now = new Date();
+
+    let toPersist = {
+      modified: now
+    };
+
+    if (user) {
+      toPersist.modifiedBy = {
+        id: ObjectId(user._id),
+        name: user.name,
+        email: user.email
+      };
+    }
+
+    const views = this.collection(VIEWS);
+    await views.updateOne(
+      { _id: existing._id },
+      {
+        $set: toPersist,
+        $unset: { deleted: '' }
+      }
+    );
     return await this.getView(existing._id);
   }
 

@@ -61,7 +61,7 @@ module.exports = async function (workspace, sourceManager, SOURCE_SYSTEM = 'ODK'
       // Silence not found
     }
 
-    if (!source) {
+    if (!source && !source.deleted) {
       source = await sourceManager.createSource({
         name: candidate.name,
         system: candidate.system,

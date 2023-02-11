@@ -15,17 +15,27 @@
         Preview
       </button>
     </li>
+    <li class="nav-item">
+      <button
+        class="nav-link"
+        :class="{active: tab === 'advanced'}"
+        @click="tab = 'advanced'"
+      >
+        Advanced
+      </button>
+    </li>
     <li class="nav-item flex-fill"></li>
     <li v-if="this.id" class="nav-item">
       <a class="nav-link" :href="`/data-viewer/view/${this.id}`">Go To View</a>
     </li>
     <li class="nav-item">
-      <button class="btn btn-primary ms-2 text-nowrap" @click="save" :disabled="saving">
+      <button class="btn btn-primary ms-2 text-nowrap" @click="save" :disabled="saving || isDeleted">
         Save
       </button>
     </li>
   </ul>
 
+  <div v-if="isDeleted" class="alert alert-warning" role="alert">Deleted View</div>
   <div v-if="error" class="alert alert-danger" role="alert">${error}</div>
 
   <section v-show="tab === 'edit'">
@@ -38,11 +48,16 @@
         class="form-control"
         placeholder="View name..."
         required
+        :disabled="isDeleted"
       />
     </div>
 
     <div class="d-flex mt-2">
-      <textarea v-model.trim="note" class="form-control" placeholder="View note..."></textarea>
+      <textarea
+        v-model.trim="note"
+        class="form-control"
+        placeholder="View note..."
+        :disabled="isDeleted"></textarea>
     </div>
 
     <div class="row mt-4">
@@ -60,7 +75,7 @@
             <button
               class="btn btn-outline-secondary"
               @click="moveField(index, 1)"
-              :disabled="index === fields.length - 1"
+              :disabled="index === fields.length - 1 || isDisabled"
               title="Move field down"
             >
               <i class="bi bi-arrow-down-short"></i>
@@ -68,7 +83,7 @@
             <button
               @click="moveField(index, -1)"
               class="btn btn-outline-secondary"
-              :disabled="index === 0"
+              :disabled="index === 0 || isDisabled"
               title="Move field up"
             >
               <i class="bi bi-arrow-up-short"></i>
@@ -77,6 +92,7 @@
               class="btn btn-outline-secondary"
               @click="editField(field, index)"
               title="Edit field"
+              :disabled="isDeleted"
             >
               <i class="bi bi-pencil"></i>
             </button>
@@ -84,6 +100,7 @@
               class="btn btn-outline-secondary"
               @click="deleteField(field, index)"
               title="Delete field"
+              :disabled="isDeleted"
             >
               <i class="bi bi-trash"></i>
             </button>
@@ -94,6 +111,7 @@
               class="form-control mb-1"
               placeholder="Field name..."
               @keyup.enter="addField"
+              :disabled="isDeleted"
             />
           </div>
         </div>
@@ -102,7 +120,11 @@
       <div class="col">
         <div class="d-flex">
           <h2 class="flex-fill">Sources</h2>
-          <button class="btn btn-link" @click="showNewSourceModal">+ Add Source</button>
+          <button
+            class="btn btn-link"
+            @click="showNewSourceModal"
+            :disabled="isDeleted"
+          >+ Add Source</button>
         </div>
         <div v-if="!sources.length" class="align-middle text-secondary pt-2">
           No sources defined
@@ -143,17 +165,23 @@
                     v-model.trim="s.rename[sourceField]"
                     placeholder="View field name"
                     list="viewFieldsDataSource"
+                    :disabled="isDeleted"
                   />
                 </div>
 
                 <div class="d-flex justify-content-between">
-                  <button class="btn btn-sm btn-link" @click="selectSourceFields(s.source._id)">
+                  <button
+                    class="btn btn-sm btn-link"
+                    @click="selectSourceFields(s.source._id)"
+                    :disabled="isDeleted"
+                  >
                     Select Source Fields
                   </button>
 
                   <button
                     class="btn btn-sm btn-link text-danger"
                     @click="deleteSource(s.source._id)"
+                    :disabled="isDeleted"
                   >
                     Delete Source
                   </button>
@@ -354,6 +382,34 @@
       </div>
     </div>
     <div id="preview" ref="preview"></div>
+  </section>
+
+  <section v-if="tab === 'advanced'" class="mt-2">
+    <form
+      v-if="isDeleted"
+      action="/api/view/{{ view._id }}/restore"
+      method="post"
+      class="mt-4"
+    >
+      <h5>Restore the view?</h5>
+      <button class="btn-primary btn">Restore</button>
+    </form>
+
+    <form
+      v-else
+      @submit="onDeleteForm"
+      action="/api/view/{{ view._id }}/delete"
+      method="post"
+      class="mt-4"
+    >
+      <h5>Delete the view?</h5>
+      <p>
+        NOTE: All user permissions for this view will be deleted.
+        Restoring the view, will not bring these permissions back.
+      </p>
+      <input type="hidden" :value="id" disabled class="form-control" />
+      <button class="btn-danger btn">Delete</button>
+    </form>
   </section>
 </div>
 

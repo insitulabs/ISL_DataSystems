@@ -1,5 +1,6 @@
 const express = require('express');
 const Source = require('../../db/source');
+const User = require('../../db/user');
 const Error = require('../../lib/errors');
 const { getCurrentUser } = require('../../lib/route-helpers');
 const CurrentUser = require('../../lib/current-user');
@@ -222,6 +223,50 @@ module.exports = function (opts) {
       let updated = await sourceManager.updateSource(req.body, res.locals.user);
       auditManager.logSourceEdit(updated);
       res.json(updated);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Delete a source.
+  router.post('/:id/delete', async (req, res, next) => {
+    try {
+      let currentUser = getCurrentUser(res);
+      currentUser.validate(CurrentUser.PERMISSIONS.SOURCE_CREATE);
+      const sourceManager = new Source(currentUser);
+      const userManager = new User(currentUser.workspace);
+      const auditManager = new Audit(currentUser);
+
+      const source = await sourceManager.getSource(req.params.id);
+      if (source.deleted === true) {
+        throw new Error.BadRequest('Source already deleted');
+      }
+
+      await sourceManager.deleteSource(source, currentUser);
+      await userManager.removeSourceFromUsers(source);
+      await auditManager.logSourceDelete(source);
+
+      res.redirect(`/data-viewer/source/${source._id}/edit`);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Restore a source.
+  router.post('/:id/restore', async (req, res, next) => {
+    try {
+      getCurrentUser(res).validate(CurrentUser.PERMISSIONS.SOURCE_CREATE);
+      const sourceManager = new Source(getCurrentUser(res));
+      const auditManager = new Audit(getCurrentUser(res));
+
+      const source = await sourceManager.getSource(req.params.id);
+      if (source.deleted !== true) {
+        throw new Error.BadRequest('Source is not deleted');
+      }
+
+      await sourceManager.restoreDeletedSource(source, getCurrentUser(res));
+      await auditManager.logSourceRestore(source);
+      res.redirect(`/data-viewer/source/${source._id}/edit`);
     } catch (error) {
       next(error);
     }

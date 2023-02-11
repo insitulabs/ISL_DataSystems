@@ -33,8 +33,17 @@
         Permissions
       </button>
     </li>
+    <li class="nav-item">
+      <button
+        class="nav-link"
+        :class="{active: tab === 'advanced'}"
+        @click="tab = 'advanced'"
+      >
+        Advanced
+      </button>
+    </li>
     <li class="nav-item flex-fill"></li>
-    <li v-if="!isNew" class="nav-item">
+    <li v-if="!isNew && !isDeleted" class="nav-item">
       <a class="nav-link" :href="`/data-viewer/source/${this.id}/import`"
         >Import Data</a
       >
@@ -45,47 +54,54 @@
       >
     </li>
     <li class="nav-item">
-      <button class="btn btn-primary ms-2 text-nowrap" @click="save" :disabled="saving">
+      <button class="btn btn-primary ms-2 text-nowrap" @click="save" :disabled="saving || isDeleted">
         Save
       </button>
     </li>
   </ul>
 
+  <div v-if="isDeleted" class="alert alert-warning" role="alert">Deleted Source</div>
   <div v-if="error" class="alert alert-danger" role="alert">${error}</div>
 
-  <input type="hidden" :value="id" disabled class="form-control" />
-  <div class="d-flex mt-2">
-    <input
-      type="text"
-      :disabled="!isNew"
-      v-model.trim="system"
-      class="form-control"
-      placeholder="Source system..."
-    />
-    <input
-      type="text"
-      :disabled="!isNew"
-      v-model.trim="namespace"
-      class="form-control ms-1"
-      placeholder="Source namespace..."
-    />
-  </div>
-
-  <div class="d-flex mt-2">
-    <input
-      type="text"
-      v-model.trim="name"
-      class="form-control"
-      placeholder="Source name..."
-      required
-    />
-  </div>
-
-  <div class="d-flex mt-2">
-    <textarea v-model.trim="note" class="form-control" placeholder="Source note..."></textarea>
-  </div>
-
   <section v-if="tab === 'edit'">
+    <div class="d-flex mt-2">
+      <input
+        type="text"
+        :disabled="!isNew || isDeleted"
+        v-model.trim="system"
+        class="form-control"
+        placeholder="Source system..."
+      />
+      <input
+        type="text"
+        :disabled="!isNew || isDeleted"
+        v-model.trim="namespace"
+        class="form-control ms-1"
+        placeholder="Source namespace..."
+      />
+    </div>
+
+    <div class="d-flex mt-2">
+      <input
+        type="text"
+        :disabled="isDeleted"
+        v-model.trim="name"
+        class="form-control"
+        placeholder="Source name..."
+        required
+      />
+    </div>
+
+    <div class="d-flex mt-2">
+      <textarea
+        v-model.trim="note"
+        :disabled="isDeleted"
+        class="form-control"
+        placeholder="Source note..."
+      ></textarea>
+    </div>
+
+
     <div class="row sticky-top bg-white py-2">
       <div class="col d-flex align-items-center justify-content-between">
         <span>Field</span>
@@ -117,13 +133,14 @@
                 :placeholder="field.id"
                 @input="updateFieldName(field.id, $event)"
                 :value="field.name"
+                :disabled="isDeleted"
               />
               <label :for="`field-${field.id}`" class="text-secondary">${field.id}</label>
             </div>
             <button
               class="btn btn-outline-secondary btn-sm"
               @click="moveField(index, 1)"
-              :disabled="index === fields.length - 1 || filteringFields"
+              :disabled="index === fields.length - 1 || filteringFields || isDeleted"
               title="Move field down"
             >
               <i class="bi bi-arrow-down-short"></i>
@@ -131,7 +148,7 @@
             <button
               @click="moveField(index, -1)"
               class="btn btn-outline-secondary btn-sm"
-              :disabled="index === 0 || filteringFields"
+              :disabled="index === 0 || filteringFields || isDeleted"
               title="Move field up"
             >
               <i class="bi bi-arrow-up-short"></i>
@@ -146,6 +163,7 @@
         <div class="col-6">
           <input
             type="text"
+            :disabled="isDeleted"
             class="form-control mb-1"
             placeholder="Add field..."
             @keyup.enter="addField"
@@ -165,6 +183,33 @@
       </div>
     </div>
     {% include "_permissions.njk" %}
+  </section>
+
+  <section v-if="tab === 'advanced'" class="mt-2">
+    <form
+      v-if="isDeleted"
+      action="/api/source/{{ source._id }}/restore"
+      method="post"
+      class="mt-4"
+    >
+      <h5>Restore the source?</h5>
+      <button class="btn-primary btn">Restore</button>
+    </form>
+
+    <form
+      v-else
+      @submit="onDeleteForm"
+      action="/api/source/{{ source._id }}/delete"
+      method="post"
+      class="mt-4"
+    >
+      <h5>Delete the source?</h5>
+      <p>
+        NOTE: All user permissions for this source will be deleted.
+        Restoring the source, will not bring these permissions back.
+      </p>
+      <button class="btn-danger btn">Delete</button>
+    </form>
   </section>
 </div>
 

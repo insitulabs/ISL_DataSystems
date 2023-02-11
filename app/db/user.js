@@ -272,6 +272,36 @@ class User extends Base {
 
     return users.find(query).sort({ email: 1 }).toArray();
   }
+
+  /**
+   * Remove the source permissions for all users.
+   * @param {object} source
+   */
+  async removeSourceFromUsers(source) {
+    if (!source) {
+      throw new Errors.BadRequest('Invalid source');
+    }
+
+    const users = this.collection(USERS);
+    let $unset = {};
+    $unset['sources.' + source._id] = 1;
+    await users.updateMany({}, { $unset: $unset });
+  }
+
+  /**
+   * Remove the view permissions for all users.
+   * @param {object} view
+   */
+  async removeViewFromUsers(view) {
+    if (!view) {
+      throw new Errors.BadRequest('Invalid view');
+    }
+
+    const users = this.collection(USERS);
+    let $unset = {};
+    $unset['views.' + view._id] = 1;
+    await users.updateMany({}, { $unset: $unset });
+  }
 }
 
 module.exports = User;

@@ -15,6 +15,7 @@ createApp({
     return {
       tab: 'edit',
       id: data._id,
+      deleted: data.deleted,
       name: data.name,
       note: data.note || '',
       fields: data.fields,
@@ -38,6 +39,9 @@ createApp({
   },
 
   computed: {
+    isDeleted() {
+      return this.deleted === true;
+    },
     invalidField() {
       let invalid = this.sources.reduce((invalid, s) => {
         for (const [sourceField, viewField] of Object.entries(s.rename)) {
@@ -442,6 +446,16 @@ createApp({
       }
 
       return field;
+    },
+
+    /**
+     * On source delete click.
+     * @param {Event} event
+     */
+    onDeleteForm(event) {
+      if (!window.confirm('Are you sure you want to delete this view?')) {
+        event.preventDefault();
+      }
     }
   }
 }).mount('#app');

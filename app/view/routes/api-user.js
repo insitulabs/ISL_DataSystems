@@ -121,7 +121,7 @@ module.exports = function () {
       // });
 
       sources.sort((a, b) => {
-        a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+        return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
       });
 
       let views = (
@@ -138,7 +138,7 @@ module.exports = function () {
       });
 
       views.sort((a, b) => {
-        a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+        return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
       });
 
       res.json({

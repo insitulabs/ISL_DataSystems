@@ -334,14 +334,20 @@ class Source extends Base {
 
   /**
    * List sources.
-   * @param {Object} options Query params (sort, order, limit (-1 for all), offset)
+   * @param {Object} options Query params (sort, order, limit (-1 for all), offset, deleted: true)
    * @return {Object} Query result object with, results, totalResults, offset.
    */
   async listSources(options = {}) {
     let pipeline = [];
 
-    let $match = {};
-    if (!this.user.admin && !this.user.isSuperAdmin) {
+    let $match = { deleted: { $ne: true } };
+
+    if (this.user.admin) {
+      // Only admins can view deleted sources
+      if (options.deleted === true) {
+        $match.deleted = true;
+      }
+    } else {
       $match._id = { $in: this.user.sourceIds() };
     }
 
@@ -475,6 +481,72 @@ class Source extends Base {
       { _id: existing._id },
       {
         $set: toPersist
+      }
+    );
+    return await this.getSource(existing._id);
+  }
+
+  /**
+   * Delete source.
+   * @param {Object} source
+   * @param {Object} user
+   * @returns {Object} The updated source.
+   */
+  async deleteSource(source, user) {
+    let existing = await this.getSource(source._id);
+    let now = new Date();
+
+    let toPersist = {
+      deleted: true,
+      modified: now
+    };
+
+    if (user) {
+      toPersist.modifiedBy = {
+        id: ObjectId(user._id),
+        name: user.name,
+        email: user.email
+      };
+    }
+
+    const sources = this.collection(SOURCES);
+    await sources.updateOne(
+      { _id: existing._id },
+      {
+        $set: toPersist
+      }
+    );
+    return await this.getSource(existing._id);
+  }
+
+  /**
+   * Restore deleted source.
+   * @param {Object} source
+   * @param {Object} user
+   * @returns {Object} The updated source.
+   */
+  async restoreDeletedSource(source, user) {
+    let existing = await this.getSource(source._id);
+    let now = new Date();
+
+    let toPersist = {
+      modified: now
+    };
+
+    if (user) {
+      toPersist.modifiedBy = {
+        id: ObjectId(user._id),
+        name: user.name,
+        email: user.email
+      };
+    }
+
+    const sources = this.collection(SOURCES);
+    await sources.updateOne(
+      { _id: existing._id },
+      {
+        $set: toPersist,
+        $unset: { deleted: '' }
       }
     );
     return await this.getSource(existing._id);

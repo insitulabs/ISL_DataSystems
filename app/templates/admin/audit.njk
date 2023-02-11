@@ -114,7 +114,19 @@
             {% elseif result.type === 'source-create' %}
               {{ result.data.name }}
 
+            {% elseif result.type === 'source-delete' %}
+              {{ result.data.name }}
+
+            {% elseif result.type === 'source-restore' %}
+              {{ result.data.name }}
+
             {% elseif result.type === 'view-edit' %}
+              {{ result.data.name }}
+
+            {% elseif result.type === 'view-delete' %}
+              {{ result.data.name }}
+
+            {% elseif result.type === 'view-restore' %}
               {{ result.data.name }}
 
             {% elseif result.type === 'view-create' %}
