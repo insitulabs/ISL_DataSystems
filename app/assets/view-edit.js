@@ -39,6 +39,9 @@ createApp({
   },
 
   computed: {
+    isNew() {
+      return !this.id;
+    },
     isDeleted() {
       return this.deleted === true;
     },

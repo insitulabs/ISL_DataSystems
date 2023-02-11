@@ -443,8 +443,16 @@ class Source extends Base {
     }
 
     const sources = this.collection(SOURCES);
-    let insertResult = await sources.insertOne(toPersist);
-    return await this.getSource(insertResult.insertedId);
+    try {
+      let insertResult = await sources.insertOne(toPersist);
+      return await this.getSource(insertResult.insertedId);
+    } catch (err) {
+      if (/duplicate key/.test(err.message)) {
+        throw new Errors.BadRequest('The combination of system and namespace must be unique.');
+      } else {
+        throw err;
+      }
+    }
   }
 
   /**

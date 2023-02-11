@@ -15,7 +15,7 @@
         Preview
       </button>
     </li>
-    <li class="nav-item">
+    <li class="nav-item" v-if="!isNew">
       <button
         class="nav-link"
         :class="{active: tab === 'advanced'}"
@@ -387,7 +387,7 @@
   <section v-if="tab === 'advanced'" class="mt-2">
     <form
       v-if="isDeleted"
-      action="/api/view/{{ view._id }}/restore"
+      :action="`/api/view/${id}/restore`"
       method="post"
       class="mt-4"
     >
@@ -398,7 +398,7 @@
     <form
       v-else
       @submit="onDeleteForm"
-      action="/api/view/{{ view._id }}/delete"
+      :action="`/api/view/${id}/delete`"
       method="post"
       class="mt-4"
     >

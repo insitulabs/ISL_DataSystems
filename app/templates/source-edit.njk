@@ -33,7 +33,7 @@
         Permissions
       </button>
     </li>
-    <li class="nav-item">
+    <li class="nav-item" v-if="!isNew">
       <button
         class="nav-link"
         :class="{active: tab === 'advanced'}"
@@ -188,7 +188,7 @@
   <section v-if="tab === 'advanced'" class="mt-2">
     <form
       v-if="isDeleted"
-      action="/api/source/{{ source._id }}/restore"
+      :action="`/api/source/${id}/restore`"
       method="post"
       class="mt-4"
     >
@@ -199,7 +199,7 @@
     <form
       v-else
       @submit="onDeleteForm"
-      action="/api/source/{{ source._id }}/delete"
+      :action="`/api/source/${id}/delete`"
       method="post"
       class="mt-4"
     >
