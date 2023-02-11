@@ -14,11 +14,11 @@
 <!-- ABOUT THE PROJECT -->
 ## About
 
-[![Data System Screen Shot](https://insitulabs.org/static-assets/data-viewer-screenshot.jpg)](https://insitulabs.org/static-assets/data-viewer-screenshot.jpg)
+[![Data System Screen Shot](https://insitulabs.org/static-assets/data-viewer-screenshot.jpg?v=1)](https://insitulabs.org/static-assets/data-viewer-screenshot.jpg)
 
 The In Situ Laboratory Data System is a combination of tools to capture, organize, and analyze field data. The following describes the flow of data:
 
-[![Data System Screen Shot](https://insitulabs.org/static-assets/isl-data-system-flow.jpg)](https://insitulabs.org/static-assets/isl-data-system-flow.jpg)
+[![Data System Screen Shot](https://insitulabs.org/static-assets/isl-data-system-flow.jpg?v=1)](https://insitulabs.org/static-assets/isl-data-system-flow.jpg)
 
 
 1. Input forms are designed to let researchers collect data.
@@ -39,9 +39,9 @@ The In Situ Laboratory Data System is a combination of tools to capture, organiz
 Additional Screenshots:
 
 **User Management**
-[![Data System User Management](https://insitulabs.org/static-assets/isl-data-user-list.jpg)](https://insitulabs.org/static-assets/isl-data-user-list.jpg)
+[![Data System User Management](https://insitulabs.org/static-assets/isl-data-user-list.jpg?v=1)](https://insitulabs.org/static-assets/isl-data-user-list.jpg)
 
-[![Data System User Management](https://insitulabs.org/static-assets/isl-data-user-edit.jpg)](https://insitulabs.org/static-assets/isl-data-user-edit.jpg)
+[![Data System User Management](https://insitulabs.org/static-assets/isl-data-user-edit.jpg?v=1)](https://insitulabs.org/static-assets/isl-data-user-edit.jpg)
 
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
@@ -90,18 +90,17 @@ _For more examples, please refer to the [Documentation](https://example.com)_
 -->
 
 
-<!-- ROADMAP -->
-## Roadmap
+## Features
 
 - [x] Automated import of data feeds from ODK Central
 - [x] User management with form based access control lists
 - [x] Inline data editing
 - [x] Form filtering and visible column selection
-- [ ] Form column renaming
-- [ ] Custom views to aggregate form data
-- [ ] Record transpose or explode of record field
-- [ ] Arbitrary CSV Import
-- [ ] Data isolation through workspaces
+- [x] Form column renaming
+- [x] Custom views to aggregate form data
+- [x] Record transpose or explode of record field
+- [x] CSV Import
+- [x] Data isolation through workspaces
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
