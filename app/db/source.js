@@ -419,7 +419,7 @@ class Source extends Base {
       submissionKey: Source.submissionKey(source.system, source.namespace),
       note: source.note,
       fields: source.fields,
-      created: now,
+      created: source.created || now,
       modified: now
     };
 

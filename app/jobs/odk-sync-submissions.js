@@ -47,7 +47,8 @@ module.exports = async function (workspace, sourceManager, SOURCE_SYSTEM = 'ODK'
       sourceCandidates.push({
         name: p.name + ' - ' + f.name,
         system: SOURCE_SYSTEM,
-        namespace: `${p.id} - ${f.xmlFormId}`
+        namespace: `${p.id} - ${f.xmlFormId}`,
+        created: f.createdAt ? new Date(f.createdAt) : new Date()
       });
     });
   });
@@ -61,19 +62,22 @@ module.exports = async function (workspace, sourceManager, SOURCE_SYSTEM = 'ODK'
       // Silence not found
     }
 
-    if (!source && !source.deleted) {
+    if (!source) {
       source = await sourceManager.createSource({
         name: candidate.name,
         system: candidate.system,
         namespace: candidate.namespace,
+        created: candidate.created,
         fields: []
       });
     }
 
-    sources[source.submissionKey] = source;
+    // Don't sync deleted sources.
+    if (!source.deleted) {
+      sources[source.submissionKey] = source;
+    }
   }
 
-  // log(sources);
   for (let project of projects) {
     for (let form of project.forms) {
       const SOURCE_NAMESPACE = `${project.id} - ${form.xmlFormId}`;
