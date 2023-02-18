@@ -42,7 +42,7 @@ module.exports = async function (workspace, sourceManager) {
       let files = await odkClient.listSubmissionAttachments(project, form, submission.originId);
 
       let attachments = [];
-      for (file of files) {
+      for (let file of files) {
         let attachment = await uploader.getAttachment(
           workspace.name,
           source,
