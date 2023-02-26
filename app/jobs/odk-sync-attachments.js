@@ -43,12 +43,7 @@ module.exports = async function (workspace, sourceManager) {
 
       let attachments = [];
       for (let file of files) {
-        let attachment = await uploader.getAttachment(
-          workspace.name,
-          source,
-          submission._id,
-          file.name
-        );
+        let attachment = await uploader.getAttachment(workspace, source, submission._id, file.name);
 
         if (!attachment) {
           let odkAttachment = await odkClient.getAttachment(
@@ -62,7 +57,7 @@ module.exports = async function (workspace, sourceManager) {
           }
 
           attachment = await uploader.uploadAttachment(
-            workspace.name,
+            workspace,
             source,
             submission._id,
             file.name,

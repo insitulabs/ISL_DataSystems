@@ -6,18 +6,30 @@ const crypto = require('../lib/crypto');
 const APP_DB = 'app';
 const RESERVED_WORKSPACE_NAMES = ['admin', 'local', 'config', APP_DB];
 const WORKSPACES = 'workspaces';
+const USERS = 'users';
 
 const workspaceSchema = require('./workspace-migrations/20221215-01-initial');
+const { ObjectId } = require('mongodb');
 
 class App extends Base {
   static APP_DB = APP_DB;
 
   constructor() {
-    super(App.APP_DB);
+    super({
+      name: 'App System',
+      dbName: App.APP_DB
+    });
   }
 
-  async listWorkspaces() {
-    return await this.collection(WORKSPACES).find({}).toArray();
+  async listWorkspaces(options = {}) {
+    let sort = {};
+    if (options.sort) {
+      sort[options.sort] = options.order === 'asc' ? 1 : -1;
+    } else {
+      sort['name'] = 1;
+    }
+
+    return await this.collection(WORKSPACES).find({}).sort(sort).toArray();
   }
 
   async getWorkspace(name) {
@@ -47,16 +59,53 @@ class App extends Base {
       throw new Errors.BadRequest(`Workspace ${trimmed} already exists`);
     }
 
+    let dbName = trimmed;
+    let existingByDbName = await this.collection(WORKSPACES).find({ dbName: trimmed }).toArray();
+    if (existingByDbName.length) {
+      dbName += '_' + existingByDbName.length;
+    }
+
     // TODO comeback to.
     let schema = '20221215-01-initial';
-
+    let now = new Date();
     await this.collection(WORKSPACES).insertOne({
       name: trimmed,
-      created: new Date(),
+      dbName: dbName,
+      created: now,
+      modified: now,
       schema
     });
 
-    await this.#createSchema(trimmed, schema);
+    await this.#createSchema(dbName, schema);
+  }
+
+  async renameWorkspace(id, name) {
+    if (!id || !ObjectId.isValid(id)) {
+      throw new Errors.BadRequest('ID is required.');
+    }
+
+    if (!name) {
+      throw new Errors.BadRequest('Invalid workspace name.');
+    }
+
+    let trimmed = name
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, '-')
+      .replace(/[&\/\\#,+()$~%.'":*?<>{}]/g, '');
+    if (!this.isValidName(trimmed)) {
+      throw new Errors.BadRequest('Invalid workspace name.');
+    }
+
+    let existing = await this.getWorkspace(trimmed);
+    if (existing && !existing._id.equals(new ObjectId(id))) {
+      throw new Errors.BadRequest(`Workspace ${trimmed} already exists`);
+    }
+
+    await this.collection(WORKSPACES).updateOne(
+      { _id: new ObjectId(id) },
+      { $set: { name: trimmed, modified: new Date() } }
+    );
   }
 
   isValidName(name) {
@@ -149,7 +198,7 @@ class App extends Base {
       throw new Errors.BadRequest('Invalid email');
     }
 
-    let users = this.collection('users');
+    let users = this.collection(USERS);
     return await users.findOne({ email: email });
   }
 
@@ -173,18 +222,56 @@ class App extends Base {
       throw new Errors.BadRequest('Invalid email');
     }
 
-    if (!name) {
+    if (name) {
+      name = name.trim();
+    } else {
       name = email;
     }
 
     if (!(await this.isSuperAdmin(email))) {
-      await this.collection('users').insertOne({
+      await this.collection(USERS).insertOne({
         email: email,
         name: name,
         admin: true,
         modified: new Date()
       });
     }
+  }
+
+  /**
+   * Add a super admin to the system.
+   * @param {string} email
+   * @param {string} name
+   */
+  async editSuperAdmin(id, email, name) {
+    if (!id || !ObjectId.isValid(id)) {
+      throw new Errors.BadRequest('ID is required.');
+    }
+
+    if (!emailValidator(email)) {
+      throw new Errors.BadRequest('Invalid email');
+    }
+
+    if (name) {
+      name = name.trim();
+    } else {
+      name = email;
+    }
+
+    let existing = await this.collection(USERS).findOne({ _id: new ObjectId(id) });
+    if (!existing) {
+      throw new Errors.BadRequest('User does not exist.');
+    }
+
+    let emailMatch = await this.getSuperAdmin(email);
+    if (emailMatch && !emailMatch._id.equals(existing._id)) {
+      throw new Errors.BadRequest(`Email address is already in use.`);
+    }
+
+    await this.collection(USERS).updateOne(
+      { _id: new ObjectId(id) },
+      { $set: { email: email, name: name, modified: new Date() } }
+    );
   }
 
   /**
@@ -197,8 +284,24 @@ class App extends Base {
     }
 
     if (await this.isSuperAdmin(email)) {
-      await this.collection('users').deleteOne({ email: email });
+      await this.collection(USERS).deleteOne({ email: email });
     }
+  }
+
+  /**
+   * List super admins in the system.
+   * @param {object} options Query options: sort, order
+   * @return {array}
+   */
+  async listSuperAdmins(options = {}) {
+    let sort = {};
+    if (options.sort) {
+      sort[options.sort] = options.order === 'asc' ? 1 : -1;
+    } else {
+      sort['email'] = 1;
+    }
+
+    return await this.collection(USERS).find({}).sort(sort).toArray();
   }
 }
 

@@ -7,7 +7,8 @@ const USERS = 'users';
 
 class User extends Base {
   /**
-   * @param {String} workspace
+   * @param {object} workspace
+   *
    */
   constructor(workspace) {
     if (!workspace) {

@@ -133,6 +133,9 @@
                 {{ user.firstName }}
               </button>
               <ul class="dropdown-menu dropdown-menu-end dropdown-menu-dark">
+                {% if isSuperAdmin %}
+                <li><a class="dropdown-item" href="/super-admin/workspaces">Workspaces</a></li>
+                {% endif %}
                 <li><a class="dropdown-item" href="/Logout">Logout</a></li>
               </ul>
             </li>

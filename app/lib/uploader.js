@@ -16,14 +16,14 @@ module.exports = class Uploader {
 
   /**
    * Generate the cloud storage key for a given file.
-   * @param {string} workspace
+   * @param {object} workspace
    * @param {object} source
    * @param {string} submissionId
    * @param {string} fileName
    * @return {string}
    */
   generateFileKey(workspace, source, submissionId, fileName) {
-    let key = `${workspace}/${source.submissionKey}/${submissionId}/${fileName}`;
+    let key = `${workspace.dbName}/${source.submissionKey}/${submissionId}/${fileName}`;
     if (CONFIG.AWS_S3_PREFIX) {
       return CONFIG.AWS_S3_PREFIX + '/' + key;
     } else {
@@ -51,7 +51,7 @@ module.exports = class Uploader {
 
   /**
    * Get an attachment.
-   * @param {string} workspace
+   * @param {object} workspace
    * @param {object} source
    * @param {string} submissionId
    * @param {string} fileName
@@ -106,7 +106,7 @@ module.exports = class Uploader {
       } catch (error) {
         console.error(
           `Error transcoding ${s3Key} ` +
-            `[Workspace: ${workspace}] Source: ${source.submissionKey}] [Submission: ${submissionId}]`,
+            `[Workspace: ${workspace.name}] Source: ${source.submissionKey}] [Submission: ${submissionId}]`,
           error.stack
         );
         transcodeError = error.message;

@@ -44,9 +44,6 @@ module.exports = function (opts) {
       };
       return res.render('admin/users', model);
     } catch (error) {
-      mailer.sendError(error, {
-        originalUrl: req.originalUrl
-      });
       next(error);
     }
   });

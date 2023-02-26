@@ -32,7 +32,7 @@ program
     if (!admin) {
       throw new Error('Invalid super admin: ' + email);
     }
-    const sourceManager = new Source(new CurrentUser(admin, workspace.name, true), workspace.name);
+    const sourceManager = new Source(new CurrentUser(admin, workspace, true), workspace);
     await sync(workspace, sourceManager);
 
     App.close();
@@ -53,7 +53,7 @@ program
     if (!admin) {
       throw new Error('Invalid super admin: ' + email);
     }
-    const sourceManager = new Source(new CurrentUser(admin, workspace.name, true), workspace.name);
+    const sourceManager = new Source(new CurrentUser(admin, workspace, true), workspace);
     await syncAttachments(workspace, sourceManager);
 
     App.close();

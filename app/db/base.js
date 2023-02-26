@@ -8,8 +8,8 @@ class Base {
   DB_NAME = null;
   connected = false;
 
-  constructor(DB_NAME) {
-    this.DB_NAME = DB_NAME;
+  constructor(workspace) {
+    this.DB_NAME = workspace.dbName;
   }
 
   static close() {

@@ -1,0 +1,160 @@
+{% extends "layout.njk" %}
+
+{% block styles %}
+<link href="{{ '/assets/super-admin.css' | appendVersion }}" rel="stylesheet" />
+{% endblock %}
+
+{% block scripts %}
+<script src="{{'/assets/super-admin-users.js' | appendVersion }}" type="module"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container-xxl mt-2" id="app" v-cloak>
+   <ul class="nav nav-pills mb-2">
+    <li class="nav-item">
+      <a
+        class="nav-link"
+        href="/super-admin/workspaces"
+      >
+        Workspaces
+      </a>
+    </li>
+    <li class="nav-item">
+      <a
+        class="nav-link active"
+        href="/super-admin/users"
+      >
+        Super Admins
+      </a>
+    </li>
+  </ul>
+  <div v-if="error" class="alert alert-danger" role="alert">${error}</div>
+
+  <div class="mt-4 mb-2 d-flex align-items-center justify-content-between">
+    <div>
+      <button @click="editUser" id="add-user-btn" class="btn btn-sm btn-secondary">Add User</button>
+    </div>
+  </div>
+
+  <div class="table-responsive-md">
+    <table class="table table-striped" id="users" ref="users">
+      <thead>
+        <tr>
+          <th scope="col" class="{{ 'is-sorted' if sort === "email" }}">
+            <a href="{{ sortLinks.email }}" class="text-decoration-none {{ order }} {{ "link-dark" if sort === "email" else "text-secondary" }}">
+              Email
+              <i class="bi bi-sort-down"></i>
+            </a>
+          </th>
+          <th class="{{ 'is-sorted' if sort === "name" }}">
+            <a href="{{ sortLinks.name }}" class="text-decoration-none {{ order }} {{ "link-dark" if sort === "name" else "text-secondary" }}">
+              Name
+              <i class="bi bi-sort-down"></i>
+            </a>
+          </th>
+          <th class="{{ 'is-sorted' if sort === "modified" }}">
+            <a href="{{ sortLinks.modified }}" class="text-decoration-none {{ order }} {{ "link-dark" if sort === "modified" else "text-secondary" }}">
+              Last Modified
+              <i class="bi bi-sort-down"></i>
+            </a>
+          </th>
+          <th scope="col"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if users.length === 0 %}
+        <tr>
+          <td colspan="100%">No super admins</td>
+        </tr>
+        {% endif %}
+        {% for user in users %}
+        <tr
+          data-id="{{ user._id }}"
+          data-email="{{ user.email }}"
+          data-name="{{ user.name }}"
+          data-deleted="{{ user.deleted }}"
+        >
+          <td class="email align-middle" data-email="{{ user.email}}">
+            {{ user.email }}
+          </td>
+          <td class="name align-middle" >{{ user.name }}</td>
+          <td class="modified align-middle">
+            <time
+              datetime="{{user.modified | formatDate('YYYY-MM-DDTHH:mm:ssZ[Z]') }}"
+              title="{{user.modified | formatDate('YYYY-MM-DDTHH:mm:ssZ[Z]') }}"
+            >
+              {{ user.modified | formatDate }}
+            </time>
+          </td>
+          <td>
+            <button class="btn btn-link edit-user" @click="editUser">Edit</button>
+            <button class="btn btn-link text-danger delete-user" @click="deleteUser">Delete</button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div
+    class="modal fade"
+    id="edit-modal"
+    tabindex="-1"
+    aria-labelledby="edit-modal-title"
+    aria-hidden="true"
+  >
+    <div class="modal-dialog modal-xl">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="edit-modal-title">Edit User</h5>
+          <button
+            type="button"
+            class="btn-close"
+            data-bs-dismiss="modal"
+            aria-label="Close"
+          ></button>
+        </div>
+        <div v-if="editingUser" class="modal-body">
+          <div class="alert alert-warning d-none" role="alert"></div>
+          <input id="edit-user-id" type="hidden" value="" />
+          <div class="row">
+            <div class="col-12">
+              <div class="mb-3 form-floating">
+                <input
+                  type="email"
+                  class="form-control"
+                  id="edit-user-email"
+                  required
+                  placeholder="user@domain.com"
+                  name="email"
+                  autofocus
+                  v-model.trim="editingUser.email"
+                />
+                <label for="edit-user-email">Email address</label>
+              </div>
+              <div class="mb-3 form-floating">
+                <input
+                  type="text"
+                  class="form-control"
+                  id="edit-user-name"
+                  required
+                  placeholder="First Last"
+                  name="name"
+                  maxlength="100"
+                  v-model.trim="editingUser.name"
+                />
+                <label for="edit-user-name">Name</label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer justify-content-end">
+          <div v-if="saveError" class="text-danger me-2">${saveError}</div>
+          <button :disabled="saving" @click="saveUser" class="btn btn-primary save">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+

@@ -3,6 +3,10 @@
   overflow-y: auto;
 }
 
+#users tr td {
+  vertical-align: middle;
+}
+
 #users tr[data-deleted='true'] {
   opacity: 0.5;
 }

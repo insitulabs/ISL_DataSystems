@@ -31,7 +31,7 @@ class Audit extends Base {
   /**
    *
    * @param {CurrentUser} user
-   * @param {String} workspace The workspace or default to user's workspace.
+   * @param {object} workspace The workspace or default to user's workspace.
    */
   constructor(user, workspace) {
     if (!user) {

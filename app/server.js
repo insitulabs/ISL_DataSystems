@@ -150,7 +150,7 @@ const emailValidator = require('./lib/email-validator');
       .getWorkspace(subdomain)
       .then((workspace) => {
         if (workspace) {
-          res.locals.workspace = workspace.name;
+          res.locals.workspace = workspace;
           next();
         } else {
           return next(new Errors.NotFound('Invalid workspace'));
@@ -265,11 +265,13 @@ const emailValidator = require('./lib/email-validator');
             superAdmin ? 'member' : false
           );
           res.locals.isAdmin = res.locals.user.admin;
+          res.locals.isSuperAdmin = res.locals.user.isSuperAdmin;
           return next();
         } else if (superAdmin) {
           // No workspace user, but we are a super admin
           res.locals.user = new CurrentUser(superAdmin, res.locals.workspace, 'guest');
           res.locals.isAdmin = res.locals.user.admin;
+          res.locals.isSuperAdmin = res.locals.user.isSuperAdmin;
           return next();
         } else {
           // User has a session, but it's not valid, logout.
@@ -298,6 +300,20 @@ const emailValidator = require('./lib/email-validator');
 
     next();
   });
+
+  // Super admin routes
+  app.use(
+    '/super-admin',
+    noCacheMiddleware,
+    (req, res, next) => {
+      if (res.locals.user && res.locals.user.isSuperAdmin) {
+        next();
+      } else {
+        next(new Errors.Unauthorized());
+      }
+    },
+    require('./view/routes/super-admin')()
+  );
 
   // Admin routes
   app.use(
@@ -349,7 +365,7 @@ const emailValidator = require('./lib/email-validator');
     if (!error.statusCode && !error.silent) {
       mailer.sendError(error, {
         url: req.originalUrl,
-        workspace: res.locals.workspace,
+        workspace: res.locals.workspace.name,
         user: res.locals.user ? res.locals.user.email : null
       });
     }
@@ -407,8 +423,8 @@ const emailValidator = require('./lib/email-validator');
             for (let workspace of workspaces) {
               try {
                 let sourceManager = new Source(
-                  new CurrentUser(jobsUser, workspace.name, true),
-                  workspace.name
+                  new CurrentUser(jobsUser, workspace, true),
+                  workspace
                 );
                 await jobSyncOdkSubmissions(workspace, sourceManager);
               } catch (error) {
@@ -437,8 +453,8 @@ const emailValidator = require('./lib/email-validator');
             for (let workspace of workspaces) {
               try {
                 let sourceManager = new Source(
-                  new CurrentUser(jobsUser, workspace.name, true),
-                  workspace.name
+                  new CurrentUser(jobsUser, workspace, true),
+                  workspace
                 );
                 await jobSyncOdkAttachments(workspace, sourceManager);
               } catch (error) {
