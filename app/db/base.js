@@ -74,7 +74,7 @@ class Base {
   /**
    * Build the match and addFields aggregation steps for filtering submissions.
    * @param {object} filters
-   * @returns  {object} Object with match and addFields keys
+   * @return {object} Object with match and addFields keys
    */
   filterSubmissions(filters) {
     // Cast fields to filter as string, so regex works correctly on numbers.
@@ -87,6 +87,11 @@ class Base {
           let expression = {};
           let castTo = 'string';
           let onError = null;
+
+          let isNot = /^!/.test(value);
+          if (isNot) {
+            value = value.replace(/^!\s*/, '');
+          }
 
           // > 2022-33-02 && < 2022-23-02
           let dateCompare =
@@ -156,11 +161,35 @@ class Base {
             }
           } else if (value.trim() === '*') {
             expression = { $exists: true, $ne: null };
+
+            // If isNot, inverse to mean value does not exist.
+            if (isNot) {
+              isNot = false;
+              expression = null;
+            }
           } else if (value.trim() === 'null') {
             expression = null;
+
+            // If isNot, inverse to mean value exists.
+            if (isNot) {
+              isNot = false;
+              expression = { $exists: true, $ne: null };
+            }
           } else {
-            let escapedV = value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            expression['$regex'] = new RegExp(escapedV, 'i');
+            let regex = null;
+            let realRegExp = /^\/(.+)\/([a-z]?)$/.exec(value);
+            if (realRegExp) {
+              try {
+                regex = new RegExp(realRegExp[1], realRegExp.length === 3 ? realRegExp[2] : null);
+              } catch (err) {}
+            }
+
+            if (!regex) {
+              let escapedV = value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+              regex = new RegExp(escapedV, 'i');
+            }
+
+            expression['$regex'] = regex;
           }
 
           let filterField = '_filter.' + field + '_' + castTo;
@@ -174,7 +203,11 @@ class Base {
           };
 
           let filter = {};
-          filter[filterField] = expression;
+          if (isNot) {
+            filter[filterField] = { $not: expression };
+          } else {
+            filter[filterField] = expression;
+          }
           return filter;
         });
 
