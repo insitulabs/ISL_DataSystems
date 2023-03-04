@@ -147,24 +147,27 @@
         </div>
       </div>
 
+      <div id="top-pagination" class="d-none d-md-block"></div>
+
       {% if userCanEdit %}
         {% if theImport %}
-        <div class="me-1">
+        <div class="ms-1">
           <button id="btn-delete-import" class="btn btn-danger btn-sm">Delete</button>
           <button id="btn-import-records" class="btn btn-primary btn-sm">Import Records</button>
         </div>
         {% endif %}
 
         {% if userCanCreate %}
-        <div class="me-1">
+        <div class="ms-1">
           <button type="button" class="btn btn-secondary btn-sm"
               data-bs-toggle="modal" data-bs-target="#new-submission-modal">
-            New Submission
+            <span class="d-inline-block d-lg-none">New</span>
+            <span class="d-none d-lg-inline-block">New Submission</span>
           </button>
         </div>
         {% endif %}
 
-        <div id="undo">
+        <div id="undo" class="ms-1">
           <button class="btn btn-secondary btn-sm" disabled>Undo</button>
         </div>
       {% endif %}

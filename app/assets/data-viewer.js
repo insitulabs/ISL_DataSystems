@@ -679,6 +679,7 @@ const fetchFilters = function () {
       }
 
       $data.innerHTML = text;
+      updatePaginationPlacement();
       updateExportLinks(getFormPrefs().hiddenFields);
     })
     .catch((error) => {
@@ -719,7 +720,7 @@ function hideFields(hiddenFields) {
 // #######################################################
 
 const updateExportLinks = (hidden) => {
-  document.querySelectorAll('#data .export-btn').forEach(($a) => {
+  document.querySelectorAll('.export-btn').forEach(($a) => {
     let href = $a.href.replace(/&hidden=[^&]+/i, '');
     if (hidden && hidden.length) {
       $a.href = href + '&hidden=' + encodeURIComponent(hidden.join(','));
@@ -904,6 +905,21 @@ if ($createModal) {
 }
 
 // #######################################################
+// # PAGINATION NAV LOGIC
+// #######################################################
+
+function updatePaginationPlacement() {
+  let $top = document.getElementById('top-pagination');
+  $top.innerHTML = '';
+
+  let $nav = data.querySelector('#data .top-pagination');
+  if ($nav) {
+    $top.appendChild($nav);
+    $nav.classList.remove('d-none');
+  }
+}
+
+// #######################################################
 // # ATTACHMENT MODAL LOGIC
 // #######################################################
 
@@ -967,6 +983,7 @@ function resize() {
 
 function onLoad() {
   initFilter();
+  updatePaginationPlacement();
 
   // Init Bootstrap popovers (help tips)
   document.querySelectorAll('[data-bs-toggle="popover"]').forEach((popoverTriggerEl) => {
