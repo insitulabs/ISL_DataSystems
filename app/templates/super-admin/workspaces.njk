@@ -85,7 +85,18 @@
           </td>
           <td class="align-middle">
             {% if workspace.sync and workspace.sync.enabled %}
-              {{ workspace.sync.url }}
+              <a href="{{ workspace.sync.url }}" target="_blank">{{ workspace.sync.url }}</a>
+              <br>
+              User: {{ workspace.sync.user }}
+              <br>
+              Projects:
+              {% for project in workspace.sync.projects %}
+                <a
+                  href="{{ workspace.sync.url }}/#/projects/{{ project }}"
+                  target="_blank"
+                  class="me-1"
+                >{{ project }}</a>
+              {% endfor %}
             {% endif %}
           </td>
 

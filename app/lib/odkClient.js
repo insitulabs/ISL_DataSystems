@@ -240,6 +240,7 @@ class OdkClient {
 
   /**
    * Get the projects.
+   * @param {Array} projectIds IDs of projects to filter for.
    * @param {Boolean} includeArchived
    * @returns {Array} The list of projects. A project will look like:
    *   {
@@ -254,7 +255,7 @@ class OdkClient {
    *   lastSubmission: '2021-03-08T06:30:03.181Z'
    *   }
    */
-  async getProjects(includeArchived = false) {
+  async getProjects(projectIds, includeArchived = false) {
     await this.#login();
     const getProjectForms = (projectId) => {
       return _axios
@@ -279,6 +280,12 @@ class OdkClient {
         let projects = resp.data;
         if (!includeArchived) {
           projects = projects.filter((p) => p.archived !== true);
+        }
+
+        if (projectIds && Array.isArray(projectIds)) {
+          projects = projects.filter((p) => {
+            return projectIds.some((id) => id == p.id);
+          });
         }
 
         for (let project of projects) {

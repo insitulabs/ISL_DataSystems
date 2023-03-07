@@ -137,12 +137,21 @@ class App extends Base {
     await workspaceSchema(db);
   }
 
-  async enableWorkspaceSync(name, type, url, user, password) {
+  async enableWorkspaceSync(name, type, url, user, password, projects) {
     let workspace = await this.getWorkspace(name);
+    if (!workspace) {
+      throw new Errors.BadRequest('Workspace does note exist');
+    }
 
-    if (!type || !url || !user || !password) {
+    if (!type || !url || !user || !password || !projects) {
       throw new Errors.BadRequest('Invalid arguments');
     }
+
+    projects = projects
+      .map((id) => parseInt(id))
+      .filter((id) => !isNaN(id))
+      .filter(Boolean);
+    projects.sort((a, b) => a - b);
 
     let toPersist = {
       sync: {
@@ -150,7 +159,8 @@ class App extends Base {
         type,
         url,
         user,
-        password: crypto.encrypt(password)
+        password: crypto.encrypt(password),
+        projects
       }
     };
 

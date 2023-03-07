@@ -27,7 +27,7 @@ module.exports = async function (workspace, sourceManager, SOURCE_SYSTEM = 'ODK'
     crypto.decrypt(workspace.sync.password)
   );
 
-  let projects = await odkClient.getProjects();
+  let projects = await odkClient.getProjects(workspace.sync.projects);
   projects.sort((a, b) => {
     return a.id - b.id;
   });
