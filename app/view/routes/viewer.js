@@ -333,11 +333,28 @@ module.exports = function (opts) {
     let currentPage = Math.floor(offset / limit) + 1;
     let pagination = paginate(queryResponse.totalResults, currentPage, limit, 10);
 
+    let prefs = currentUser.getPrefs(dataType, dataId) || {};
+    let hiddenFields = prefs.hiddenFields || [];
+    // Ensure hidden fields still exist.
+    hiddenFields = hiddenFields.filter((id) => {
+      return fields.find((f) => f.id == id);
+    });
+    prefs.hiddenFields = hiddenFields;
+
+    // TODO we don't need this if nunjucks can find in array
+    let hiddenFieldsAsObj = hiddenFields.reduce((obj, f) => {
+      obj[f] = true;
+      return obj;
+    }, {});
+
     let model = {
       ...viewData,
       pagePathWQuery: pagePath + '?' + pageParams.toString(),
       csvLink: csvLink ? csvLink + '?' + pageParams.toString() : null,
-      fields: fields,
+      prefs,
+      fields,
+      hiddenFields,
+      hiddenFieldsAsObj,
       submissions: submissions,
       pagination: pagination,
       userCanCreate,

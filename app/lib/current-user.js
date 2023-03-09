@@ -96,6 +96,20 @@ class CurrentUser {
   }
 
   /**
+   * Get user preferences for a source/view.
+   * @param {string} type
+   * @param {string} id
+   * @return {object|null}
+   */
+  getPrefs(type, id) {
+    if (type && id && this._user.prefs) {
+      return this._user.prefs[`${type}_${id}`];
+    }
+
+    return null;
+  }
+
+  /**
    * Extract an ID out of an object.
    * @param {(ObjectId|Object|String)} obj The object to extract an ID string out of.
    * @return {String}

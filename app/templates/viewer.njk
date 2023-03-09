@@ -2,9 +2,22 @@
 
 {% block styles %}
 <link href="{{ '/assets/data-viewer.css' | appendVersion }}" rel="stylesheet">
+
+{% if hiddenFields | length > 0 %}
+<style id="field-visibility-styles">
+  {% for f in hiddenFields %}
+    #data > table [data-field="{{ f }}"] {
+      display: none;
+    }
+  {% endfor %}
+</style>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}
+<script>
+  window._prefs = {{ prefs | dump | safe }};
+</script>
 <script src="{{'/assets/data-viewer.js' | appendVersion }}"></script>
 {% endblock %}
 
@@ -50,7 +63,7 @@
                   data-bs-toggle="dropdown"
                   data-bs-auto-close="outside"
                   aria-expanded="false">
-                <span class="visible-count">{{ fields | length }}</span>
+                <span class="visible-count">{{ (fields | length) - (hiddenFields | length)}}</span>
                 of
                 <span class="all-count">{{ fields | length }}</span>
               </button>
@@ -82,7 +95,7 @@
                             type="checkbox"
                             value="{{ f.id }}"
                             id="field-toggle-{{ f.id }}"
-                            checked>
+                            {% if hiddenFieldsAsObj[f.id] !== true %} checked {% endif %}>
                         <label class="form-check-label d-block" for="field-toggle-{{ f.id }}">
                           {{ f.name }}
                         </label>

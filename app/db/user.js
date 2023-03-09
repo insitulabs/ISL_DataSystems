@@ -303,6 +303,52 @@ class User extends Base {
     $unset['views.' + view._id] = 1;
     await users.updateMany({}, { $unset: $unset });
   }
+
+  /**
+   * Update the source/view preferences for a given user. User must belong to workspace.
+   * @param {CurrentUser} user
+   * @param {string} originType
+   * @param {string} originId
+   * @param {object} prefs
+   * @return {object} saved prefs
+   */
+  async updatePrefs(user, originType, originId, prefs) {
+    if (!user || !ObjectId.isValid(user._id)) {
+      throw new Errors.BadRequest('Invalid user');
+    }
+
+    if (!/^view|source$/.test(originType)) {
+      throw new Errors.BadRequest('Invalid origin type');
+    }
+
+    if (!originId || !ObjectId.isValid(originId)) {
+      throw new Errors.BadRequest('Invalid originId');
+    }
+
+    if (!prefs) {
+      throw new Errors.BadRequest('Invalid prefs');
+    }
+
+    const users = this.collection(USERS);
+    let existingUser = await this.getUserById(user._id);
+    if (!existingUser) {
+      if (user.isSuperAdmin) {
+        // Super admins who don't have local account, just ignore.
+        return prefs;
+      }
+      throw new Errors.BadRequest('Invalid user');
+    }
+
+    let key = `${originType}_${originId}`;
+    let userPrefs = existingUser.userPrefs;
+    if (!userPrefs) {
+      userPrefs = {};
+    }
+    userPrefs[key] = prefs;
+    await users.updateOne({ _id: user._id }, { $set: { prefs: userPrefs } });
+
+    return prefs;
+  }
 }
 
 module.exports = User;

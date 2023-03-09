@@ -208,6 +208,31 @@ module.exports = function () {
     }
   });
 
+  /**
+   * Update user column preferences.
+   */
+  router.post('/pref/:originType/:originId', async (req, res, next) => {
+    try {
+      let currentUser = getCurrentUser(res);
+      const userManager = new User(res.locals.workspace);
+      let originType = req.params.originType;
+      let originId = req.params.originId;
+      if (!originId || !originType) {
+        throw new Errors.BadRequest('Invalid params');
+      }
+
+      let prefs = req.body;
+      if (!prefs || typeof prefs !== 'object') {
+        throw new Errors.BadRequest('Invalid params');
+      }
+
+      prefs = await userManager.updatePrefs(currentUser, originType, originId, prefs);
+      res.json({ prefs });
+    } catch (error) {
+      next(error);
+    }
+  });
+
   return router;
 };
 

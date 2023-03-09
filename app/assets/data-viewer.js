@@ -691,7 +691,7 @@ const fetchFilters = function () {
 };
 
 function hideFields(hiddenFields) {
-  const main = document.body.querySelector('main');
+  const head = document.getElementsByTagName('head')[0];
   let styleTag = document.getElementById('field-visibility-styles');
   if (styleTag) {
     styleTag.parentNode.removeChild(styleTag);
@@ -711,7 +711,7 @@ function hideFields(hiddenFields) {
     styleTag = document.createElement('style');
     styleTag.id = 'field-visibility-styles';
     styleTag.textContent = css;
-    main.prepend(styleTag);
+    head.append(styleTag);
   }
 }
 
@@ -780,41 +780,24 @@ function initFieldToggles(initHiddenFields) {
   });
 
   if (initHiddenFields) {
-    hideFields(initHiddenFields);
     updateExportLinks(initHiddenFields);
-    $fieldTogglesBtn.querySelector('.visible-count').innerText =
-      allFieldsCount - initHiddenFields.length;
-    $fieldToggles.querySelectorAll('input[type=checkbox]').forEach((el) => {
-      if (initHiddenFields.includes(el.value)) {
-        el.checked = false;
-      }
-    });
   }
 }
 
 function getFormPrefs() {
-  try {
-    let prefJson = window.localStorage.getItem(`pref-${ORIGIN_TYPE}-${ORIGIN_ID}`);
-    if (prefJson) {
-      return JSON.parse(prefJson);
-    }
-  } catch (e) {
-    // Silence json/storage errors
-  }
-
-  return {};
+  return window._prefs || {};
 }
 
 function setFormPref(field, value) {
   let prefs = getFormPrefs();
   prefs[field] = value;
-  try {
-    window.localStorage.setItem(`pref-${ORIGIN_TYPE}-${ORIGIN_ID}`, JSON.stringify(prefs));
-  } catch (e) {
-    // Silence json/storage errors
-  }
 
-  return prefs;
+  return $api(`/api/user/pref/${ORIGIN_TYPE}/${ORIGIN_ID}`, {
+    method: 'POST',
+    body: JSON.stringify(prefs)
+  }).catch((error) => {
+    alert(error && error.message ? error.message : error);
+  });
 }
 
 // #######################################################
@@ -1005,7 +988,6 @@ function onLoad() {
   let prefs = getFormPrefs();
   initFieldToggles(prefs.hiddenFields);
   document.getElementById('data-loader').classList.add('d-none');
-  getFormPrefs();
   window.addEventListener('resize', resize);
 }
 

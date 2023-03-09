@@ -350,10 +350,15 @@ const emailValidator = require('./lib/email-validator');
 
   // 404 handler
   app.use((req, res, next) => {
-    res.render('error', {
-      error: new Error('Not Found'),
-      statusCode: 404
-    });
+    let error = new Error('Not Found');
+    if (/json/.test(req.get('content-type')) || /json/.test(req.get('accept'))) {
+      res.status(404).json({ message: error.message });
+    } else {
+      res.render('error', {
+        error,
+        statusCode: 404
+      });
+    }
   });
 
   // Error handler
