@@ -892,7 +892,23 @@ class Source extends Base {
     let submissionsToPersist = records.map((r) => {
       let normalized = {};
       for (const [key, value] of Object.entries(r)) {
-        normalized[Source.normalizeFieldName(key)] = value;
+        let newValue = value;
+        if (typeof newValue === 'string') {
+          // Is number?
+          if (value && /^[\d\.]+$/.test(value)) {
+            if (value.indexOf('.') > -1) {
+              newValue = parseFloat(newValue);
+            } else {
+              newValue = parseInt(newValue);
+            }
+
+            if (isNaN(newValue)) {
+              newValue = null;
+            }
+          }
+        }
+
+        normalized[Source.normalizeFieldName(key)] = newValue;
       }
 
       return {
