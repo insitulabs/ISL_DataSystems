@@ -1,4 +1,3 @@
-// import { createApp } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js';
 import { createApp } from '/assets/lib/vue.esm-browser.js';
 
 let beforeUnloadListener = null;
@@ -18,7 +17,8 @@ createApp({
       namespace: data.namespace,
       name: data.name,
       note: data.note,
-      fields: data.fields,
+      fields: data.fields.slice(),
+      persistedFields: data.fields.slice(),
       saving: false,
       error: null,
       loadingPreview: false,
@@ -74,6 +74,13 @@ createApp({
         return invalid;
       }, {});
       return invalid;
+    },
+    newFieldIds() {
+      return this.fields
+        .filter((f) => {
+          return !this.persistedFields.find((persisted) => persisted.id === f.id);
+        })
+        .map((f) => f.id);
     }
   },
 
@@ -205,22 +212,19 @@ createApp({
         });
     },
 
-    deleteField(field, index) {
-      if (field.id) {
-        // TODO
-        alert('Deleting previously saved fields is not supported at this time');
-        return;
+    deleteField(field) {
+      if (!this.newFieldIds.includes(field.id)) {
+        if (
+          !confirm(
+            'Are you sure you want to delete this field? ' +
+              'Once saved, all data for this field will be lost. This cannot be undone.'
+          )
+        ) {
+          return;
+        }
       }
 
-      this.sources.forEach((s) => {
-        for (const [sourceField, viewField] of Object.entries(s.rename)) {
-          if (viewField === field.name) {
-            s.rename[sourceField] = null;
-          }
-        }
-      });
-
-      this.fields.splice(index, 1);
+      this.fields = this.fields.filter((f) => f.id !== field.id);
     },
 
     /**

@@ -137,6 +137,7 @@
               />
               <label :for="`field-${field.id}`" class="text-secondary">${field.id}</label>
             </div>
+
             <button
               class="btn btn-outline-secondary btn-sm"
               @click="moveField(index, 1)"
@@ -152,6 +153,14 @@
               title="Move field up"
             >
               <i class="bi bi-arrow-up-short"></i>
+            </button>
+
+            <button
+              class="btn btn-outline-danger btn-sm"
+              @click="deleteField(field)"
+              title="Delete field"
+            >
+              <i class="bi bi-trash"></i>
             </button>
           </div>
         </div>

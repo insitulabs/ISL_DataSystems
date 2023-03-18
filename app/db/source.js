@@ -465,6 +465,26 @@ class Source extends Base {
     let existing = await this.getSource(source._id);
     this.#validateSource(source);
 
+    let fieldsToDelete = existing.fields.filter((existingField) => {
+      return !source.fields.find((f) => existingField.id === f.id);
+    });
+
+    if (fieldsToDelete.length) {
+      const submissions = this.collection(SUBMISSIONS);
+      let $unset = fieldsToDelete.reduce((unset, f) => {
+        unset['data.' + f.id] = 1;
+        return unset;
+      }, {});
+
+      // Clear removed fields from submissions
+      await submissions.updateMany({ source: existing.submissionKey }, { $unset });
+
+      // Clear removed fields from views. Load module here to avoid circular dep.
+      const View = require('./view');
+      const viewManager = new View(this.user, this.workspace);
+      viewManager.removeSourceFieldFromViews(existing, fieldsToDelete);
+    }
+
     let now = new Date();
     let toPersist = {
       name: source.name,
@@ -491,7 +511,11 @@ class Source extends Base {
         $set: toPersist
       }
     );
-    return await this.getSource(existing._id);
+
+    return {
+      source: await this.getSource(existing._id),
+      deletedFields: fieldsToDelete
+    };
   }
 
   /**
@@ -1244,6 +1268,31 @@ class Source extends Base {
     );
 
     return this.getSubmission(id);
+  }
+
+  /**
+   * Remove all submission data for a given view and field.
+   * @param {object} view
+   * @param {array} fields
+   */
+  async purgeSubmissionViewData(view, fields) {
+    if (!view) {
+      throw new Errors.BadRequest('View is required');
+    }
+    if (!fields) {
+      throw new Errors.BadRequest('Field is required');
+    }
+    const submissions = this.collection(SUBMISSIONS);
+    let $match = {};
+    $match[`viewData.${view._id}`] = { $exists: true };
+    let $unset = fields.reduce((toUnset, field) => {
+      toUnset[`viewData.${view._id}.$[].${field.id}`] = 1;
+      return toUnset;
+    }, {});
+
+    await submissions.updateMany($match, {
+      $unset
+    });
   }
 }
 

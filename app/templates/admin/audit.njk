@@ -121,6 +121,11 @@
 
             {% elseif result.type === 'source-edit' %}
               {{ result.data.name }}
+              {% if result.data.deletedFields and result.data.deletedFields | length %}
+                <ul>
+                  <li><strong>Deleted Fields:</strong> {{ result.data.deletedFields }}</li>
+                </ul>
+              {% endif %}
 
             {% elseif result.type === 'source-create' %}
               {{ result.data.name }}
@@ -133,6 +138,11 @@
 
             {% elseif result.type === 'view-edit' %}
               {{ result.data.name }}
+              {% if result.data.deletedFields and result.data.deletedFields | length %}
+              <ul>
+                <li><strong>Deleted Fields:</strong> {{ result.data.deletedFields }}</li>
+              </ul>
+              {% endif %}
 
             {% elseif result.type === 'view-delete' %}
               {{ result.data.name }}

@@ -220,9 +220,9 @@ module.exports = function (opts) {
       getCurrentUser(res).validate(CurrentUser.PERMISSIONS.SOURCE_CREATE);
       const sourceManager = new Source(getCurrentUser(res));
       const auditManager = new Audit(getCurrentUser(res));
-      let updated = await sourceManager.updateSource(req.body, res.locals.user);
-      auditManager.logSourceEdit(updated);
-      res.json(updated);
+      let { source, deletedFields } = await sourceManager.updateSource(req.body, res.locals.user);
+      auditManager.logSourceEdit(source, deletedFields);
+      res.json(source);
     } catch (error) {
       next(error);
     }

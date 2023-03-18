@@ -19,6 +19,7 @@ createApp({
       name: data.name,
       note: data.note || '',
       fields: data.fields,
+      persistedFields: data.fields.slice(),
       sources: data.sources,
       editingFieldIndex: null,
       editingFieldName: null,
@@ -105,6 +106,14 @@ createApp({
       // return this.allSources.filter((s) => {
       //   return !this.sources.find((existingSource) => existingSource.source === s._id);
       // });
+    },
+
+    newFieldIds() {
+      return this.fields
+        .filter((f) => {
+          return !this.persistedFields.find((persisted) => persisted.id === f.id);
+        })
+        .map((f) => f.id);
     }
   },
 
@@ -244,13 +253,15 @@ createApp({
     },
 
     checkAllEditingSourceFields() {
-      this.editingSource.selected = this.editingSourceVisibleFields.slice(0);
+      this.editingSource.selected = this.editingSourceVisibleFields.map((f) => f.id);
     },
 
     checkNoneEditingSourceFields() {
-      this.editingSource.selected = this.editingSource.selected.filter((f) => {
-        return !this.editingSourceVisibleFields.includes(f);
-      });
+      this.editingSource.selected = this.editingSource.selected
+        .filter((f) => {
+          return !this.editingSourceVisibleFields.includes(f);
+        })
+        .map((f) => f.id);
     },
 
     onSaveSource() {
@@ -415,11 +426,16 @@ createApp({
       this.editFieldModal.hide();
     },
 
-    deleteField(field, index) {
-      if (field.id) {
-        // TODO
-        alert('Deleting previously saved fields is not supported at this time');
-        return;
+    deleteField(field) {
+      if (!this.newFieldIds.includes(field.id)) {
+        if (
+          !confirm(
+            'Are you sure you want to delete this field? ' +
+              'Once saved, all data for this field will be lost. This cannot be undone.'
+          )
+        ) {
+          return;
+        }
       }
 
       this.sources.forEach((s) => {
@@ -430,7 +446,7 @@ createApp({
         }
       });
 
-      this.fields.splice(index, 1);
+      this.fields = this.fields.filter((f) => f.id !== field.id);
     },
 
     moveField(index, increment) {

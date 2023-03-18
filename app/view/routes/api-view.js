@@ -27,10 +27,10 @@ module.exports = function (opts) {
     try {
       getCurrentUser(res).validate(CurrentUser.PERMISSIONS.VIEW_CREATE);
       const viewManager = new View(getCurrentUser(res));
-      let updated = await viewManager.updateView(req.body);
+      let { view, deletedFields } = await viewManager.updateView(req.body);
       const auditManager = new Audit(getCurrentUser(res));
-      auditManager.logViewEdit(updated);
-      res.json(updated);
+      auditManager.logViewEdit(view, deletedFields);
+      res.json(view);
     } catch (error) {
       next(error);
     }

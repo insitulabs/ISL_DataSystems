@@ -366,18 +366,24 @@ class Audit extends Base {
   /**
    * Log a source edit.
    * @param {object} source The source.
+   * @param {array} deletedFields deleted fields
    */
-  async logSourceEdit(source) {
+  async logSourceEdit(source, deletedFields) {
     if (this.user.preventAudit) {
       return;
     }
 
     let events = this.collection(AUDIT_EVENTS);
-    let record = this.#userEvent(AuditEvent.SourceEdit, {
+    let data = {
       _id: source._id,
       name: source.name,
       submissionKey: source.submissionKey
-    });
+    };
+    if (deletedFields && deletedFields.length) {
+      data.deletedFields = deletedFields.map((f) => f.name || f.id);
+    }
+
+    let record = this.#userEvent(AuditEvent.SourceEdit, data);
     return events.insertOne(record).catch(this.#onError);
   }
 
@@ -435,17 +441,22 @@ class Audit extends Base {
   /**
    * Log a view edit.
    * @param {object} view The view.
+   * @param {array} deletedFields deleted fields
    */
-  async logViewEdit(view) {
+  async logViewEdit(view, deletedFields) {
     if (this.user.preventAudit) {
       return;
     }
 
     let events = this.collection(AUDIT_EVENTS);
-    let record = this.#userEvent(AuditEvent.ViewEdit, {
+    let data = {
       _id: view._id,
       name: view.name
-    });
+    };
+    if (deletedFields && deletedFields.length) {
+      data.deletedFields = deletedFields.map((f) => f.name);
+    }
+    let record = this.#userEvent(AuditEvent.ViewEdit, data);
     return events.insertOne(record).catch(this.#onError);
   }
 

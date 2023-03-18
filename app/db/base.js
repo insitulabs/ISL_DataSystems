@@ -5,10 +5,12 @@ const util = require('util');
 let _mongoClient = new MongoClient(CONFIG.MONGO_URI);
 
 class Base {
+  workspace = null;
   DB_NAME = null;
   connected = false;
 
   constructor(workspace) {
+    this.workspace = workspace;
     this.DB_NAME = workspace.dbName;
   }
 

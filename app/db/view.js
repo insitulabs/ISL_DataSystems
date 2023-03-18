@@ -42,7 +42,7 @@ class View extends Base {
     let view = await views.findOne({ _id: new ObjectId(id) });
 
     if (!view) {
-      throw new Error('View not found: ' + id);
+      throw new Errors.BadRequest('View not found: ' + id);
     }
 
     return view;
@@ -172,11 +172,15 @@ class View extends Base {
    * Update a view.
    * @param {Object} view
    * @param {Object} user
-   * @returns {Object} The updated view.
+   * @returns {Object} The updated view and deletedFields.
    */
   async updateView(view) {
     let existing = await this.getView(view._id);
     this.#validateView(view);
+
+    let fieldsToDelete = existing.fields.filter((existingField) => {
+      return !view.fields.find((f) => existingField.id === f.id);
+    });
 
     let sources = view.sources.map((s) => {
       return {
@@ -198,9 +202,16 @@ class View extends Base {
       modified: now
     };
 
-    // TODO this may break data edit if field nae changes
     toPersist.fields.forEach((f) => {
-      f.id = View.normalizeFieldName(f.name);
+      // New fields need an ID. We don't change ID once it's created.
+      if (!f.id) {
+        let newFieldId = View.normalizeFieldName(f.name);
+        if (toPersist.fields.some((field) => field.id === newFieldId)) {
+          throw new Errors.BadRequest('Field ID must be unique: ' + newFieldId);
+        }
+
+        f.id = newFieldId;
+      }
     });
 
     toPersist.modifiedBy = {
@@ -217,7 +228,16 @@ class View extends Base {
       }
     );
 
-    return await this.getView(existing._id);
+    if (fieldsToDelete.length) {
+      const sourceManager = new Source(this.user);
+      await sourceManager.purgeSubmissionViewData(existing, fieldsToDelete);
+    }
+
+    let updatedView = await this.getView(existing._id);
+    return {
+      view: updatedView,
+      deletedFields: fieldsToDelete
+    };
   }
 
   /**
@@ -554,15 +574,15 @@ class View extends Base {
    */
   #validateView(view) {
     if (!view) {
-      throw new Error('View required.');
+      throw new Errors.BadRequest('View required.');
     }
 
     if (!view.name || typeof view.name !== 'string' || !view.name.trim().length > 0) {
-      throw new Error('Invalid view name.');
+      throw new Errors.BadRequest('Invalid view name.');
     }
 
     if (!view.fields || !Array.isArray(view.fields) || view.fields.length === 0) {
-      throw new Error('View fields required.');
+      throw new Errors.BadRequest('View fields required.');
     }
 
     if (
@@ -572,11 +592,11 @@ class View extends Base {
         }
       })
     ) {
-      throw new Error('Invalid view fields');
+      throw new Errors.BadRequest('Invalid view fields');
     }
 
     if (!view.sources || !Array.isArray(view.sources) || view.sources.length === 0) {
-      throw new Error('View sources required.');
+      throw new Errors.BadRequest('View sources required.');
     }
 
     if (
@@ -589,7 +609,7 @@ class View extends Base {
         }
       })
     ) {
-      throw new Error('Invalid view sources');
+      throw new Errors.BadRequest('Invalid view sources');
     }
 
     // Ensure the view contains a max of one deconstructred/expldoed/unwound field.
@@ -682,6 +702,59 @@ class View extends Base {
     }
 
     return null;
+  }
+
+  async removeSourceFieldFromViews(source, fields) {
+    if (!source) {
+      throw new Errors.BadRequest('source required.');
+    }
+    if (!fields) {
+      throw new Errors.BadRequest('fields required.');
+    }
+
+    if (fields.length === 0) {
+      return;
+    }
+
+    const views = this.collection(VIEWS);
+
+    // Unsetting rename fields with dot in key didn't work, do the slow way instead.
+    // TODO come back to this.
+
+    // let $unset = fields.reduce((unset, f) => {
+    //   unset[`sources.rename."${f.id}"`] = 1;
+    //   return unset;
+    // }, {});
+
+    // // Clear removed source field from views that have it set.
+    // let resp = await views.updateMany(
+    //   { 'sources.source.submissionKey': source.submissionKey },
+    //   { $unset }
+    // );
+    // console.log(resp);
+
+    // Find all views for this source, delete the fields from them.
+    let allViews = await views
+      .find({ 'sources.source.submissionKey': source.submissionKey })
+      .toArray();
+    for (let v of allViews) {
+      for (let i = 0; i < v.sources.length; i++) {
+        let s = v.sources[i];
+        if (s.source.submissionKey === source.submissionKey) {
+          // Replace rename object with new one without deleted fields.
+          let $set = {};
+          $set[`sources.${i}.rename`] = fields.reduce(
+            (newRename, f) => {
+              delete newRename[f.id];
+              return newRename;
+            },
+            { ...s.rename }
+          );
+
+          await views.updateOne({ _id: v._id }, { $set: $set });
+        }
+      }
+    }
   }
 }
 
