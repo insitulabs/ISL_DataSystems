@@ -10,19 +10,19 @@
     <table class="table table-striped" id="audit" ref="audit">
       <thead>
         <tr>
-          <th scope="col" class="{{ 'is-sorted' if sort === "created" }}">
+          <th scope="col" class="created {{ 'is-sorted' if sort === "created" }}">
             <a href="{{ sortLinks.created }}" class="text-decoration-none {{ order }} {{ "link-dark" if sort === "created" else "text-secondary" }}">
               Created
               <i class="bi bi-sort-down"></i>
             </a>
           </th>
-          <th scope="col" class="{{ 'is-sorted' if sort === "email" }}">
+          <th scope="col" class="email {{ 'is-sorted' if sort === "email" }}">
             <a href="{{ sortLinks.email }}" class="text-decoration-none {{ order }} {{ "link-dark" if sort === "email" else "text-secondary" }}">
               Actor
               <i class="bi bi-sort-down"></i>
             </a>
           </th>
-          <th scope="col" class="{{ 'is-sorted' if sort === "type" }}">
+          <th scope="col" class="type {{ 'is-sorted' if sort === "type" }}">
             <a href="{{ sortLinks.type }}" class="text-decoration-none {{ order }} {{ "link-dark" if sort === "type" else "text-secondary" }}">
               Type
               <i class="bi bi-sort-down"></i>
@@ -52,8 +52,19 @@
           <td>{{ result.user.email }}</td>
           <td>{{ result.type }}</td>
           <td>
-            {% if result.type === 'user-activity' %}
-              {{ result.data.pages.length }} page views
+            {% if result.type === 'user-login-attempt' %}
+              {{ result.data.count | formatNumber }} {{ "attempt" if result.data.count === 1 else "attempts" }}
+              <br>
+              <ul>
+                <li><strong>IP:</strong> {{ result.data.ip }}</li>
+                <li>
+                  <strong>Browser:</strong>
+                  <span title="{{ result.data.userAgent }}">{{ result.data.userAgent | truncate(50) }}</span>
+                </li>
+              </ul>
+
+            {% elseif result.type === 'user-activity' %}
+              {{ result.data.pages.length | formatNumber }} page views
 
             {% elseif result.type === 'user-edit' %}
               {{ result.data.email }}

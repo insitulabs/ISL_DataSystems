@@ -188,8 +188,20 @@ const emailValidator = require('./lib/email-validator');
         const userManager = new User(res.locals.workspace);
         let superAdmin = await appManager.isSuperAdmin(email);
         let user = await userManager.getUser(email);
+
         setTimeout(() => {
           if (user || superAdmin) {
+            if (user) {
+              const auditManager = new Audit(
+                new CurrentUser(user, res.locals.workspace, superAdmin ? 'member' : false)
+              );
+
+              auditManager.logUserLoginAttempt(req.ip, req.get('User-Agent')).catch((error) => {
+                console.error(error);
+                mailer.sendError(error);
+              });
+            }
+
             mailer.sendLoginEmail(email, APP_LINK, req.body.return).catch((error) => {
               console.error(error);
               mailer.sendError(error);

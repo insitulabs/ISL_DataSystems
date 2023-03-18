@@ -6,6 +6,7 @@ const AUDIT_EVENTS = 'audit';
 
 const AuditEvent = Object.freeze({
   UserActivity: 'user-activity',
+  UserLoginAttempt: 'user-login-attempt',
   Export: 'export',
   ImportCommit: 'import-commit',
   ImportCreate: 'import-create',
@@ -149,6 +150,57 @@ class Audit extends Base {
     const update = {
       $set: record,
       $addToSet: { 'data.pages': page }
+    };
+
+    return events
+      .findOneAndUpdate(query, update, {
+        sort: { _id: -1 },
+        upsert: true
+      })
+      .catch(this.#onError);
+  }
+
+  /**
+   * Log user login attempt.
+   * We roll this up to count per hour.
+   * @param {string} ip IP address
+   * @param {string} userAgent user-agent header
+   */
+  async logUserLoginAttempt(ip, userAgent = null) {
+    if (this.user.preventAudit) {
+      return;
+    }
+
+    let events = this.collection(AUDIT_EVENTS);
+
+    // Rollup user activity per hour.
+    let now = Date.now();
+    let since = new Date();
+    since.setTime(now - 1000 * 60 * 60);
+
+    let query = {
+      type: AuditEvent.UserLoginAttempt,
+      'user.email': this.user.email,
+      'data.ip': ip,
+      created: { $gte: since }
+    };
+
+    let record = this.#userEvent(AuditEvent.UserLoginAttempt, {
+      ip: ip,
+      userAgent: userAgent
+    });
+
+    let data = record.data;
+    if (data) {
+      delete record.data;
+      Object.keys(data).forEach((k) => {
+        record['data.' + k] = data[k];
+      });
+    }
+
+    const update = {
+      $set: record,
+      $inc: { 'data.count': 1 }
     };
 
     return events
