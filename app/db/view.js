@@ -188,7 +188,8 @@ class View extends Base {
         source: {
           _id: s.source._id,
           submissionKey: s.source.submissionKey,
-          name: s.source.name
+          name: s.source.name,
+          system: s.source.system
         }
       };
     });

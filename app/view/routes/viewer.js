@@ -14,14 +14,7 @@ const CurrentUser = require('../../lib/current-user');
 const { getCurrentUser } = require('../../lib/route-helpers');
 const XLSX = require('xlsx');
 
-const NON_EDITABLE_FIELDS = [
-  '_id',
-  '_source',
-  'created',
-  '_attachments',
-  '_attachmentsPresent',
-  '_edits'
-];
+const NON_EDITABLE_FIELDS = ['_id', 'created'];
 
 const getFormBody = async (req) => {
   return new Promise((resolve, reject) => {
@@ -1017,6 +1010,23 @@ module.exports = function (opts) {
 
       // TODO Revisit with pagination?
       let sources = await sourceManager.listSources({ limit: -1 });
+
+      // Ensure view sources have up-to-date names
+      if (view.sources) {
+        view.sources.forEach((viewSource) => {
+          // Compare string to ObjectId, so use double ==
+          let matchingSource = sources.results.find((s) => s._id == viewSource.source._id);
+          if (matchingSource) {
+            viewSource.source.name = matchingSource.name;
+            // Initially we did not set system on view source, This can be removed once
+            // views are re-saved and this data is cleaned up.
+            viewSource.source.system = matchingSource.system;
+          } else {
+            // Deleted source, indicate in UI.
+            viewSource.source.deleted = true;
+          }
+        });
+      }
 
       let model = {
         ...viewData,

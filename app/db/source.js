@@ -50,14 +50,6 @@ class Source extends Base {
     this.user = user;
   }
 
-  static RESERVED_FIELDS = [
-    '_odkForm',
-    '_odkProject',
-    'sourceId',
-    '_attachmentsPresent',
-    '_source'
-  ];
-
   static submissionKey(system, namespace) {
     return `${system}__${namespace}`.toLowerCase();
   }
@@ -143,6 +135,12 @@ class Source extends Base {
     return query;
   }
 
+  /**
+   * Get raw fields from a sampling of submissions for a given system/namespace.
+   * @param {string} system
+   * @param {string} namespace
+   * @return {Array[string]} Fields sorted a-z
+   */
   async getFormFields(system, namespace) {
     if (!system || !namespace) {
       throw new Error('Invalid params: system or namespace');
@@ -186,9 +184,6 @@ class Source extends Base {
       let isOrphanParent = allFields.some((f) => f.indexOf(field + '.') === 0);
       return !isOrphanParent;
     });
-
-    // Remove reserved system fields.
-    allFields = allFields.filter((f) => !Source.RESERVED_FIELDS.includes(f));
 
     return allFields.sort((a, b) => {
       return a.toLowerCase().localeCompare(b.toLowerCase());
@@ -1195,8 +1190,8 @@ class Source extends Base {
           $addFields: {
             _attachmentsPersisted: {
               $cond: {
-                if: { $isArray: '$_attachments' },
-                then: { $size: '$_attachments' },
+                if: { $isArray: '$attachments' },
+                then: { $size: '$attachments' },
                 else: 0
               }
             }

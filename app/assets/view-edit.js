@@ -85,7 +85,7 @@ createApp({
     availableSources() {
       let bySystem = {};
       let sources = this.allSources.filter((s) => {
-        return !this.sources.find((existingSource) => existingSource.source === s._id);
+        return !this.sources.find((existingSource) => existingSource.source._id === s._id);
       });
 
       sources.forEach((s) => {
@@ -102,10 +102,6 @@ createApp({
       });
 
       return bySystem;
-
-      // return this.allSources.filter((s) => {
-      //   return !this.sources.find((existingSource) => existingSource.source === s._id);
-      // });
     },
 
     newFieldIds() {

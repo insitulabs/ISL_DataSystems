@@ -6,8 +6,6 @@ const { getCurrentUser } = require('../../lib/route-helpers');
 const CurrentUser = require('../../lib/current-user');
 const Audit = require('../../db/audit').Audit;
 
-const SYSTEM_ONLY_FIELDS = ['_odkForm', '_odkProject', '_sourceId', '_attachmentsPresent'];
-
 module.exports = function (opts) {
   const router = express.Router();
 
@@ -17,36 +15,8 @@ module.exports = function (opts) {
   router.get('/', async (req, res, next) => {
     try {
       const sourceManager = new Source(getCurrentUser(res));
-
-      // TODO security
       let sources = await sourceManager.listSources();
       res.json(sources);
-    } catch (error) {
-      next(error);
-    }
-  });
-
-  /**
-   * Get source fields
-   */
-  router.get('/:id/fields', async (req, res, next) => {
-    try {
-      let parts = req.params.id.split('__');
-      if (parts.length !== 3) {
-        throw new Error.BadRequest('Invalid source');
-      }
-
-      const sourceManager = new Source(getCurrentUser(res));
-      getCurrentUser(res).validateSourcePermission(source, CurrentUser.PERMISSIONS.READ);
-
-      let projectId = parseInt(parts[1]);
-      let formId = parts[2];
-
-      let fields = await sourceManager.getFormFields(projectId, formId);
-      fields = fields.filter((f) => {
-        return !SYSTEM_ONLY_FIELDS.includes(f);
-      });
-      res.json(fields);
     } catch (error) {
       next(error);
     }
@@ -85,23 +55,14 @@ module.exports = function (opts) {
       const sourceManager = new Source(getCurrentUser(res));
       let source = await sourceManager.getSource(req.params.id);
 
-      // TODO security
-
       let limit = req.query.limit || 20;
       limit = Math.max(1, Math.min(limit, 100));
-
-      // TODO just accept a source
-      // let fields = await sourceManager.getFormFields(source.system, source.namespace);
-      // fields = fields.filter((f) => {
-      //   return !SYSTEM_ONLY_FIELDS.includes(f);
-      // });
 
       let response = await sourceManager.getSubmissions(source, {
         sample: limit
       });
       res.json({
         source,
-        // fields,
         sample: {
           ...response,
           results: response.results.map((r) => {

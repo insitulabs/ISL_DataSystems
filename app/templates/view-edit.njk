@@ -140,7 +140,13 @@
                 aria-expanded="true"
                 aria-controls="`source-collapse-${index}`"
               >
-                ${s.source.system} > ${s.source.name}
+                <span v-if="s.source.deleted">
+                  <span :title="s.source.system + '>' + s.source.name" class="text-decoration-line-through">
+                  ${s.source.system} > ${s.source.name}
+                  </span>
+                  <span class="ms-1 text-danger">(Archived)</span>
+                </span>
+                <span v-else>${s.source.system} > ${s.source.name}</span>
               </button>
             </h3>
             <div
