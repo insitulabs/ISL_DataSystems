@@ -1,5 +1,5 @@
 const CONFIG = require('../config');
-const { MongoClient } = require('mongodb');
+const { MongoClient, Collection } = require('mongodb');
 const util = require('util');
 
 let _mongoClient = new MongoClient(CONFIG.MONGO_URI);
@@ -178,20 +178,26 @@ class Base {
               expression = { $exists: true, $ne: null };
             }
           } else {
-            let regex = null;
-            let realRegExp = /^\/(.+)\/([a-z]?)$/.exec(value);
-            if (realRegExp) {
-              try {
-                regex = new RegExp(realRegExp[1], realRegExp.length === 3 ? realRegExp[2] : null);
-              } catch (err) {}
-            }
+            // If the value is wrapped in quotes, do an exact string equals
+            let equalsExp = /^['"](.+)['"]$/.exec(value);
+            if (equalsExp) {
+              expression['$eq'] = equalsExp[1];
+            } else {
+              let regex = null;
+              let realRegExp = /^\/(.+)\/([a-z]?)$/.exec(value);
+              if (realRegExp) {
+                try {
+                  regex = new RegExp(realRegExp[1], realRegExp.length === 3 ? realRegExp[2] : null);
+                } catch (err) {}
+              }
 
-            if (!regex) {
-              let escapedV = value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-              regex = new RegExp(escapedV, 'i');
-            }
+              if (!regex) {
+                let escapedV = value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                regex = new RegExp(escapedV, 'i');
+              }
 
-            expression['$regex'] = regex;
+              expression['$regex'] = regex;
+            }
           }
 
           let filterField = '_filter.' + field + '_' + castTo;

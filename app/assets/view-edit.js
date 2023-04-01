@@ -30,7 +30,7 @@ createApp({
         selected: [],
         fieldSearch: ''
       },
-      allSources: allSources,
+      allSources,
       newSource: null,
       saving: false,
       error: null,
@@ -468,7 +468,7 @@ createApp({
      * @param {Event} event
      */
     onDeleteForm(event) {
-      if (!window.confirm('Are you sure you want to delete this view?')) {
+      if (!window.confirm('Are you sure you want to archive this view?')) {
         event.preventDefault();
       }
     }

@@ -35,7 +35,7 @@
     </li>
   </ul>
 
-  <div v-if="isDeleted" class="alert alert-warning" role="alert">Deleted View</div>
+  <div v-if="isDeleted" class="alert alert-warning" role="alert">Archived view</div>
   <div v-if="error" class="alert alert-danger" role="alert">${error}</div>
 
   <section v-show="tab === 'edit'">
@@ -409,13 +409,13 @@
       method="post"
       class="mt-4"
     >
-      <h5>Delete the view?</h5>
+      <h5>Archive the view?</h5>
       <p>
         NOTE: All user permissions for this view will be deleted.
         Restoring the view, will not bring these permissions back.
       </p>
       <input type="hidden" :value="id" disabled class="form-control" />
-      <button class="btn-danger btn">Delete</button>
+      <button class="btn-danger btn">Archive</button>
     </form>
   </section>
 </div>

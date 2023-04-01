@@ -9,6 +9,13 @@ createApp({
     let data = window._source;
     let samples = window._samples;
 
+    // TODO maybe query for this some day to avoid large datasets of sources
+    let allSources = window._allSources.results;
+
+    data.fields.forEach((f) => {
+      f.meta.type = f.meta.type || '';
+    });
+
     return {
       tab: 'edit',
       id: data._id,
@@ -25,7 +32,8 @@ createApp({
       dirty: false,
       fieldSearch: '',
       samples: samples,
-      sampleIndex: 0
+      sampleIndex: 0,
+      allSources
     };
   },
 
@@ -109,8 +117,9 @@ createApp({
   },
 
   methods: {
-    addField($event) {
-      let value = $event.target.value.trim();
+    addField() {
+      let $input = this.$refs.addField;
+      let value = $input.value.trim();
       if (value) {
         let lowered = value.toLowerCase();
         let id = lowered
@@ -129,13 +138,14 @@ createApp({
         }
 
         if (id && !this.fields.some((f) => id === f.id.toLowerCase())) {
-          this.fields.push({ id: id, name: value });
-          $event.target.value = '';
-          $event.target.classList.remove('is-invalid');
+          this.fields.push({ id: id, name: value, meta: {} });
+          $input.value = '';
+          $input.classList.remove('is-invalid');
+          this.fieldSearch = '';
           return;
         }
       }
-      $event.target.classList.add('is-invalid');
+      $input.classList.add('is-invalid');
     },
 
     updateFieldName(id, $event) {
@@ -165,6 +175,8 @@ createApp({
       if (this.saving) {
         return;
       }
+
+      this.cleanFieldTypes();
 
       this.saving = true;
       this.error = null;
@@ -232,9 +244,52 @@ createApp({
      * @param {Event} event
      */
     onDeleteForm(event) {
-      if (!window.confirm('Are you sure you want to delete this source?')) {
+      if (!window.confirm('Are you sure you want to archive this source?')) {
         event.preventDefault();
       }
+    },
+
+    /**
+     * Cleanup field types and their meta data.
+     */
+    cleanFieldTypes() {
+      this.fields.forEach((f) => {
+        if (/source|view/.test(f.meta.type) && f.meta.originId) {
+          // TODO revisit view.
+          let validSource = this.allSources.find((s) => s._id === f.meta.originId);
+          if (!validSource) {
+            f.meta.originId = null;
+            f.meta.originField = null;
+          }
+        } else {
+          delete f.meta.originId;
+          delete f.meta.originField;
+        }
+      });
+    },
+
+    /**
+     * Does the field support meta options for it's type.
+     * @param {Object} field
+     * @return  {boolean}
+     */
+    hasMetaOptions(field) {
+      return /source|view/.test(field?.meta?.type);
+    },
+
+    /**
+     * Get source lookup name
+     * @param {string} id The source id
+     * @return {string}
+     **/
+    getSourceName(id) {
+      if (id) {
+        let validSource = this.allSources.find((s) => s._id === id);
+        if (validSource) {
+          return validSource.name;
+        }
+      }
+      return null;
     }
   }
 }).mount('#app');

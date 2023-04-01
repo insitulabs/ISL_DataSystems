@@ -16,6 +16,9 @@ const XLSX = require('xlsx');
 
 const NON_EDITABLE_FIELDS = ['_id', 'created'];
 
+// Reserved query params that can't be data filters.
+const PAGE_QUERY_PARAMS = ['sort', 'order', 'offset', 'limit', '_h', 'id', 'xhr', 'iframe'];
+
 const getFormBody = async (req) => {
   return new Promise((resolve, reject) => {
     const form = formidable({
@@ -41,7 +44,6 @@ const mapSubmissionsForUI = function (results = [], isEditable = false) {
     let siblings = index > 0 ? results[index - 1]._id.equals(result._id) : false;
     let rowCssClass = siblings ? prevRowCssClass : prevRowCssClass === 'even' ? 'odd' : 'even';
     prevRowCssClass = rowCssClass;
-
     return {
       id: result._id.toString(),
       rowCssClass,
@@ -51,6 +53,8 @@ const mapSubmissionsForUI = function (results = [], isEditable = false) {
       data: result.data,
       flat: Source.flattenSubmission(result.data),
       isSourceField: (fieldId) => {
+        // TODO evaluate looking at result.sourceMap[fieldId] instead.
+        // console.log(fieldId, result.sourceMap, result.sourceFields);
         if (fieldId && result.sourceFields) {
           return result.sourceFields.includes(fieldId);
         }
@@ -75,6 +79,23 @@ const mapSubmissionsForUI = function (results = [], isEditable = false) {
             };
           }
         }
+        return null;
+      },
+      getFieldInfo: (field, subIndex) => {
+        if (field && field.meta) {
+          // Source submissions will have this meta object already loaded.
+          return field.meta;
+        }
+
+        // View records have supplemental source field data.
+        let sourceMapKey = field.id;
+        if (subIndex !== undefined && subIndex !== null) {
+          sourceMapKey += `_${subIndex}`;
+        }
+        if (field && result && result.sourceMap && result.sourceMap[sourceMapKey]) {
+          return result.sourceMap[sourceMapKey].meta;
+        }
+
         return null;
       }
     };
@@ -109,7 +130,7 @@ const extractFilters = function (req, fields, pageParams) {
   let fieldNames = fields.map((f) => f.id);
   Object.keys(req.query)
     .filter((key) => {
-      if (['table', 'sort', 'order', 'offset', 'limit', 'hidden', 'id'].includes(key)) {
+      if (PAGE_QUERY_PARAMS.includes(key)) {
         return false;
       }
 
@@ -153,9 +174,10 @@ const mapFieldsForUI = function (fields, userCanEdit = false, sort, order, pageP
         id: f.id,
         name: f.name || f.id,
         displayName: (f.name || f.id).replace(/\./g, '.<br>'),
-        type: '',
         sortable: true,
-        editable: userCanEdit && !NON_EDITABLE_FIELDS.includes(f.id)
+        editable: userCanEdit && !NON_EDITABLE_FIELDS.includes(f.id),
+        // userCanEdit && !NON_EDITABLE_FIELDS.includes(f.id) && f?.meta?.type !== 'sequence',
+        meta: f.meta
       };
 
       if (sort === f.id) {
@@ -196,10 +218,14 @@ module.exports = function (opts) {
     const pagePath = `${req.baseUrl}${req.path}`;
     const appPath = pagePath.split('/').slice(0, 2).join('/');
     const isXHR = !!req.query.xhr;
+    const isIFRAME = req.query.iframe;
+    const preventHeader = isIFRAME;
     return {
       appPath,
       pagePath,
-      isXHR
+      isXHR,
+      isIFRAME,
+      preventHeader
     };
   };
 
@@ -216,7 +242,7 @@ module.exports = function (opts) {
     const sourceManager = new Source(currentUser);
     const viewManager = new View(currentUser);
     const viewData = await getPageRenderData(req, res);
-    const { pagePath, isXHR } = viewData;
+    const { pagePath, isXHR, isIFRAME } = viewData;
 
     let offset = 0;
     if (req.query.offset) {
@@ -238,6 +264,9 @@ module.exports = function (opts) {
     const pageParams = new URLSearchParams();
     pageParams.set('sort', sort);
     pageParams.set('order', order);
+    if (isIFRAME) {
+      pageParams.set('iframe', isIFRAME);
+    }
 
     let fields = [];
     let userCanEdit = false;
@@ -250,6 +279,7 @@ module.exports = function (opts) {
     let dataId = null;
     let dataType = null;
     let editLink = null;
+    let isDeleted = false;
 
     if (query.view) {
       view = query.view;
@@ -257,18 +287,19 @@ module.exports = function (opts) {
       dataType = 'view';
       dataId = view._id;
       pageParams.set('view', query.view._id.toString());
-      pageTitle = view.name;
+      originName = view.name;
       userCanEdit =
         !view.deleted && currentUser.hasViewPermission(view, CurrentUser.PERMISSIONS.WRITE);
       csvLink = '/data-viewer/csv/view/' + query.view._id.toString();
       editLink = '/data-viewer/view/' + view._id.toString() + '/edit';
+      isDeleted = view.deleted;
     } else if (query.import) {
       source = query.source;
       theImport = query.import;
       fields = theImport.fields;
       dataType = 'import';
       dataId = theImport._id;
-      pageTitle = 'Import for ' + theImport.sourceName;
+      originName = 'Import for ' + theImport.sourceName;
       userCanEdit = true;
       editLink = '/data-viewer/source/' + theImport.sourceId.toString() + '/edit';
     } else if (query.source) {
@@ -277,14 +308,21 @@ module.exports = function (opts) {
       dataType = 'source';
       dataId = source._id;
       pageParams.set('source', query.source._id.toString());
-      pageTitle = source.name;
+      originName = source.name;
       userCanEdit =
         !source.deleted && currentUser.hasSourcePermission(source, CurrentUser.PERMISSIONS.WRITE);
       userCanCreate = userCanEdit;
       csvLink = '/data-viewer/csv/source/' + query.source._id.toString();
       editLink = '/data-viewer/source/' + source._id.toString() + '/edit';
+      isDeleted = source.deleted;
     } else {
       return next(new Errors.BadRequest());
+    }
+
+    if (isIFRAME) {
+      userCanEdit = false;
+      csvLink = null;
+      editLink = null;
     }
 
     // Parse column filters and set on pageParams
@@ -300,7 +338,8 @@ module.exports = function (opts) {
         limit,
         offset,
         filters,
-        id: idFilter
+        id: idFilter,
+        view
       });
     } else if (theImport) {
       queryResponse = await sourceManager.getStagedSubmissions(theImport, {
@@ -357,8 +396,10 @@ module.exports = function (opts) {
       theImport,
       dataType,
       dataId,
-      pageTitle,
-      editLink: currentUser.admin ? editLink : null
+      pageTitle: originName,
+      originName,
+      editLink: currentUser.admin ? editLink : null,
+      isDeleted
     };
 
     let template = isXHR ? '_table' : 'viewer';
@@ -464,8 +505,8 @@ module.exports = function (opts) {
       }
 
       let csvFields = fields.filter((f) => {
-        if (req.query.hidden) {
-          let hidden = req.query.hidden.split(',');
+        if (req.query._h) {
+          let hidden = req.query._h.split(',');
           return !hidden.includes(f.id);
         }
         return true;
@@ -480,7 +521,7 @@ module.exports = function (opts) {
         view ? view.name : source.name,
         csvFields,
         submissions.map((s) => {
-          return { id: s.id.toString(), created: s.created.toUTCString(), ...s.flat };
+          return { _id: s.id.toString(), created: s.created.toUTCString(), ...s.flat };
         }),
         next
       );
@@ -573,6 +614,15 @@ module.exports = function (opts) {
         await sourceManager.updateBulkSubmissions(source, ids, field, value);
       }
 
+      // For lookup fields, create link to lookup.
+      let sourceField = source.fields.find((f) => f.id === field);
+      if (value && /source|view/.test(sourceField?.meta?.type)) {
+        let link = `/data-viewer/${sourceField.meta.type}/${sourceField.meta.originId}?${
+          sourceField.meta.originField
+        }=${encodeURIComponent('"' + value + '"')}`;
+        html = `<a href="${link}">${html}</a>`;
+      }
+
       const auditManager = new Audit(currentUser);
       let auditRecord = {
         type: originType,
@@ -657,7 +707,7 @@ module.exports = function (opts) {
             id: submission._id.toString()
           },
           field: {
-            name: field
+            id: field
           },
           attachment: {
             ...attachment,
@@ -735,6 +785,7 @@ module.exports = function (opts) {
       }
 
       let html = value ? value : '';
+      let htmls = {};
 
       let view = await viewManager.getView(originId);
       getCurrentUser(res).validateViewPermission(view, CurrentUser.PERMISSIONS.WRITE);
@@ -759,6 +810,24 @@ module.exports = function (opts) {
         }
 
         submission = await viewManager.updateSubmission(view, toUpdate.id, subIndex, field, value);
+
+        let sourceMapKey = field;
+        if (subIndex !== undefined && subIndex !== null) {
+          sourceMapKey += `_${subIndex}`;
+        }
+
+        let sourceField = submission.sourceMap ? submission.sourceMap[sourceMapKey] : null;
+        let instanceHtml = html;
+        if (sourceField) {
+          // For lookup fields, create link to lookup.
+          if (value && /source|view/.test(sourceField?.meta?.type)) {
+            let link = `/data-viewer/${sourceField.meta.type}/${sourceField.meta.originId}?${
+              sourceField.meta.originField
+            }=${encodeURIComponent('"' + value + '"')}`;
+            instanceHtml = `<a href="${link}">${html}</a>`;
+          }
+        }
+        htmls[`${submission._id}-${toUpdate.field}`] = instanceHtml;
       }
 
       const auditManager = new Audit(currentUser);
@@ -778,7 +847,8 @@ module.exports = function (opts) {
         isAttachment: false,
         fields,
         value,
-        html
+        html,
+        htmls
       });
     } catch (err) {
       next(err);
@@ -939,7 +1009,8 @@ module.exports = function (opts) {
         order,
         sortLinks,
         nameQuery,
-        deleted
+        deleted,
+        pageTitle: 'Views'
       };
 
       res.render('view-list', model);
@@ -968,7 +1039,8 @@ module.exports = function (opts) {
           fields: [],
           sources: []
         },
-        sources
+        sources,
+        pageTitle: 'New View'
       };
 
       res.render('view-edit', model);
@@ -1032,7 +1104,8 @@ module.exports = function (opts) {
         ...viewData,
         view,
         users,
-        sources
+        sources,
+        pageTitle: view.name + ' - Edit'
       };
 
       res.render('view-edit', model);
@@ -1196,7 +1269,8 @@ module.exports = function (opts) {
         order,
         sortLinks,
         nameQuery,
-        deleted
+        deleted,
+        pageTitle: 'Sources'
       };
 
       res.render('source-list', model);
@@ -1211,15 +1285,20 @@ module.exports = function (opts) {
   router.get('/source/new', async (req, res, next) => {
     try {
       getCurrentUser(res).validate(CurrentUser.PERMISSIONS.SOURCE_CREATE);
-
       const viewData = await getPageRenderData(req, res);
+
+      // TODO Revisit with pagination?
+      const sourceManager = new Source(getCurrentUser(res));
+      let sources = await sourceManager.listSources({ limit: -1, sort: 'name', order: 'asc' });
 
       let model = {
         ...viewData,
         source: {
           name: '',
           fields: []
-        }
+        },
+        sources,
+        pageTitle: 'New Source'
       };
 
       res.render('source-edit', model);
@@ -1262,13 +1341,18 @@ module.exports = function (opts) {
         u.acl = u.sources[source._id] || {};
       });
 
+      // TODO Revisit with pagination?
+      let sources = await sourceManager.listSources({ limit: -1, sort: 'name', order: 'asc' });
+
       let model = {
         ...viewData,
         source,
+        sources,
         users,
         samples: samples.results.map((s) => {
           return Source.flattenSubmission(s.data);
-        })
+        }),
+        pageTitle: source.name + ' - Edit'
       };
 
       res.render('source-edit', model);
@@ -1296,7 +1380,9 @@ module.exports = function (opts) {
       let model = {
         ...viewData,
         source,
-        imports
+        imports,
+        error: req.query.error,
+        pageTitle: source.name + ' - Import'
       };
 
       res.render('source-import', model);
@@ -1351,6 +1437,12 @@ module.exports = function (opts) {
         res.redirect(`/data-viewer/source/${source._id}/import/${newImport._id}`);
       }
     } catch (error) {
+      if (error instanceof Errors.BadRequest) {
+        return res.redirect(
+          `/data-viewer/source/${req.params.id}/import?error=${encodeURIComponent(error.message)}`
+        );
+      }
+
       next(error);
     }
   });

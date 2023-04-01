@@ -60,18 +60,25 @@
 }
 
 #data tr.odd td {
- --bs-table-accent-bg: var(--bs-table-striped-bg);
+  --bs-table-accent-bg: var(--bs-table-striped-bg);
   color: var(--bs-table-striped-color);
 }
 
-#data[data-type="view"] table td.multi-active {
+#data[data-type='view'] table td.multi-active {
   /* outline: 2px dotted #c78533; */
   background: #fffb0050;
 }
 
 #data td.editable:hover {
-  cursor: pointer; --bs-table-accent-bg: var(--bs-table-active-bg);
+  cursor: pointer;
+  --bs-table-accent-bg: var(--bs-table-active-bg);
   color: var(--bs-table-active-color);
+}
+
+#data[data-iframe='true'] tr:hover {
+  cursor: pointer;
+  --bs-table-accent-bg: #fffb0050;
+  --bs-table-bg: #fffb0050;
 }
 
 #data th.checkbox {
@@ -99,13 +106,26 @@
   vertical-align: middle;
 }
 
+@keyframes edit-fade {
+  from {
+    background-color:#fffd9c;
+  }
+  to {
+    background-color: inherit;
+  }
+}
+
+#data td.updated {
+  animation: edit-fade 5s;
+}
+
 #new-submission-modal .modal-body {
   max-height: 70vh;
   overflow-y: auto;
 }
 
 #new-submission-modal .form-floating > label {
-  opacity: 1
+  opacity: 1;
 }
 
 #new-submission-modal .field-value {
@@ -121,8 +141,35 @@
   --bs-popover-max-width: 500px;
 }
 
+#edit-modal .modal-dialog.modal-fullscreen {
+  width: 98vw;
+  height: 98vh;
+  margin: 1vh auto;
+}
+
+#edit-modal .modal-body {
+  display: flex;
+  flex-direction: column;
+}
+
+#lookup-container {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#lookup-container iframe {
+  flex-grow: 1;
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
 @media only screen and (max-width: 620px) {
   .pagination .page-item:not(.active):not(.first):not(.last):not(.previous):not(.next) {
     display: none;
   }
 }
+

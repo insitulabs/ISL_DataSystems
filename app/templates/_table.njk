@@ -49,6 +49,8 @@
         <input id="check-all" type="checkbox" class="form-check-input"
           {{ 'disabled' if submissions.length === 0 }} />
       </th>
+      {% elseif isIFRAME %}
+      <th class="checkbox"></th>
       {% endif %}
       {% for column in fields %}
         <th scope="col" data-field="{{ column.id }}" data-name="{{ column.name }}"
@@ -92,7 +94,16 @@
           class="form-check-input submission-check"
           data-id="{{ submission.id }}" />
       </td>
+      {% elseif isIFRAME %}
+        <td class="for-submission-check">
+          <input
+            type="radio"
+            name="lookup-value"
+            class="form-check-input submission-check"
+            data-id="{{ submission.id }}" />
+        </td>
       {% endif %}
+
       {% for field in fields %}
         {% if field.id === '_id' %}
         <td data-field="{{ field.id }}">
@@ -144,6 +155,7 @@
           {% set attachment = submission.isAttachment(submission.flat[field.id]) %}
           {% set isSourceField = submission.isSourceField(field.id) %}
           {% set isUnwoundField = submission.isUnwoundField(field.id) %}
+          {% set fieldMetaInfo = submission.getFieldInfo(field, submission.subIndex) %}
           <td
               data-id="{{ submission.id }}"
 
@@ -161,13 +173,28 @@
                 {% endif %}
               {% endif %}
 
+              data-value="{{ submission.flat[field.id] }}"
+
               {% if field.editable and not attachment %}
                 class="editable cursor-pointer"
-                data-value="{{ submission.flat[field.id] }}"
+              {% endif %}
+
+              {% if fieldMetaInfo and fieldMetaInfo.type %}
+                data-type="{{ fieldMetaInfo.type }}"
+                {% if fieldMetaInfo.originId %}
+                  data-type-origin="{{ fieldMetaInfo.originId }}"
+                  data-type-origin-field="{{ fieldMetaInfo.originField }}"
+                {% endif %}
               {% endif %}
           >
             {% if attachment %}
               {% include "_attachment.njk" %}
+            {% elseif submission.flat[field.id] and fieldMetaInfo and (fieldMetaInfo.type === 'source' or fieldMetaInfo.type === 'view') %}
+              <a
+                href="/data-viewer/{{ fieldMetaInfo.type }}/{{ fieldMetaInfo.originId }}?{{ fieldMetaInfo.originField }}=%22{{ submission.flat[field.id] | string | urlencode }}%22"
+              >
+                {{ submission.flat[field.id] | formatValue }}
+              </a>
             {% else %}
               {{ submission.flat[field.id] | formatValue }}
             {% endif %}
@@ -253,7 +280,9 @@
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="edit-modal-title">Edit Submission</h5>
+        <h5 class="modal-title" id="edit-modal-title">
+          Edit Submission
+        </h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
@@ -265,24 +294,36 @@
             <option
               value="attachment"
               {{'disabled' if dataType !== 'source' }}
-            >Attachment</option>
+            >
+              Attachment
+            </option>
+            <option value="lookup" disabled>Lookup</option>
+            <option value="sequence" disabled>Sequence</option>
           </select>
           <input id="edit-input" type="text" class="form-control w-75"
               aria-label="Input for new value" />
           <input id="attachment-input" type="file" class="form-control w-75"
               aria-label="Upload for new attachment" />
+          <button class="clear btn btn-outline-secondary" title="Clear value">
+            <i class="bi bi-x-circle"></i>
+          </button>
         </div>
+        <div id="lookup-container"></div>
       </div>
-      <div class="modal-footer justify-content-end">
-        <div id="edit-count-warning" class="text-danger d-none" role="alert">
-          NOTE: This is a bulk edit of <span></span> records.
-          <br/>
-          Undo operations may not work perfectly with bulk operations.
+      <div class="modal-footer justify-content-between">
+        <div>
+          <div id="edit-count-warning" class="text-danger d-none" role="alert">
+            NOTE: This is a bulk edit of <span></span> records.
+            <br/>
+            Undo operations may not work perfectly with bulk operations.
+          </div>
         </div>
-        <div class="spinner-border text-primary spinner-border-sm d-none" role="status">
-          <span class="visually-hidden">Loading...</span>
+        <div>
+          <div class="spinner-border text-primary spinner-border-sm d-none" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <button class="save btn btn-primary">Save</button>
         </div>
-        <button class="save btn btn-primary">Save</button>
       </div>
     </div>
   </div>

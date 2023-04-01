@@ -45,6 +45,20 @@ class View extends Base {
       throw new Errors.BadRequest('View not found: ' + id);
     }
 
+    const sourceManager = new Source(this.user);
+    let sourceFields = {};
+    for (let viewSource of view.sources) {
+      try {
+        let source = await sourceManager.getSource(new ObjectId(viewSource.source._id), true);
+        sourceFields[source.submissionKey] = source.fields;
+      } catch (err) {
+        // Silence not found
+      }
+    }
+    view.sourceFields = sourceFields;
+
+    // this.debug(view);
+
     return view;
   }
 
@@ -359,6 +373,7 @@ class View extends Base {
         return aggr;
       }, {});
 
+      let sourceMap = {};
       for (const [existingField, newField] of Object.entries(s.rename)) {
         // Ensure rename sources are mapped to actual view fields
         if (fields.some((f) => f.name === newField)) {
@@ -366,6 +381,7 @@ class View extends Base {
 
           // Never let fields have . in them, or Mongo will blow up
           let newFieldLabel = View.normalizeFieldName(newField);
+          let sourceFieldKey = newFieldLabel;
 
           if (isArrayField) {
             unwindFields.add(newFieldLabel);
@@ -374,9 +390,18 @@ class View extends Base {
             } else {
               branch.then[newFieldLabel].push('$data.' + existingField);
             }
+
+            // Unwound fields need to distinguish the field id.
+            sourceFieldKey += '_' + (branch.then[newFieldLabel].length - 1);
           } else {
             branch.then[newFieldLabel] = '$data.' + existingField;
           }
+
+          sourceMap[sourceFieldKey] = {
+            field: existingField,
+            sourceKey: s.source.submissionKey,
+            sourceId: s.source._id
+          };
         }
       }
       switchBranches.push(branch);
@@ -397,7 +422,9 @@ class View extends Base {
       fieldMappingSwitch.push({
         case: branch.case,
         then: {
+          // TODO perahps sourceFields can go away now that we have sourceMap
           sourceFields: Object.keys(branch.then),
+          sourceMap,
           unwoundFields: [...unwindFields]
         }
       });
@@ -560,11 +587,28 @@ class View extends Base {
 
     // this.debug(pipeline);
 
-    let results = await submissions.aggregate(pipeline);
+    let results = await submissions.aggregate(pipeline).toArray();
+
+    // If we have additional view source field information, populate it.
+    if (options.view && options.view.sourceFields) {
+      results.forEach((r) => {
+        for (const [viewField, map] of Object.entries(r.sourceMap)) {
+          if (options.view.sourceFields[map.sourceKey]) {
+            let sourceField = options.view.sourceFields[map.sourceKey].find(
+              (f) => f.id === map.field
+            );
+
+            if (sourceField) {
+              map.meta = sourceField.meta;
+            }
+          }
+        }
+      });
+    }
     return {
       totalResults,
       offset: offset,
-      results: await results.toArray()
+      results: results
     };
   }
 
@@ -688,7 +732,8 @@ class View extends Base {
 
     // Query the updated view submission.
     let queryResponse = await this.queryView(view._id, view.fields, view.sources, {
-      id: submission._id
+      id: submission._id,
+      view
     });
 
     if (queryResponse.results.length) {

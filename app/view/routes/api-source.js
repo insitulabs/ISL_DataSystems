@@ -50,6 +50,20 @@ module.exports = function (opts) {
   /**
    * Get sample of source submissions
    */
+  router.get('/:id/fields', async (req, res, next) => {
+    try {
+      const sourceManager = new Source(getCurrentUser(res));
+      let source = await sourceManager.getSource(req.params.id);
+
+      res.json(source.fields);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  /**
+   * Get sample of source submissions
+   */
   router.get('/:id/fields-with-sample', async (req, res, next) => {
     try {
       const sourceManager = new Source(getCurrentUser(res));

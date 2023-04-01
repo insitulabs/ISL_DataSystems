@@ -1,5 +1,6 @@
 const { ObjectId } = require('mongodb');
 const Base = require('./base');
+const Sequence = require('./sequence');
 const Errors = require('../lib/errors');
 const CurrentUser = require('../lib/current-user');
 
@@ -194,7 +195,7 @@ class Source extends Base {
    * @param {Object || String || ObjectId} source The source.
    * Can be a source object, an _id or submissionKey.
    * @param {Object} options Query params (sort, order, limit (-1 for all), offset, filters, sample, id)
-   * @return
+   * @return {object} Result set with results and totalResults keys.
    */
   async getSubmissions(source, options = {}) {
     const col = this.collection(SUBMISSIONS);
@@ -254,15 +255,18 @@ class Source extends Base {
   /**
    * Get a source by ID.
    * @param {String || ObjectId} id The ID of the source.
+   * @param {boolean} ignorePermissionCheck True if we should prevent a permission check.
    * @return {Object} Source
    * @throws Not found error.
    */
-  async getSource(id) {
+  async getSource(id, ignorePermissionCheck = false) {
     if (!id || !ObjectId.isValid(id)) {
       throw new Errors.BadRequest('Invalid source ID param');
     }
 
-    this.user.validateSourcePermission(id);
+    if (!ignorePermissionCheck) {
+      this.user.validateSourcePermission(id);
+    }
 
     let sources = this.collection(SOURCES);
     let source = await sources.findOne({ _id: new ObjectId(id) });
@@ -280,6 +284,10 @@ class Source extends Base {
         });
       }
     }
+
+    source.fields.forEach((f) => {
+      f.meta = f.meta || {};
+    });
 
     // return new SourceModel(source);
     return source;
@@ -812,6 +820,21 @@ class Source extends Base {
         return submission;
       });
 
+      let sequenceFields = source.fields.filter((f) => f?.meta?.type === 'sequence');
+      if (sequenceFields.length) {
+        const sequenceManager = new Sequence(this.user, this.workspace);
+        for (let f of sequenceFields) {
+          let seq = await sequenceManager.getNextSequence('source', source, f);
+          toInsert.forEach((submission, index) => {
+            submission.data[f.id] = seq + index;
+            submission.originalData[f.id] = seq + index;
+          });
+          if (toInsert.length > 1) {
+            await sequenceManager.incrementSequence('source', source, f, toInsert.length - 1);
+          }
+        }
+      }
+
       let resp = await col.insertMany(toInsert);
       return Object.values(resp.insertedIds);
     }
@@ -875,12 +898,40 @@ class Source extends Base {
         email: this.user.email
       },
       fields: fields.map((f) => {
+        let id = Source.normalizeFieldName(f);
+
+        // Do not let fields overwrite our mandatory ones.
+        if (['_id', 'id', 'created', 'imported'].includes(id.toLowerCase())) {
+          let newId = id.toLowerCase() + '_1';
+
+          records.forEach((r) => {
+            r[newId] = r[f];
+            delete r[f];
+          });
+
+          id = newId;
+        }
+
         return {
-          id: Source.normalizeFieldName(f),
+          id: id,
           name: null
         };
       })
     };
+
+    let duplicateFields = toPersist.fields.reduce((dups, f) => {
+      if (dups[f.id]) {
+        dups[f.id]++;
+      } else {
+        dups[f.id] = 1;
+      }
+
+      return dups;
+    }, {});
+    let duplicates = Object.keys(duplicateFields).filter((f) => duplicateFields[f] > 1);
+    if (duplicates.length) {
+      throw new Errors.BadRequest('Import has duplicate columns: ' + duplicates.join(', '));
+    }
 
     let insertImport = await imports.insertOne(toPersist);
 

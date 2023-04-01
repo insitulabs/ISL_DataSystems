@@ -42,7 +42,8 @@ module.exports = function (opts) {
         users,
         sort,
         order,
-        sortLinks
+        sortLinks,
+        pageTitle: 'Super Admins'
       };
       return res.render('super-admin/users', model);
     } catch (error) {
@@ -116,7 +117,8 @@ module.exports = function (opts) {
         workspaces,
         sort,
         order,
-        sortLinks
+        sortLinks,
+        pageTitle: 'Workspaces'
       };
       return res.render('super-admin/workspaces', model);
     } catch (error) {

@@ -69,8 +69,11 @@
         Supported file types:
         <span class="badge bg-light text-dark">xlsx</span>
         <span class="badge bg-light text-dark">csv</span>
-        </div>
+      </div>
 
+      {% if error %}
+        <div class="alert alert-danger mt-2 mb-0" role="alert">{{ error}}</div>
+      {% endif %}
       <button class="btn btn-primary mt-2" type="submit">Upload</button>
     </form>
   </div>
@@ -79,6 +82,5 @@
 <script>
   window._source = {{ source | dump | safe }};
 </script>
-{# <script type="module" src="/assets/source-import.js"></script> #}
 {% endblock %}
 
