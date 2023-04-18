@@ -23,11 +23,11 @@ class Sequence extends Base {
   }
 
   /**
-   * Get the current sequence for a given field.
+   * Get the next sequence for a given field.
    * @param {string} originType The type of origin. 'source' or 'view'.
    * @param {object} origin The source or view.
    * @param {object} field The field.
-   * @return {number} The current number in the sequence.
+   * @return {number} The next number in the sequence.
    */
   async getSequence(originType, origin, field) {
     if (!originType || !origin || !field) {
@@ -37,44 +37,50 @@ class Sequence extends Base {
     let name = origin._id.toString() + '_' + field.id;
     const sequences = this.collection(SEQUENCES);
     let sequence = await sequences.findOne({ _id: name });
-
-    return sequence ? sequence.value : 0;
+    return sequence ? sequence.value : 1;
   }
 
   /**
-   * Get the next sequence for a given field.
+   * Set the current sequence for a given field.
    * @param {string} originType The type of origin. 'source' or 'view'.
    * @param {object} origin The source or view.
    * @param {object} field The field.
+   * @param {number} value The next value in the sequence. Must be greater than 0.
    * @return {number} The next number in the sequence.
    */
-  async getNextSequence(originType, origin, field) {
+  async setSequence(originType, origin, field, value = 1) {
     if (!originType || !origin || !field) {
       throw new Errors.BadRequest('Invalid sequence params');
+    }
+    if (typeof value !== 'number' || value <= 0) {
+      throw new Errors.BadRequest('Value for sequence must be greater than 0');
     }
 
     let name = origin._id.toString() + '_' + field.id;
     const sequences = this.collection(SEQUENCES);
-    let results = await sequences.findOneAndUpdate(
+    let sequence = await sequences.findOneAndUpdate(
       { _id: name },
-      { $set: { originType, originId: origin._id, field: field.id }, $inc: { value: 1 } },
+      { $set: { originType, originId: origin._id, field: field.id, value: value } },
       { upsert: true, returnDocument: 'after' }
     );
 
-    return results.value.value;
+    return sequence ? sequence.value : 1;
   }
 
   /**
-   * Set the next sequence for a given field.
+   * Increment the next sequence for a given field.
    * @param {string} originType The type of origin. 'source' or 'view'.
    * @param {object} origin The source or view.
    * @param {object} field The field.
    * @param {number} count The number to increase the count by. Must be greater than 0.
    * @return {number} The current value of the sequence.
    */
-  async incrementSequence(originType, origin, field, count) {
-    if (!originType || !origin || !field || !count) {
+  async incrementSequence(originType, origin, field, count = 1) {
+    if (!originType || !origin || !field) {
       throw new Errors.BadRequest('Invalid sequence params');
+    }
+    if (typeof count !== 'number' || count <= 0) {
+      throw new Errors.BadRequest('Count for sequence must be greater than 0');
     }
 
     let name = origin._id.toString() + '_' + field.id;

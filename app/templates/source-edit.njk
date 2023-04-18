@@ -262,7 +262,23 @@
             class="d-flex justify-content-end border border-top-0 p-2 rounded-bottom"
             :class="{'bg-light': index % 2 === 0}"
           >
-            <div class="input-group w-75">
+            <div v-if="field?.meta?.type === 'sequence'" class="input-group w-50">
+              <div class="form-floating">
+                <input
+                  v-model="sequenceFields[field.id]"
+                  class="form-control"
+                  :id="'sequence-next-' + field.id"
+                  inputmode="decimal"
+                  type="number"
+                  min="1"
+                  @change="cleanFieldTypes"
+                />
+                <label :for="'sequence-next-' + field.id">
+                  Sequence Next Value
+                </label>
+              </div>
+            </div>
+            <div v-else class="input-group w-75">
               <div class="form-floating">
                 <input
                   v-model="field.meta.originId"
@@ -403,6 +419,7 @@
 <script>
   window._source = {{ source | dump | safe }};
   window._allSources = {{ sources | dump | safe }};
+  window._sequenceFields = {{ sequenceFields | dump | safe }};
   {% if samples %}
   window._samples = {{ samples | dump | safe }};
   {% endif %}

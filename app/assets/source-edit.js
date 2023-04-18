@@ -12,6 +12,11 @@ createApp({
     // TODO maybe query for this some day to avoid large datasets of sources
     let allSources = window._allSources.results;
 
+    let sequenceFields = (window._sequenceFields || []).reduce((obj, field) => {
+      obj[field.id] = field.meta.nextValue;
+      return obj;
+    }, {});
+
     data.fields.forEach((f) => {
       f.meta.type = f.meta.type || '';
     });
@@ -26,6 +31,7 @@ createApp({
       note: data.note,
       fields: data.fields.slice(),
       persistedFields: data.fields.slice(),
+      sequenceFields,
       saving: false,
       saved: false,
       error: null,
@@ -106,6 +112,14 @@ createApp({
       deep: true,
       handler: function () {
         this.dirty = true;
+
+        this.fields.forEach((f) => {
+          if (/sequence/.test(f.meta.type)) {
+            if (!this.sequenceFields[f.id]) {
+              this.sequenceFields[f.id] = 1;
+            }
+          }
+        });
       }
     },
     dirty(value) {
@@ -188,7 +202,6 @@ createApp({
       this.error = null;
       this.saved = false;
 
-      // TODO Finish new source
       let isUpdate = this.id;
       let url = isUpdate ? `/api/source/${this.id}` : '/api/source';
       let method = isUpdate ? 'PUT' : 'POST';
@@ -198,7 +211,8 @@ createApp({
         namespace: this.namespace,
         name: this.name.trim(),
         note: this.note ? this.note.trim() : null,
-        fields: this.fields
+        fields: this.fields,
+        sequenceFields: this.sequenceFields
       };
       if (this.id) {
         body._id = this.id;
@@ -223,7 +237,6 @@ createApp({
           });
         })
         .catch((err) => {
-          // TODO
           console.error(err);
           this.error = err.message ? err.message : 'Error encountered during save.';
         })
@@ -282,7 +295,7 @@ createApp({
      * @return  {boolean}
      */
     hasMetaOptions(field) {
-      return /source|view/.test(field?.meta?.type);
+      return /source|view|sequence/.test(field?.meta?.type);
     },
 
     /**

@@ -425,12 +425,6 @@ class Source extends Base {
       modified: now
     };
 
-    // toPersist.fields.forEach((f) => {
-    //   if (!f.id) {
-    //     f.id = crypto.randomUUID();
-    //   }
-    // });
-
     toPersist.createdBy = {
       id: ObjectId(this.user._id),
       name: this.user.name,
@@ -445,7 +439,18 @@ class Source extends Base {
     const sources = this.collection(SOURCES);
     try {
       let insertResult = await sources.insertOne(toPersist);
-      return await this.getSource(insertResult.insertedId);
+      let newSource = await this.getSource(insertResult.insertedId);
+
+      // Set sequences
+      const sequenceManager = new Sequence(this.user, this.workspace);
+      for (let f of source.fields.filter((f) => f?.meta?.type === 'sequence')) {
+        let nextValue = source.sequenceFields[f.id] || 1;
+        if (typeof nextValue === 'number' && nextValue > 0) {
+          await sequenceManager.setSequence('source', newSource, f, nextValue);
+        }
+      }
+
+      return newSource;
     } catch (err) {
       if (/duplicate key/.test(err.message)) {
         throw new Errors.BadRequest('The combination of system and namespace must be unique.');
@@ -508,6 +513,15 @@ class Source extends Base {
         $set: toPersist
       }
     );
+
+    // Update sequences
+    const sequenceManager = new Sequence(this.user, this.workspace);
+    for (let f of source.fields.filter((f) => f?.meta?.type === 'sequence')) {
+      let nextValue = source.sequenceFields[f.id] || 1;
+      if (typeof nextValue === 'number' && nextValue > 0) {
+        await sequenceManager.setSequence('source', existing, f, nextValue);
+      }
+    }
 
     return {
       source: await this.getSource(existing._id),
@@ -845,14 +859,12 @@ class Source extends Base {
       if (sequenceFields.length) {
         const sequenceManager = new Sequence(this.user, this.workspace);
         for (let f of sequenceFields) {
-          let seq = await sequenceManager.getNextSequence('source', source, f);
+          let seq = await sequenceManager.getSequence('source', source, f);
           toInsert.forEach((submission, index) => {
             submission.data[f.id] = seq + index;
             submission.originalData[f.id] = seq + index;
           });
-          if (toInsert.length > 1) {
-            await sequenceManager.incrementSequence('source', source, f, toInsert.length - 1);
-          }
+          await sequenceManager.incrementSequence('source', source, f, toInsert.length);
         }
       }
 

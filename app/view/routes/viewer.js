@@ -9,6 +9,7 @@ const { writeToBuffer } = require('@fast-csv/format');
 const View = require('../../db/view');
 const Source = require('../../db/source');
 const User = require('../../db/user');
+const Sequence = require('../../db/sequence');
 const Audit = require('../../db/audit').Audit;
 const CurrentUser = require('../../lib/current-user');
 const { getCurrentUser } = require('../../lib/route-helpers');
@@ -176,7 +177,6 @@ const mapFieldsForUI = function (fields, userCanEdit = false, sort, order, pageP
         displayName: (f.name || f.id).replace(/\./g, '.<br>'),
         sortable: true,
         editable: userCanEdit && !NON_EDITABLE_FIELDS.includes(f.id),
-        // userCanEdit && !NON_EDITABLE_FIELDS.includes(f.id) && f?.meta?.type !== 'sequence',
         meta: f.meta
       };
 
@@ -1298,6 +1298,7 @@ module.exports = function (opts) {
           fields: []
         },
         sources,
+        sequenceFields: [],
         pageTitle: 'New Source'
       };
 
@@ -1344,11 +1345,18 @@ module.exports = function (opts) {
       // TODO Revisit with pagination?
       let sources = await sourceManager.listSources({ limit: -1, sort: 'name', order: 'asc' });
 
+      const sequenceManager = new Sequence(getCurrentUser(res));
+      let sequenceFields = source.fields.filter((f) => f?.meta?.type === 'sequence');
+      for (let f of sequenceFields) {
+        f.meta.nextValue = await sequenceManager.getSequence('source', source, f);
+      }
+
       let model = {
         ...viewData,
         source,
         sources,
         users,
+        sequenceFields,
         samples: samples.results.map((s) => {
           return Source.flattenSubmission(s.data);
         }),
