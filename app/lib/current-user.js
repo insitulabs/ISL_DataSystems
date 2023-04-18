@@ -53,14 +53,26 @@ class CurrentUser {
     }
   }
 
+  /**
+   * Does the user have the given permission on the provided view.
+   * @param {object} view
+   * @param {string} permission
+   * @return {boolean}
+   */
   hasViewPermission(view, permission = CurrentUser.PERMISSIONS.READ) {
-    if (this.admin || this.isSuperAdmin) {
-      return true;
-    }
+    if (view) {
+      if (this.admin || this.isSuperAdmin) {
+        return true;
+      }
 
-    let id = this.#getObjectId(view);
-    if (id) {
-      return !!this._user.views[id] && this._user.views[id][permission] === true;
+      if (view.permissions && view.permissions[permission] === true) {
+        return true;
+      }
+
+      let id = this.#getObjectId(view);
+      if (id) {
+        return !!this._user.views[id] && this._user.views[id][permission] === true;
+      }
     }
 
     return false;
@@ -74,14 +86,26 @@ class CurrentUser {
     return true;
   }
 
+  /**
+   * Does the user have the given permission on the provided source.
+   * @param {object} source
+   * @param {string} permission
+   * @return {boolean}
+   */
   hasSourcePermission(source, permission = CurrentUser.PERMISSIONS.READ) {
-    if (this.admin || this.isSuperAdmin) {
-      return true;
-    }
+    if (source) {
+      if (this.admin || this.isSuperAdmin) {
+        return true;
+      }
 
-    let id = this.#getObjectId(source);
-    if (id) {
-      return !!this._user.sources[id] && this._user.sources[id][permission] === true;
+      if (source.permissions && source.permissions[permission] === true) {
+        return true;
+      }
+
+      let id = this.#getObjectId(source);
+      if (id) {
+        return !!this._user.sources[id] && this._user.sources[id][permission] === true;
+      }
     }
 
     return false;

@@ -264,14 +264,14 @@ class Source extends Base {
       throw new Errors.BadRequest('Invalid source ID param');
     }
 
-    if (!ignorePermissionCheck) {
-      this.user.validateSourcePermission(id);
-    }
-
     let sources = this.collection(SOURCES);
     let source = await sources.findOne({ _id: new ObjectId(id) });
     if (!source) {
       throw new Error('Source not found: ' + id);
+    }
+
+    if (!ignorePermissionCheck) {
+      this.user.validateSourcePermission(source);
     }
 
     // Append any un-mapped raw fields to end of the source fields list.
@@ -329,7 +329,7 @@ class Source extends Base {
     let source = await sources.findOne({ submissionKey: key });
 
     if (source) {
-      return this.getSource(source._id);
+      return await this.getSource(source._id);
     } else {
       throw new Error(`Source not found: for key: ${key}`);
     }
@@ -351,7 +351,7 @@ class Source extends Base {
         $match.deleted = true;
       }
     } else {
-      $match._id = { $in: this.user.sourceIds() };
+      $match.$or = [{ _id: { $in: this.user.sourceIds() } }, { 'permissions.read': true }];
     }
 
     if (options.name && typeof options.name === 'string') {
@@ -405,10 +405,9 @@ class Source extends Base {
   /**
    * Create a source.
    * @param {Object} source
-   * @param {Object} user
    * @returns {Object} The new source.
    */
-  async createSource(source, user) {
+  async createSource(source) {
     this.#validateSource(source);
     if (source._id) {
       throw new Error('Failed to create pre-existing source: ' + source.name);
@@ -432,18 +431,16 @@ class Source extends Base {
     //   }
     // });
 
-    if (user) {
-      toPersist.createdBy = {
-        id: ObjectId(user._id),
-        name: user.name,
-        email: user.email
-      };
-      toPersist.modifiedBy = {
-        id: ObjectId(user._id),
-        name: user.name,
-        email: user.email
-      };
-    }
+    toPersist.createdBy = {
+      id: ObjectId(this.user._id),
+      name: this.user.name,
+      email: this.user.email
+    };
+    toPersist.modifiedBy = {
+      id: ObjectId(this.user._id),
+      name: this.user.name,
+      email: this.user.email
+    };
 
     const sources = this.collection(SOURCES);
     try {
@@ -461,10 +458,9 @@ class Source extends Base {
   /**
    * Update a source.
    * @param {Object} source
-   * @param {Object} user
    * @returns {Object} The updated source.
    */
-  async updateSource(source, user) {
+  async updateSource(source) {
     let existing = await this.getSource(source._id);
     this.#validateSource(source);
 
@@ -499,13 +495,11 @@ class Source extends Base {
       modified: now
     };
 
-    if (user) {
-      toPersist.modifiedBy = {
-        id: ObjectId(user._id),
-        name: user.name,
-        email: user.email
-      };
-    }
+    toPersist.modifiedBy = {
+      id: ObjectId(this.user._id),
+      name: this.user.name,
+      email: this.user.email
+    };
 
     const sources = this.collection(SOURCES);
     await sources.updateOne(
@@ -522,12 +516,44 @@ class Source extends Base {
   }
 
   /**
-   * Delete source.
+   * Update a source's workspace permissions.
    * @param {Object} source
-   * @param {Object} user
+   * @param {Object} permissions
    * @returns {Object} The updated source.
    */
-  async deleteSource(source, user) {
+  async updateSourcePermissions(source, permissions) {
+    let existing = await this.getSource(source._id);
+    let now = new Date();
+    let toPersist = {
+      permissions: {
+        read: permissions.read === true,
+        write: permissions.write === true
+      },
+      modified: now
+    };
+
+    toPersist.modifiedBy = {
+      _id: this.user._id,
+      email: this.user.email,
+      name: this.user.name
+    };
+
+    const sources = this.collection(SOURCES);
+    await sources.updateOne(
+      { _id: existing._id },
+      {
+        $set: toPersist
+      }
+    );
+    return await this.getSource(existing._id);
+  }
+
+  /**
+   * Delete source.
+   * @param {Object} source
+   * @returns {Object} The updated source.
+   */
+  async deleteSource(source) {
     let existing = await this.getSource(source._id);
     let now = new Date();
 
@@ -536,13 +562,11 @@ class Source extends Base {
       modified: now
     };
 
-    if (user) {
-      toPersist.modifiedBy = {
-        id: ObjectId(user._id),
-        name: user.name,
-        email: user.email
-      };
-    }
+    toPersist.modifiedBy = {
+      id: ObjectId(this.user._id),
+      name: this.user.name,
+      email: this.user.email
+    };
 
     const sources = this.collection(SOURCES);
     await sources.updateOne(
@@ -557,10 +581,9 @@ class Source extends Base {
   /**
    * Restore deleted source.
    * @param {Object} source
-   * @param {Object} user
    * @returns {Object} The updated source.
    */
-  async restoreDeletedSource(source, user) {
+  async restoreDeletedSource(source) {
     let existing = await this.getSource(source._id);
     let now = new Date();
 
@@ -568,13 +591,11 @@ class Source extends Base {
       modified: now
     };
 
-    if (user) {
-      toPersist.modifiedBy = {
-        id: ObjectId(user._id),
-        name: user.name,
-        email: user.email
-      };
-    }
+    toPersist.modifiedBy = {
+      id: ObjectId(this.user._id),
+      name: this.user.name,
+      email: this.user.email
+    };
 
     const sources = this.collection(SOURCES);
     await sources.updateOne(
@@ -713,7 +734,7 @@ class Source extends Base {
       throw new Errors.BadRequest('Invalid field name type: ' + typeof field);
     }
 
-    // this.user.validateSourcePermission(id, CurrentUser.PERMISSIONS.WRITE);
+    // this.user.validateSourcePermission(source, CurrentUser.PERMISSIONS.WRITE);
     let update = {};
     update['data.' + field] = value;
 
@@ -975,12 +996,13 @@ class Source extends Base {
     }
 
     const imports = this.collection(IMPORTS);
-    let theImport = imports.findOne({ _id: new ObjectId(id) });
+    let theImport = await imports.findOne({ _id: new ObjectId(id) });
     if (!theImport) {
       throw new Errors.BadRequest('Import not found.');
     }
 
-    this.user.validateSourcePermission(theImport.sourceId, CurrentUser.PERMISSIONS.WRITE);
+    let importSource = await this.getSource(theImport.sourceId);
+    this.user.validateSourcePermission(importSource, CurrentUser.PERMISSIONS.WRITE);
 
     return theImport;
   }

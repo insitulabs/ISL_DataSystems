@@ -190,7 +190,13 @@
                   :key="`acl-${item._id}`"
                   class="list-group-item"
                 >
-                  <label :for="`view-${item._id}`">${ item.name }</label>
+                  <label :for="`view-${item._id}`">
+                    ${ item.name }
+                    <i
+                      v-if="editingUserAccess[index].publicRead"
+                      class="bi bi-people-fill" title="Public"
+                    ></i>
+                  </label>
                   <br />
                   <label>
                     <input
@@ -198,7 +204,8 @@
                       class="form-check-input me-1 view-perm"
                       type="checkbox"
                       v-model="editingUserAccess[index].read"
-                      :disabled="editingUserAccess[index].write"
+                      :indeterminate="editingUserAccess[index].publicRead"
+                      :disabled="editingUserAccess[index].publicRead || editingUserAccess[index].write"
                     />
                     View
                   </label>
@@ -209,6 +216,8 @@
                       type="checkbox"
                       @click="onWriteCheck(index)"
                       v-model="editingUserAccess[index].write"
+                      :disabled="editingUserAccess[index].publicWrite"
+                      :indeterminate="editingUserAccess[index].publicWrite"
                     />
                     Edit
                   </label>

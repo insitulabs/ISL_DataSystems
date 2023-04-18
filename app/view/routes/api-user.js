@@ -107,18 +107,20 @@ module.exports = function () {
           limit: -1
         })
       ).results.map((s) => {
+        let sourcePermissions = s.permissions || {};
+        let publicRead = sourcePermissions.read === true;
+        let publicWrite = sourcePermissions.write === true;
+
         return {
           _id: s._id,
           name: s.name,
           submissionKey: s.submissionKey,
+          publicRead,
+          publicWrite,
           read: user.sources[s._id] ? user.sources[s._id].read : false,
           write: user.sources[s._id] ? user.sources[s._id].write : false
         };
       });
-
-      // let userSources = sources.results.filter((s) => {
-      //   return user.sources[s._id] && user.sources[s._id].read;
-      // });
 
       sources.sort((a, b) => {
         return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
@@ -129,9 +131,15 @@ module.exports = function () {
           limit: -1
         })
       ).results.map((v) => {
+        let viewPermissions = v.permissions || {};
+        let publicRead = viewPermissions.read === true;
+        let publicWrite = viewPermissions.write === true;
+
         return {
           _id: v._id,
           name: v.name,
+          publicRead,
+          publicWrite,
           read: user.views[v._id] ? user.views[v._id].read : false,
           write: user.views[v._id] ? user.views[v._id].write : false
         };

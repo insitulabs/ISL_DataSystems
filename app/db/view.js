@@ -36,14 +36,13 @@ class View extends Base {
       throw new Errors.BadRequest('Invalid view ID param');
     }
 
-    this.user.validateViewPermission(id);
-
     let views = this.collection(VIEWS);
     let view = await views.findOne({ _id: new ObjectId(id) });
 
     if (!view) {
       throw new Errors.BadRequest('View not found: ' + id);
     }
+    this.user.validateViewPermission(view);
 
     const sourceManager = new Source(this.user);
     let sourceFields = {};
@@ -77,7 +76,7 @@ class View extends Base {
         $match.deleted = true;
       }
     } else {
-      $match._id = { $in: this.user.viewIds() };
+      $match.$or = [{ _id: { $in: this.user.viewIds() } }, { 'permissions.read': true }];
     }
 
     if (options.name && typeof options.name === 'string') {
@@ -253,6 +252,39 @@ class View extends Base {
       view: updatedView,
       deletedFields: fieldsToDelete
     };
+  }
+
+  /**
+   * Update a view's workspace permissions.
+   * @param {Object} source
+   * @param {Object} permissions
+   * @returns {Object} The updated source.
+   */
+  async updateViewPermissions(view, permissions) {
+    let existing = await this.getView(view._id);
+    let now = new Date();
+    let toPersist = {
+      permissions: {
+        read: permissions.read === true,
+        write: permissions.write === true
+      },
+      modified: now
+    };
+
+    toPersist.modifiedBy = {
+      _id: this.user._id,
+      email: this.user.email,
+      name: this.user.name
+    };
+
+    const views = this.collection(VIEWS);
+    await views.updateOne(
+      { _id: existing._id },
+      {
+        $set: toPersist
+      }
+    );
+    return await this.getView(existing._id);
   }
 
   /**

@@ -181,7 +181,7 @@ module.exports = function (opts) {
       getCurrentUser(res).validate(CurrentUser.PERMISSIONS.SOURCE_CREATE);
       const sourceManager = new Source(getCurrentUser(res));
       const auditManager = new Audit(getCurrentUser(res));
-      let source = await sourceManager.createSource(req.body, res.locals.user);
+      let source = await sourceManager.createSource(req.body);
       auditManager.logSourceCreate(source);
       res.json(source);
     } catch (error) {
@@ -195,7 +195,7 @@ module.exports = function (opts) {
       getCurrentUser(res).validate(CurrentUser.PERMISSIONS.SOURCE_CREATE);
       const sourceManager = new Source(getCurrentUser(res));
       const auditManager = new Audit(getCurrentUser(res));
-      let { source, deletedFields } = await sourceManager.updateSource(req.body, res.locals.user);
+      let { source, deletedFields } = await sourceManager.updateSource(req.body);
       auditManager.logSourceEdit(source, deletedFields);
       res.json(source);
     } catch (error) {
@@ -217,7 +217,7 @@ module.exports = function (opts) {
         throw new Error.BadRequest('Source already deleted');
       }
 
-      await sourceManager.deleteSource(source, currentUser);
+      await sourceManager.deleteSource(source);
       await userManager.removeSourceFromUsers(source);
       await auditManager.logSourceDelete(source);
 
@@ -239,7 +239,7 @@ module.exports = function (opts) {
         throw new Error.BadRequest('Source is not deleted');
       }
 
-      await sourceManager.restoreDeletedSource(source, getCurrentUser(res));
+      await sourceManager.restoreDeletedSource(source);
       await auditManager.logSourceRestore(source);
       res.redirect(`/data-viewer/source/${source._id}/edit`);
     } catch (error) {
@@ -295,6 +295,32 @@ module.exports = function (opts) {
       });
 
       res.json(created);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Update a source's workspace permissions.
+  router.put('/:id/permissions', async (req, res, next) => {
+    try {
+      getCurrentUser(res).validate(CurrentUser.PERMISSIONS.SOURCE_CREATE);
+      const sourceManager = new Source(getCurrentUser(res));
+      const userManager = new User(getCurrentUser(res));
+      const auditManager = new Audit(getCurrentUser(res));
+      const source = await sourceManager.getSource(req.params.id);
+
+      let allPermissions = req.body.all;
+      let updatedSource = await sourceManager.updateSourcePermissions(source, allPermissions);
+
+      // TODO revisit
+      // let userPermissions = req.body.users;
+      // let previousUsers = await userManager.listUsersBySource(source);
+      // users.forEach((u) => {
+      //   u.acl = u.sources[source._id] || {};
+      // });
+
+      auditManager.logSourceEdit(source);
+      res.json(updatedSource);
     } catch (error) {
       next(error);
     }

@@ -4,6 +4,10 @@
 <link href="{{ '/assets/view-edit.css' | appendVersion }}" rel="stylesheet" />
 {% endblock %}
 
+{% block pageTitle %}
+<span class="badge bg-primary">{{ view.name }}</span>
+{% endblock %}
+
 {% block content %}
 <div id="app" v-cloak class="my-2 container-xxl">
   <ul class="nav nav-pills mb-2">
@@ -13,6 +17,16 @@
     <li class="nav-item">
       <button class="nav-link" :class="{active: tab === 'preview'}" @click="tab = 'preview'">
         Preview
+      </button>
+    </li>
+    <li class="nav-item">
+      <button
+        class="nav-link"
+        :class="{active: tab === 'permissions'}"
+        @click="tab = 'permissions'"
+        :disabled="isNew"
+      >
+        Permissions
       </button>
     </li>
     <li class="nav-item" v-if="!isNew">
@@ -29,7 +43,11 @@
       <a class="nav-link" :href="`/data-viewer/view/${this.id}`">Go To View</a>
     </li>
     <li class="nav-item">
-      <button class="btn btn-primary ms-2 text-nowrap" @click="save" :disabled="saving || isDeleted">
+      <button
+        class="btn btn-primary ms-2 text-nowrap"
+        @click="save"
+        :disabled="saving || isDeleted || tab !== 'edit'"
+      >
         Save
       </button>
     </li>
@@ -60,6 +78,22 @@
         :disabled="isDeleted"></textarea>
     </div>
 
+    <!--
+    <div class="row mt-2">
+      <div class="col">
+        <button class="btn btn-primary" @click="save" :disabled="saving || isDeleted || tab !== 'edit'">
+         Save
+        </button>
+        <span
+          v-if="saved && !dirty"
+          class="ms-2 text-success"
+        >
+          View saved
+        </span>
+      </div>
+    </div>
+    -->
+
     <div class="row mt-4">
       <div class="col position-relative">
         <div class="sticky-top">
@@ -75,7 +109,7 @@
             <button
               class="btn btn-outline-secondary"
               @click="moveField(index, 1)"
-              :disabled="index === fields.length - 1 || isDisabled"
+              :disabled="index === fields.length - 1 || isDeleted"
               title="Move field down"
             >
               <i class="bi bi-arrow-down-short"></i>
@@ -83,7 +117,7 @@
             <button
               @click="moveField(index, -1)"
               class="btn btn-outline-secondary"
-              :disabled="index === 0 || isDisabled"
+              :disabled="index === 0 || isDeleted"
               title="Move field up"
             >
               <i class="bi bi-arrow-up-short"></i>
@@ -203,6 +237,22 @@
         </datalist>
       </div>
     </div>
+
+    <!--
+    <div class="row mt-4 mb-5 bg-secondary p-2 rounded">
+      <div class="col">
+        <button class="btn btn-primary" @click="save" :disabled="saving || isDeleted || tab !== 'edit'">
+         Save
+        </button>
+        <span
+          v-if="saved && !dirty"
+          class="ms-2 text-success"
+        >
+          View saved
+        </span>
+      </div>
+    </div>
+    -->
 
     <div
       class="modal fade"
@@ -389,6 +439,42 @@
       </div>
     </div>
     <div id="preview" ref="preview"></div>
+  </section>
+
+  <section v-if="tab === 'permissions'" class="mt-2">
+    <h5 class="mt-4">All Users</h5>
+    <div class="p-2">
+      <div class="form-check">
+        <input
+          class="form-check-input"
+          type="checkbox"
+          v-model="permissions.read"
+          id="checkAllRead"
+          :disabled="isDeleted"
+        />
+        <label class="form-check-label" for="checkAllRead">
+          View
+        </label>
+      </div>
+    </div>
+
+
+    <h5 class="mt-3">Indvidual Users</h5>
+    {% include "_permissions.njk" %}
+
+    <div class="row mt-4 mb-5">
+      <div class="col d-flex align-items-center">
+        <button class="btn btn-primary" @click="savePermissions" :disabled="saving || isDeleted">
+         Save
+        </button>
+        <span
+          v-if="permissionsSaved"
+          class="ms-2 text-success"
+        >
+          Permissions saved
+        </span>
+      </div>
+    </div>
   </section>
 
   <section v-if="tab === 'advanced'" class="mt-2">

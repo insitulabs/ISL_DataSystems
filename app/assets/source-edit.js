@@ -27,13 +27,16 @@ createApp({
       fields: data.fields.slice(),
       persistedFields: data.fields.slice(),
       saving: false,
+      saved: false,
       error: null,
       loadingPreview: false,
       dirty: false,
       fieldSearch: '',
       samples: samples,
       sampleIndex: 0,
-      allSources
+      allSources,
+      permissions: data.permissions || {},
+      permissionsSaved: false
     };
   },
 
@@ -94,6 +97,9 @@ createApp({
 
   watch: {
     name() {
+      this.dirty = true;
+    },
+    note() {
       this.dirty = true;
     },
     fields: {
@@ -180,6 +186,7 @@ createApp({
 
       this.saving = true;
       this.error = null;
+      this.saved = false;
 
       // TODO Finish new source
       let isUpdate = this.id;
@@ -202,6 +209,7 @@ createApp({
         body: JSON.stringify(body)
       })
         .then((data) => {
+          this.saved = true;
           this.id = data._id;
           this.name = data.name;
           this.note = data.note;
@@ -290,6 +298,40 @@ createApp({
         }
       }
       return null;
+    },
+
+    /**
+     * Save the workspace permissions for this source.
+     */
+    savePermissions() {
+      if (this.saving) {
+        return;
+      }
+
+      this.saving = true;
+      this.error = null;
+
+      let body = {
+        all: this.permissions,
+        // TODO revisit
+        users: null
+      };
+
+      $api(`/api/source/${this.id}/permissions`, {
+        method: 'PUT',
+        body: JSON.stringify(body)
+      })
+        .then(() => {
+          this.saving = false;
+          this.permissionsSaved = true;
+        })
+        .catch((err) => {
+          console.error(err);
+          this.error = err.message ? err.message : 'Error encountered during save.';
+        })
+        .finally(() => {
+          this.saving = false;
+        });
     }
   }
 }).mount('#app');
