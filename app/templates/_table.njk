@@ -44,14 +44,16 @@
 <table class="table sticky-header table-bordered">
   <thead class="table-light">
     <tr>
-      {% if userCanEdit %}
       <th class="checkbox">
-        <input id="check-all" type="checkbox" class="form-check-input"
-          {{ 'disabled' if submissions.length === 0 }} />
+        {% if not isIFRAME %}
+          <input
+            id="check-all"
+            type="checkbox"
+            class="form-check-input"
+            {{ 'disabled' if submissions.length === 0 }}
+          />
+        {% endif %}
       </th>
-      {% elseif isIFRAME %}
-      <th class="checkbox"></th>
-      {% endif %}
       {% for column in fields %}
         <th scope="col" data-field="{{ column.id }}" data-name="{{ column.name }}"
             class="{% if column.sortable %} sortable text-nowrap {% endif %} {% if column.isSorted %} is-sorted {% endif %}">
@@ -87,23 +89,16 @@
     {% for submission in submissions %}
     {% set submissionIndex = loop.index0 %}
     <tr class="{{submission.rowCssClass }}" data-id="{{ submission.id }}" {% if submissionIndex === 0 %} tabindex="0" {% endif%}>
-      {% if userCanEdit %}
       <td class="for-submission-check">
         <input
-          type="checkbox"
+          {% if isIFRAME %}
+            type="radio" name="lookup-value"
+          {% else %}
+            type="checkbox"
+          {% endif %}
           class="form-check-input submission-check"
           data-id="{{ submission.id }}" />
       </td>
-      {% elseif isIFRAME %}
-        <td class="for-submission-check">
-          <input
-            type="radio"
-            name="lookup-value"
-            class="form-check-input submission-check"
-            data-id="{{ submission.id }}" />
-        </td>
-      {% endif %}
-
       {% for field in fields %}
         {% if field.id === '_id' %}
         <td data-field="{{ field.id }}">

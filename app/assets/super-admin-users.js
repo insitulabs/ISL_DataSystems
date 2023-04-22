@@ -1,6 +1,4 @@
-import { createApp } from '/assets/lib/vue.esm-browser.js';
-
-createApp({
+Vue.createApp({
   delimiters: ['${', '}'],
   data() {
     return {

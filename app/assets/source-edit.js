@@ -1,11 +1,9 @@
-import { createApp } from '/assets/lib/vue.esm-browser.js';
-
 let beforeUnloadListener = null;
 
-createApp({
+Vue.createApp({
   delimiters: ['${', '}'],
   data() {
-    // TODO revisit... cachcing, back button issues?
+    // TODO revisit... caching, back button issues?
     let data = window._source;
     let samples = window._samples;
 
@@ -104,6 +102,13 @@ createApp({
   watch: {
     name() {
       this.dirty = true;
+      if (this.isNew) {
+        let namespace = this.name.toLowerCase().trim();
+        this.namespace = namespace
+          .replace(/\s+/g, '-')
+          .replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
+          .replace(/[`~!@#$%^&*()_|+=?;:'",.<>\{\}\[\]\\\/]/g, '');
+      }
     },
     note() {
       this.dirty = true;
@@ -143,9 +148,10 @@ createApp({
       if (value) {
         let lowered = value.toLowerCase();
         let id = lowered
-          .replace(/\s+/g, ' ')
+          .replace(/\s+/g, '_')
           .replace(/\./g, '__')
-          .replace(/[&\/\\#,+()$~%.'":*?<>{}]/g, '');
+          .replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
+          .replace(/[`~!@#$%^&*()|+=?;:'",.<>\{\}\[\]\\\/]/g, '');
 
         // Make sure id isn't just underscores
         if (!id.replace(/_/g, '')) {

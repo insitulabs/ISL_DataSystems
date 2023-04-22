@@ -313,6 +313,12 @@ const emailValidator = require('./lib/email-validator');
     next();
   });
 
+  // Setup appropriate asset libraries for the UI.
+  app.use((req, res, next) => {
+    res.locals.libVue = CONFIG.IS_LOCAL_DEV_ENV ? 'vue.global.js' : 'vue.global.prod.min.js';
+    next();
+  });
+
   // Super admin routes
   app.use(
     '/super-admin',

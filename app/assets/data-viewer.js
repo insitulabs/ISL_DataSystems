@@ -512,49 +512,66 @@ if (IS_IFRAME) {
 // #######################################################
 // # CHECKBOX LOGIC
 // #######################################################
-
-$data.addEventListener('click', (event) => {
+let CHECKED_SUBMISSIONS = [];
+if (!IS_IFRAME) {
   let $checkAll = document.getElementById('check-all');
-
-  // Check all event handler
-  if ($checkAll && (event.target === $checkAll || event.target.matches('th.checkbox'))) {
-    if (event.target.matches('th.checkbox')) {
-      $checkAll.checked = !$checkAll.checked;
-      $checkAll.indeterminate = false;
-    }
-
-    let checked = $checkAll.checked;
-    let indeterminate = $checkAll.indeterminate;
-    let checkAll = checked && !indeterminate;
-
-    $data.querySelectorAll('.submission-check').forEach((el) => {
-      el.checked = checkAll;
+  const onCheckedChange = function () {
+    CHECKED_SUBMISSIONS = [...$data.querySelectorAll('.submission-check:checked')].map(($check) => {
+      return $check.dataset.id;
     });
 
-    return;
-  }
-
-  // Row check event handler
-  let $checkbox = event.target.closest('.submission-check');
-  if ($checkbox && $checkAll && $checkAll.checked) {
-    let total = $data.querySelectorAll('.submission-check').length;
-    let totalChecked = $data.querySelectorAll('.submission-check:checked').length;
-    $checkAll.indeterminate = total !== totalChecked;
-    return;
-  }
-
-  // Checkbox TD helper.
-  if (event.target.classList.contains('for-submission-check')) {
-    let $checkbox = event.target.querySelector('.submission-check');
-    $checkbox.checked = !$checkbox.checked;
     if ($checkAll && $checkAll.checked) {
       let total = $data.querySelectorAll('.submission-check').length;
-      let totalChecked = $data.querySelectorAll('.submission-check:checked').length;
-      $checkAll.indeterminate = total !== totalChecked;
+      $checkAll.indeterminate = total !== CHECKED_SUBMISSIONS.length;
     }
-    return;
-  }
-});
+
+    $copyToBtn = document.getElementById('copy-to-btn');
+    if ($copyToBtn) {
+      if (CHECKED_SUBMISSIONS.length) {
+        $copyToBtn.removeAttribute('disabled');
+      } else {
+        $copyToBtn.setAttribute('disabled', 'disabled');
+      }
+    }
+  };
+
+  $data.addEventListener('click', (event) => {
+    let $checkAll = document.getElementById('check-all');
+
+    // Check all event handler
+    if ($checkAll && (event.target === $checkAll || event.target.matches('th.checkbox'))) {
+      if (event.target.matches('th.checkbox')) {
+        $checkAll.checked = !$checkAll.checked;
+        $checkAll.indeterminate = false;
+      }
+
+      let checked = $checkAll.checked;
+      let indeterminate = $checkAll.indeterminate;
+      let checkAll = checked && !indeterminate;
+
+      let $checks = $data.querySelectorAll('.submission-check');
+      $checks.forEach((el) => {
+        el.checked = checkAll;
+      });
+      onCheckedChange();
+      return;
+    }
+
+    // Row check event handler
+    if (event.target.closest('.submission-check')) {
+      onCheckedChange();
+      return;
+    }
+
+    // Checkbox TD helper.
+    if (event.target.classList.contains('for-submission-check')) {
+      let $checkbox = event.target.querySelector('.submission-check');
+      $checkbox.checked = !$checkbox.checked;
+      onCheckedChange();
+      return;
+    }
+  });
+}
 
 // #######################################################
 // # VIEW ONLY LOGIC
@@ -1166,6 +1183,44 @@ window.onAttachmentPreviewError = function (img) {
   }
   img.parentElement.innerText = 'No preview available';
 };
+
+// #######################################################
+// # COPY TO LOGIC (Source Only)
+// #######################################################
+if (ORIGIN_TYPE === 'source') {
+  let $copyToModal = document.getElementById('copy-to-modal');
+  const copyTo = {
+    $el: $copyToModal,
+    modal: new bootstrap.Modal($copyToModal)
+  };
+
+  copyTo.$el.addEventListener('shown.bs.modal', (event) => {
+    let $iframe = document.createElement('iframe');
+    $iframe.classList.add('copy-to');
+
+    if (!CHECKED_SUBMISSIONS.length) {
+      copyTo.modal.hide();
+      return;
+    }
+    if (CHECKED_SUBMISSIONS.length > 50) {
+      alert(
+        `Copying more than 50 records at a time is not supported at this time. Try an export import instead.`
+      );
+      copyTo.modal.hide();
+      return;
+    }
+
+    $iframe.setAttribute(
+      'src',
+      `/data-viewer/source/${ORIGIN_ID}/copy-to?id=${CHECKED_SUBMISSIONS.join('&id=')}`
+    );
+    copyTo.$el.querySelector('.modal-title .count').innerText =
+      CHECKED_SUBMISSIONS.length +
+      ' ' +
+      (CHECKED_SUBMISSIONS.length > 1 ? 'Submissions' : 'Submission');
+    copyTo.$el.querySelector('.modal-body').replaceChildren($iframe);
+  });
+}
 
 // #######################################################
 // # INIT

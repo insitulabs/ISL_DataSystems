@@ -115,14 +115,14 @@
     <div class="d-flex mt-2">
       <input
         type="text"
-        :disabled="!isNew || isDeleted"
+        disabled
         v-model.trim="system"
         class="form-control"
         placeholder="Source system..."
       />
       <input
         type="text"
-        :disabled="!isNew || isDeleted"
+        disabled
         v-model.trim="namespace"
         class="form-control ms-1"
         placeholder="Source namespace..."

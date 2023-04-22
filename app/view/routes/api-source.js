@@ -276,22 +276,38 @@ module.exports = function (opts) {
       const source = await sourceManager.getSource(req.params.id);
       getCurrentUser(res).validateSourcePermission(source, CurrentUser.PERMISSIONS.WRITE);
 
-      let submission = req.body;
-      if (!submission || Object.keys(submission).length === 0) {
+      let submissions = [];
+      if (Array.isArray(req.body)) {
+        submissions = req.body;
+      } else {
+        submissions = [req.body];
+      }
+
+      submissions = submissions.filter((s) => {
+        if (!s || typeof s !== 'object') {
+          return false;
+        }
+
+        return Object.keys(s).length > 0;
+      });
+
+      if (!submissions.length) {
         throw new Error.BadRequest('Invalid submission data');
       }
 
-      let ids = await sourceManager.insertSubmissions(source, [submission]);
-      let created = await sourceManager.getSubmission(ids[0]);
+      let ids = await sourceManager.insertSubmissions(source, submissions);
+      let created = await Promise.all(ids.map((id) => sourceManager.getSubmission(id)));
 
-      auditManager.logSubmissionCreate({
-        type: 'source',
-        source: {
-          _id: source._id,
-          name: source.name,
-          submissionKey: source.submissionKey
-        },
-        submission: created
+      created.forEach((submission) => {
+        auditManager.logSubmissionCreate({
+          type: 'source',
+          source: {
+            _id: source._id,
+            name: source.name,
+            submissionKey: source.submissionKey
+          },
+          submission
+        });
       });
 
       res.json(created);

@@ -399,7 +399,8 @@ module.exports = function (opts) {
       pageTitle: originName,
       originName,
       editLink: currentUser.admin ? editLink : null,
-      isDeleted
+      isDeleted,
+      libVue: false
     };
 
     let template = isXHR ? '_table' : 'viewer';
@@ -1010,7 +1011,8 @@ module.exports = function (opts) {
         sortLinks,
         nameQuery,
         deleted,
-        pageTitle: 'Views'
+        pageTitle: 'Views',
+        libVue: false
       };
 
       res.render('view-list', model);
@@ -1270,7 +1272,8 @@ module.exports = function (opts) {
         sortLinks,
         nameQuery,
         deleted,
-        pageTitle: 'Sources'
+        pageTitle: 'Sources',
+        libVue: false
       };
 
       res.render('source-list', model);
@@ -1295,6 +1298,8 @@ module.exports = function (opts) {
         ...viewData,
         source: {
           name: '',
+          system: 'ISL',
+          namespace: '',
           fields: []
         },
         sources,
@@ -1471,6 +1476,54 @@ module.exports = function (opts) {
       }
 
       return await renderPageOfResults({ import: theImport, source }, req, res, next);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  /**
+   * Render a source import page.
+   */
+  router.get('/source/:sourceId/copy-to', async (req, res, next) => {
+    try {
+      let currentUser = getCurrentUser(res);
+      const sourceManager = new Source(currentUser);
+      const viewData = await getPageRenderData(req, res);
+      if (!req.query.id) {
+        throw new Errors.BadRequest('Missing target submissions');
+      }
+      const ids = Array.isArray(req.query.id) ? req.query.id : [req.query.id];
+      const source = await sourceManager.getSource(req.params.sourceId);
+      let submissions = await Promise.all(ids.map((id) => sourceManager.getSubmission(id)));
+      submissions = submissions
+        .filter((s) => {
+          // Ensure ids belong to source.
+          return s.source === source.submissionKey;
+        })
+        .map((s) => {
+          return {
+            _id: s._id,
+            data: s.data
+          };
+        });
+      if (!submissions.length) {
+        throw new Errors.BadRequest('Missing target submissions');
+      }
+
+      let sources = await sourceManager.listSources({ limit: -1 });
+      let editableSources = sources.results.filter((s) => {
+        return currentUser.hasSourcePermission(s, CurrentUser.PERMISSIONS.WRITE);
+      });
+
+      let model = {
+        ...viewData,
+        preventHeader: true,
+        sources: editableSources,
+        source,
+        submissions,
+        pageTitle: source.name + ' - Copy To'
+      };
+      res.render('source-copy-to', model);
     } catch (err) {
       next(err);
     }
