@@ -1,5 +1,6 @@
 const { ObjectId } = require('mongodb');
 const Base = require('./base');
+const Sequence = require('./sequence');
 const Errors = require('../lib/errors');
 const CurrentUser = require('../lib/current-user');
 
@@ -194,7 +195,7 @@ class Source extends Base {
    * @param {Object || String || ObjectId} source The source.
    * Can be a source object, an _id or submissionKey.
    * @param {Object} options Query params (sort, order, limit (-1 for all), offset, filters, sample, id)
-   * @return
+   * @return {object} Result set with results and totalResults keys.
    */
   async getSubmissions(source, options = {}) {
     const col = this.collection(SUBMISSIONS);
@@ -254,20 +255,23 @@ class Source extends Base {
   /**
    * Get a source by ID.
    * @param {String || ObjectId} id The ID of the source.
+   * @param {boolean} ignorePermissionCheck True if we should prevent a permission check.
    * @return {Object} Source
    * @throws Not found error.
    */
-  async getSource(id) {
+  async getSource(id, ignorePermissionCheck = false) {
     if (!id || !ObjectId.isValid(id)) {
       throw new Errors.BadRequest('Invalid source ID param');
     }
-
-    this.user.validateSourcePermission(id);
 
     let sources = this.collection(SOURCES);
     let source = await sources.findOne({ _id: new ObjectId(id) });
     if (!source) {
       throw new Error('Source not found: ' + id);
+    }
+
+    if (!ignorePermissionCheck) {
+      this.user.validateSourcePermission(source);
     }
 
     // Append any un-mapped raw fields to end of the source fields list.
@@ -280,6 +284,10 @@ class Source extends Base {
         });
       }
     }
+
+    source.fields.forEach((f) => {
+      f.meta = f.meta || {};
+    });
 
     // return new SourceModel(source);
     return source;
@@ -321,7 +329,7 @@ class Source extends Base {
     let source = await sources.findOne({ submissionKey: key });
 
     if (source) {
-      return this.getSource(source._id);
+      return await this.getSource(source._id);
     } else {
       throw new Error(`Source not found: for key: ${key}`);
     }
@@ -343,7 +351,7 @@ class Source extends Base {
         $match.deleted = true;
       }
     } else {
-      $match._id = { $in: this.user.sourceIds() };
+      $match.$or = [{ _id: { $in: this.user.sourceIds() } }, { 'permissions.read': true }];
     }
 
     if (options.name && typeof options.name === 'string') {
@@ -397,10 +405,9 @@ class Source extends Base {
   /**
    * Create a source.
    * @param {Object} source
-   * @param {Object} user
    * @returns {Object} The new source.
    */
-  async createSource(source, user) {
+  async createSource(source) {
     this.#validateSource(source);
     if (source._id) {
       throw new Error('Failed to create pre-existing source: ' + source.name);
@@ -418,29 +425,32 @@ class Source extends Base {
       modified: now
     };
 
-    // toPersist.fields.forEach((f) => {
-    //   if (!f.id) {
-    //     f.id = crypto.randomUUID();
-    //   }
-    // });
-
-    if (user) {
-      toPersist.createdBy = {
-        id: ObjectId(user._id),
-        name: user.name,
-        email: user.email
-      };
-      toPersist.modifiedBy = {
-        id: ObjectId(user._id),
-        name: user.name,
-        email: user.email
-      };
-    }
+    toPersist.createdBy = {
+      id: ObjectId(this.user._id),
+      name: this.user.name,
+      email: this.user.email
+    };
+    toPersist.modifiedBy = {
+      id: ObjectId(this.user._id),
+      name: this.user.name,
+      email: this.user.email
+    };
 
     const sources = this.collection(SOURCES);
     try {
       let insertResult = await sources.insertOne(toPersist);
-      return await this.getSource(insertResult.insertedId);
+      let newSource = await this.getSource(insertResult.insertedId);
+
+      // Set sequences
+      const sequenceManager = new Sequence(this.user, this.workspace);
+      for (let f of source.fields.filter((f) => f?.meta?.type === 'sequence')) {
+        let nextValue = source.sequenceFields[f.id] || 1;
+        if (typeof nextValue === 'number' && nextValue > 0) {
+          await sequenceManager.setSequence('source', newSource, f, nextValue);
+        }
+      }
+
+      return newSource;
     } catch (err) {
       if (/duplicate key/.test(err.message)) {
         throw new Errors.BadRequest('The combination of system and namespace must be unique.');
@@ -453,10 +463,9 @@ class Source extends Base {
   /**
    * Update a source.
    * @param {Object} source
-   * @param {Object} user
    * @returns {Object} The updated source.
    */
-  async updateSource(source, user) {
+  async updateSource(source) {
     let existing = await this.getSource(source._id);
     this.#validateSource(source);
 
@@ -491,13 +500,11 @@ class Source extends Base {
       modified: now
     };
 
-    if (user) {
-      toPersist.modifiedBy = {
-        id: ObjectId(user._id),
-        name: user.name,
-        email: user.email
-      };
-    }
+    toPersist.modifiedBy = {
+      id: ObjectId(this.user._id),
+      name: this.user.name,
+      email: this.user.email
+    };
 
     const sources = this.collection(SOURCES);
     await sources.updateOne(
@@ -507,6 +514,15 @@ class Source extends Base {
       }
     );
 
+    // Update sequences
+    const sequenceManager = new Sequence(this.user, this.workspace);
+    for (let f of source.fields.filter((f) => f?.meta?.type === 'sequence')) {
+      let nextValue = source.sequenceFields[f.id] || 1;
+      if (typeof nextValue === 'number' && nextValue > 0) {
+        await sequenceManager.setSequence('source', existing, f, nextValue);
+      }
+    }
+
     return {
       source: await this.getSource(existing._id),
       deletedFields: fieldsToDelete
@@ -514,12 +530,44 @@ class Source extends Base {
   }
 
   /**
-   * Delete source.
+   * Update a source's workspace permissions.
    * @param {Object} source
-   * @param {Object} user
+   * @param {Object} permissions
    * @returns {Object} The updated source.
    */
-  async deleteSource(source, user) {
+  async updateSourcePermissions(source, permissions) {
+    let existing = await this.getSource(source._id);
+    let now = new Date();
+    let toPersist = {
+      permissions: {
+        read: permissions.read === true,
+        write: permissions.write === true
+      },
+      modified: now
+    };
+
+    toPersist.modifiedBy = {
+      _id: this.user._id,
+      email: this.user.email,
+      name: this.user.name
+    };
+
+    const sources = this.collection(SOURCES);
+    await sources.updateOne(
+      { _id: existing._id },
+      {
+        $set: toPersist
+      }
+    );
+    return await this.getSource(existing._id);
+  }
+
+  /**
+   * Delete source.
+   * @param {Object} source
+   * @returns {Object} The updated source.
+   */
+  async deleteSource(source) {
     let existing = await this.getSource(source._id);
     let now = new Date();
 
@@ -528,13 +576,11 @@ class Source extends Base {
       modified: now
     };
 
-    if (user) {
-      toPersist.modifiedBy = {
-        id: ObjectId(user._id),
-        name: user.name,
-        email: user.email
-      };
-    }
+    toPersist.modifiedBy = {
+      id: ObjectId(this.user._id),
+      name: this.user.name,
+      email: this.user.email
+    };
 
     const sources = this.collection(SOURCES);
     await sources.updateOne(
@@ -549,10 +595,9 @@ class Source extends Base {
   /**
    * Restore deleted source.
    * @param {Object} source
-   * @param {Object} user
    * @returns {Object} The updated source.
    */
-  async restoreDeletedSource(source, user) {
+  async restoreDeletedSource(source) {
     let existing = await this.getSource(source._id);
     let now = new Date();
 
@@ -560,13 +605,11 @@ class Source extends Base {
       modified: now
     };
 
-    if (user) {
-      toPersist.modifiedBy = {
-        id: ObjectId(user._id),
-        name: user.name,
-        email: user.email
-      };
-    }
+    toPersist.modifiedBy = {
+      id: ObjectId(this.user._id),
+      name: this.user.name,
+      email: this.user.email
+    };
 
     const sources = this.collection(SOURCES);
     await sources.updateOne(
@@ -705,7 +748,7 @@ class Source extends Base {
       throw new Errors.BadRequest('Invalid field name type: ' + typeof field);
     }
 
-    // this.user.validateSourcePermission(id, CurrentUser.PERMISSIONS.WRITE);
+    // this.user.validateSourcePermission(source, CurrentUser.PERMISSIONS.WRITE);
     let update = {};
     update['data.' + field] = value;
 
@@ -812,6 +855,19 @@ class Source extends Base {
         return submission;
       });
 
+      let sequenceFields = source.fields.filter((f) => f?.meta?.type === 'sequence');
+      if (sequenceFields.length) {
+        const sequenceManager = new Sequence(this.user, this.workspace);
+        for (let f of sequenceFields) {
+          let seq = await sequenceManager.getSequence('source', source, f);
+          toInsert.forEach((submission, index) => {
+            submission.data[f.id] = seq + index;
+            submission.originalData[f.id] = seq + index;
+          });
+          await sequenceManager.incrementSequence('source', source, f, toInsert.length);
+        }
+      }
+
       let resp = await col.insertMany(toInsert);
       return Object.values(resp.insertedIds);
     }
@@ -875,12 +931,40 @@ class Source extends Base {
         email: this.user.email
       },
       fields: fields.map((f) => {
+        let id = Source.normalizeFieldName(f);
+
+        // Do not let fields overwrite our mandatory ones.
+        if (['_id', 'id', 'created', 'imported'].includes(id.toLowerCase())) {
+          let newId = id.toLowerCase() + '_1';
+
+          records.forEach((r) => {
+            r[newId] = r[f];
+            delete r[f];
+          });
+
+          id = newId;
+        }
+
         return {
-          id: Source.normalizeFieldName(f),
+          id: id,
           name: null
         };
       })
     };
+
+    let duplicateFields = toPersist.fields.reduce((dups, f) => {
+      if (dups[f.id]) {
+        dups[f.id]++;
+      } else {
+        dups[f.id] = 1;
+      }
+
+      return dups;
+    }, {});
+    let duplicates = Object.keys(duplicateFields).filter((f) => duplicateFields[f] > 1);
+    if (duplicates.length) {
+      throw new Errors.BadRequest('Import has duplicate columns: ' + duplicates.join(', '));
+    }
 
     let insertImport = await imports.insertOne(toPersist);
 
@@ -924,12 +1008,13 @@ class Source extends Base {
     }
 
     const imports = this.collection(IMPORTS);
-    let theImport = imports.findOne({ _id: new ObjectId(id) });
+    let theImport = await imports.findOne({ _id: new ObjectId(id) });
     if (!theImport) {
       throw new Errors.BadRequest('Import not found.');
     }
 
-    this.user.validateSourcePermission(theImport.sourceId, CurrentUser.PERMISSIONS.WRITE);
+    let importSource = await this.getSource(theImport.sourceId);
+    this.user.validateSourcePermission(importSource, CurrentUser.PERMISSIONS.WRITE);
 
     return theImport;
   }

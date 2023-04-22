@@ -1,13 +1,23 @@
-import { createApp } from '/assets/lib/vue.esm-browser.js';
-
 let beforeUnloadListener = null;
 
-createApp({
+Vue.createApp({
   delimiters: ['${', '}'],
   data() {
-    // TODO revisit... cachcing, back button issues?
+    // TODO revisit... caching, back button issues?
     let data = window._source;
     let samples = window._samples;
+
+    // TODO maybe query for this some day to avoid large datasets of sources
+    let allSources = window._allSources.results;
+
+    let sequenceFields = (window._sequenceFields || []).reduce((obj, field) => {
+      obj[field.id] = field.meta.nextValue;
+      return obj;
+    }, {});
+
+    data.fields.forEach((f) => {
+      f.meta.type = f.meta.type || '';
+    });
 
     return {
       tab: 'edit',
@@ -19,13 +29,18 @@ createApp({
       note: data.note,
       fields: data.fields.slice(),
       persistedFields: data.fields.slice(),
+      sequenceFields,
       saving: false,
+      saved: false,
       error: null,
       loadingPreview: false,
       dirty: false,
       fieldSearch: '',
       samples: samples,
-      sampleIndex: 0
+      sampleIndex: 0,
+      allSources,
+      permissions: data.permissions || {},
+      permissionsSaved: false
     };
   },
 
@@ -87,11 +102,29 @@ createApp({
   watch: {
     name() {
       this.dirty = true;
+      if (this.isNew) {
+        let namespace = this.name.toLowerCase().trim();
+        this.namespace = namespace
+          .replace(/\s+/g, '-')
+          .replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
+          .replace(/[`~!@#$%^&*()_|+=?;:'",.<>\{\}\[\]\\\/]/g, '');
+      }
+    },
+    note() {
+      this.dirty = true;
     },
     fields: {
       deep: true,
       handler: function () {
         this.dirty = true;
+
+        this.fields.forEach((f) => {
+          if (/sequence/.test(f.meta.type)) {
+            if (!this.sequenceFields[f.id]) {
+              this.sequenceFields[f.id] = 1;
+            }
+          }
+        });
       }
     },
     dirty(value) {
@@ -109,14 +142,16 @@ createApp({
   },
 
   methods: {
-    addField($event) {
-      let value = $event.target.value.trim();
+    addField() {
+      let $input = this.$refs.addField;
+      let value = $input.value.trim();
       if (value) {
         let lowered = value.toLowerCase();
         let id = lowered
-          .replace(/\s+/g, ' ')
+          .replace(/\s+/g, '_')
           .replace(/\./g, '__')
-          .replace(/[&\/\\#,+()$~%.'":*?<>{}]/g, '');
+          .replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
+          .replace(/[`~!@#$%^&*()|+=?;:'",.<>\{\}\[\]\\\/]/g, '');
 
         // Make sure id isn't just underscores
         if (!id.replace(/_/g, '')) {
@@ -129,13 +164,14 @@ createApp({
         }
 
         if (id && !this.fields.some((f) => id === f.id.toLowerCase())) {
-          this.fields.push({ id: id, name: value });
-          $event.target.value = '';
-          $event.target.classList.remove('is-invalid');
+          this.fields.push({ id: id, name: value, meta: {} });
+          $input.value = '';
+          $input.classList.remove('is-invalid');
+          this.fieldSearch = '';
           return;
         }
       }
-      $event.target.classList.add('is-invalid');
+      $input.classList.add('is-invalid');
     },
 
     updateFieldName(id, $event) {
@@ -166,10 +202,12 @@ createApp({
         return;
       }
 
+      this.cleanFieldTypes();
+
       this.saving = true;
       this.error = null;
+      this.saved = false;
 
-      // TODO Finish new source
       let isUpdate = this.id;
       let url = isUpdate ? `/api/source/${this.id}` : '/api/source';
       let method = isUpdate ? 'PUT' : 'POST';
@@ -179,7 +217,8 @@ createApp({
         namespace: this.namespace,
         name: this.name.trim(),
         note: this.note ? this.note.trim() : null,
-        fields: this.fields
+        fields: this.fields,
+        sequenceFields: this.sequenceFields
       };
       if (this.id) {
         body._id = this.id;
@@ -190,6 +229,7 @@ createApp({
         body: JSON.stringify(body)
       })
         .then((data) => {
+          this.saved = true;
           this.id = data._id;
           this.name = data.name;
           this.note = data.note;
@@ -203,7 +243,6 @@ createApp({
           });
         })
         .catch((err) => {
-          // TODO
           console.error(err);
           this.error = err.message ? err.message : 'Error encountered during save.';
         })
@@ -232,9 +271,86 @@ createApp({
      * @param {Event} event
      */
     onDeleteForm(event) {
-      if (!window.confirm('Are you sure you want to delete this source?')) {
+      if (!window.confirm('Are you sure you want to archive this source?')) {
         event.preventDefault();
       }
+    },
+
+    /**
+     * Cleanup field types and their meta data.
+     */
+    cleanFieldTypes() {
+      this.fields.forEach((f) => {
+        if (/source|view/.test(f.meta.type) && f.meta.originId) {
+          // TODO revisit view.
+          let validSource = this.allSources.find((s) => s._id === f.meta.originId);
+          if (!validSource) {
+            f.meta.originId = null;
+            f.meta.originField = null;
+          }
+        } else {
+          delete f.meta.originId;
+          delete f.meta.originField;
+        }
+      });
+    },
+
+    /**
+     * Does the field support meta options for it's type.
+     * @param {Object} field
+     * @return  {boolean}
+     */
+    hasMetaOptions(field) {
+      return /source|view|sequence/.test(field?.meta?.type);
+    },
+
+    /**
+     * Get source lookup name
+     * @param {string} id The source id
+     * @return {string}
+     **/
+    getSourceName(id) {
+      if (id) {
+        let validSource = this.allSources.find((s) => s._id === id);
+        if (validSource) {
+          return validSource.name;
+        }
+      }
+      return null;
+    },
+
+    /**
+     * Save the workspace permissions for this source.
+     */
+    savePermissions() {
+      if (this.saving) {
+        return;
+      }
+
+      this.saving = true;
+      this.error = null;
+
+      let body = {
+        all: this.permissions,
+        // TODO revisit
+        users: null
+      };
+
+      $api(`/api/source/${this.id}/permissions`, {
+        method: 'PUT',
+        body: JSON.stringify(body)
+      })
+        .then(() => {
+          this.saving = false;
+          this.permissionsSaved = true;
+        })
+        .catch((err) => {
+          console.error(err);
+          this.error = err.message ? err.message : 'Error encountered during save.';
+        })
+        .finally(() => {
+          this.saving = false;
+        });
     }
   }
 }).mount('#app');

@@ -1,0 +1,186 @@
+{% extends "layout.njk" %}
+
+{% block styles %}
+<style>
+  .mw-0 {
+    max-width: 0;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="app" v-cloak class="my-2 container-xxl">
+  <div class="row">
+    <div class="col">
+      <p>1. Select source to copy to:</p>
+      <div class="form-floating">
+        <select
+          class="form-select"
+          id="destinationSelect"
+          aria-label="Destination"
+          v-model="destinationId"
+          :disabled="created"
+        >
+          <option selected disabled></option>
+          {% for s in sources %}
+          <option value="{{ s._id }}">{{ s.name }}</option>
+          {% endfor %}
+        </select>
+        <label for="destinationSelect">Destination</label>
+      </div>
+    </div>
+  </div>
+
+  <div v-if="error" class="row">
+    <div class="col">
+      <div class="alert alert-danger mt-2" role="alert">${error}</div>
+    </div>
+  </div>
+
+  <div v-if="!created" class="row mt-4">
+    <div class="col">
+      <p>2. Map fields into target destination:</p>
+    </div>
+  </div>
+
+  <div v-if="!created" class="row">
+    <div class="col">
+      <strong>Field Mapping</strong>
+      <div class="row">
+        <div class="col">
+          Source
+          <button v-if="submissions.length > 1" class="btn btn-link btn-sm" @click="nextSubmission">
+            Shuffle
+          </button>
+        </div>
+        <div class="col">
+          Destination
+        </div>
+      </div>
+      {% for f in source.fields %}
+      <div class="row">
+        <div class="col">
+          <div class="form-floating">
+            <input
+              type="text"
+              class="form-control"
+              id="source-field-{{ f.id | replace(' ', '_') }}"
+              :value="submission['{{ f.id }}'] || ''"
+              disabled
+            />
+            <label for="source-field-{{ f.id | replace(' ', '_') }}">{{ f.name or f.id }}</label>
+          </div>
+        </div>
+        <div class="col">
+          <div class="form-floating">
+            <input
+              type="text"
+              class="form-control"
+              id="dest-field-{{ f.id | replace(' ', '_') }}"
+              :class="{'is-invalid': invalidFields['{{ f.id }}'] }"
+              list="destination-fields"
+              v-model.trim="mapping['{{ f.id }}']"
+              :disabled="!destinationId"
+            />
+            <label for="dest-field-{{ f.id | replace(' ', '_') }}">
+              ${ destinationFieldName(mapping['{{ f.id }}']) }
+            </label>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+
+    <div v-if="error" class="my-2">
+      <div class="alert alert-danger my-0" role="alert">${error}</div>
+    </div>
+
+    <div class="mb-4 mt-2">
+      <button
+        class="save btn btn-primary"
+        :disabled="!canSave || saving || loading"
+        @click="save"
+      >
+        Copy
+      </button>
+      <div
+        v-if="saving"
+        class="spinner-border spinner-border-sm ms-1"
+        role="status"
+      >
+        <span class="visually-hidden">Saving...</span>
+      </div>
+    </div>
+  </div>
+
+    <div class="col-5" :class="{invisible: !destinationId}">
+      <strong>
+        Sample Destination Data
+        <button
+          v-if="destinationSamples.length > 1"
+         class="btn btn-link btn-sm"
+         @click="nextDestinationSample"
+        >
+          Shuffle
+        </button>
+      </strong>
+      <table class="table w-100 table-light">
+        <thead>
+          <tr>
+            <th class="w-50">Field</th>
+            <th class="w-50">Data</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="f of destinationFields" :key="f">
+            <td class="mw-0" :class="{'bg-warning': mappedDestinationFields[f.id] }">
+              <div class="text-truncate" :title="f.name || f.id">
+                ${ f.name || f.id }
+              </div>
+            </td>
+            <td class="mw-0">
+              <div class="text-truncate" :title="destinationSample[f] || ''">
+                ${ destinationSample[f.id] || '' }
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div v-if="created" class="row mt-4">
+    <div class="col">
+      <strong>Created submissions:</strong>
+      <ol>
+        <li v-for="s of created" :key="s._id">
+          <a
+            :href="`/data-viewer/source/${destinationId}?id=${s._id}`"
+            target="_blank"
+          >
+            ${s._id}
+          </a>
+        </li>
+      </ol>
+    </div>
+
+  </div>
+
+  <datalist id="destination-fields">
+    <option
+      v-for="f in availableDestinationFields"
+      :value="f.id"
+      :key="f.id"
+    >
+      ${f.name}
+      <template v-if="f.meta && f.meta.type === 'sequence'">(auto increment)</template
+    </option>
+  </datalist>
+</div>
+
+<script>
+  window._source = {{ source | dump | safe }};
+  window._sources = {{ sources | dump | safe }};
+  window._submissions = {{ submissions | dump | safe }};
+</script>
+<script type="module" src="/assets/source-copy-to.js"></script>
+{% endblock %}

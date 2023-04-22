@@ -38,6 +38,14 @@
 
 {% block content %}
 
+{% if isDeleted %}
+<div class="px-2 mt-2">
+  <div class="alert alert-warning mb-0" role="alert">
+    Archived {{ "view" if view else "source"}}. The data is read-only.
+  </div>
+</div>
+{% endif %}
+
 {% if source and source.note %}
 <div class="px-2 mt-2">
   <div class="alert alert-secondary mb-0" role="alert">{{ source.note | urlize | nl2br | safe }}</div>
@@ -101,7 +109,7 @@
                         </label>
                       </div>
                     </div>
-                  <li>
+                  </li>
                 {% endfor %}
               </ul>
             </div>
@@ -142,6 +150,10 @@
                   Query: <strong>! [expression]</strong> to negate the query.<br>
 
                   <br>
+                  <h6>Exact Match</h6>
+                  Query: <strong>&#x22;value&#x22;</strong><br>
+
+                  <br>
                   <h6>Regular Expression (PCRE)</h6>
                   Query: <strong>/[regex]/i</strong><br>
 
@@ -169,17 +181,39 @@
           <button id="btn-import-records" class="btn btn-primary btn-sm">Import Records</button>
         </div>
         {% endif %}
+      {% endif %}
 
-        {% if userCanCreate %}
-        <div class="ms-1">
-          <button type="button" class="btn btn-secondary btn-sm"
-              data-bs-toggle="modal" data-bs-target="#new-submission-modal">
-            <span class="d-inline-block d-lg-none">New</span>
-            <span class="d-none d-lg-inline-block">New Submission</span>
+      {% if not theImport and not view %}
+      <div class="dropdown ms-1">
+        <button class="btn btn-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+          Actions
+        </button>
+        <ul class="dropdown-menu">
+          {% if userCanCreate %}
+          <button
+            type="button"
+            class="dropdown-item"
+            data-bs-toggle="modal"
+            data-bs-target="#new-submission-modal"
+          >
+            Create Submission
           </button>
-        </div>
-        {% endif %}
+          {% endif %}
+          <button
+            id="copy-to-btn"
+            type="button"
+            class="dropdown-item"
+            data-bs-toggle="modal"
+            data-bs-target="#copy-to-modal"
+            disabled
+          >
+            Copy To
+          </button>
+        </ul>
+      </div>
+      {% endif %}
 
+      {% if userCanEdit %}
         <div id="undo" class="ms-1">
           <button class="btn btn-secondary btn-sm" disabled>Undo</button>
         </div>
@@ -195,8 +229,17 @@
   </div>
 </header>
 
-<section id="data" data-type="{{ dataType }}" data-id="{{ dataId }}">
-  <div id="data-loader" class="d-flex align-items-center justify-content-center position-fixed top-50 start-50 translate-middle">
+<section
+  id="data"
+  data-type="{{ dataType }}"
+  data-id="{{ dataId }}"
+  data-name="{{ originName }}"
+  data-iframe="{{ isIFRAME }}"
+>
+  <div
+    id="data-loader"
+    class="d-flex align-items-center justify-content-center position-fixed top-50 start-50 translate-middle"
+  >
     <div class="spinner-border" role="status">
       <span class="visually-hidden">Loading...</span>
     </div>
@@ -215,7 +258,7 @@
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="new-submission-modal-title">New Submission</h5>
+        <h5 class="modal-title" id="new-submission-modal-title">Create Submission</h5>
         <button
           type="button"
           class="btn-close"
@@ -249,6 +292,8 @@
                 type="text"
                 name="{{ field.id }}"
                 class="form-control field-value"
+                {{ 'disabled' if field.meta.type === 'sequence' }}
+                {{ 'placeholder="[auto increment]"' | safe if field.meta.type === 'sequence' }}
               />
             </div>
           </div>
@@ -260,6 +305,32 @@
           <span class="visually-hidden">Loading...</span>
         </div>
         <button class="save btn btn-primary">Create</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if not theImport and not view %}
+<div
+  class="modal fade"
+  id="copy-to-modal"
+  tabindex="-1"
+  aria-labelledby="copy-to-modal-title"
+  aria-hidden="true"
+>
+  <div class="modal-dialog modal-fullscreen">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="copy-to-modal-title">Copy <span class="count"></span></h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+          aria-label="Close"
+        ></button>
+      </div>
+      <div class="modal-body">
       </div>
     </div>
   </div>

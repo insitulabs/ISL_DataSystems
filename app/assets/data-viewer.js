@@ -3,6 +3,36 @@ const SYSTEM_PARAMS = ['table', 'sort', 'order', 'offset', 'limit'];
 const $data = document.getElementById('data');
 const ORIGIN_TYPE = $data.dataset.type;
 const ORIGIN_ID = $data.dataset.id;
+const ORIGIN_NAME = $data.dataset.name;
+const IS_IFRAME_FIELD = $data.dataset.iframe;
+const IS_IFRAME = !!IS_IFRAME_FIELD && !!window.parent;
+const FIELD_TYPES = {
+  ATTACHMENT: 'attachment',
+  FLOAT: 'float',
+  INT: 'int',
+  LOOKUP: 'lookup',
+  SEQUENCE: 'sequence',
+  TEXT: 'text'
+};
+
+const focusOnDataTable = function () {
+  // Focus on first row so keyboard works well with up/down.
+  document.querySelector('tbody tr').focus();
+};
+
+/**
+ * Broadcast message to parent window.
+ * @param {string} action Name of action to post.
+ * @param {*} value Data to push.
+ */
+const postParentMessage = function (action, value = null) {
+  if (window && window.parent) {
+    window.parent.postMessage({
+      action,
+      value
+    });
+  }
+};
 
 const updateSubmission = function (target, field, value, currentValue, valueType) {
   const formData = new FormData();
@@ -19,7 +49,9 @@ const updateSubmission = function (target, field, value, currentValue, valueType
 
   formData.append('currentValue', currentValue);
   formData.append('value', value);
-  formData.append('valueType', valueType);
+  if (valueType) {
+    formData.append('valueType', valueType);
+  }
 
   formData.append('originType', ORIGIN_TYPE);
   formData.append('originId', ORIGIN_ID);
@@ -30,6 +62,11 @@ const updateSubmission = function (target, field, value, currentValue, valueType
     isAttachment = true;
     url = '/data-viewer/api/edit/attachment';
   }
+
+  // Remove prior updated visual queues prior to saving new updates.
+  $data.querySelectorAll('td.updated').forEach(($td) => {
+    $td.classList.remove('updated');
+  });
 
   return $api(url, {
     method: 'POST',
@@ -48,6 +85,7 @@ const updateSubmission = function (target, field, value, currentValue, valueType
           } else {
             $td.classList.add('editable');
           }
+          $td.classList.add('updated');
           $td.dataset.value = response.value !== null ? response.value : '';
           $td.innerHTML = response.html;
         }
@@ -59,8 +97,13 @@ const updateSubmission = function (target, field, value, currentValue, valueType
         let tds = $data.querySelectorAll(`tr[data-id="${f.id}"] > td[data-field="${f.field}"]`);
         tds.forEach(($td) => {
           $td.classList.add('editable');
+          $td.classList.add('updated');
           $td.dataset.value = response.value !== null ? response.value : '';
-          $td.innerHTML = response.html;
+          if (response.htmls && response.htmls[`${f.id}-${f.field}`]) {
+            $td.innerHTML = response.htmls[`${f.id}-${f.field}`];
+          } else {
+            $td.innerHTML = response.html;
+          }
           $td.closest('tr').querySelector('.record-source').classList.add('loading');
         });
       });
@@ -104,19 +147,19 @@ const pushUndo = function (item) {
 
 const saveEdit = function () {
   let input = editModal.$input;
-  let inputType = editModal.$el.querySelector('select').value;
+  let inputType = editModal.$type.value;
   editModal.$save.setAttribute('disabled', 'disabled');
 
   let newValue = input.value.trim();
   let error = null;
 
-  if (inputType === 'attachment') {
+  if (inputType === FIELD_TYPES.ATTACHMENT) {
     if (editModal.$attachment.files.length === 1) {
       newValue = editModal.$attachment.files[0];
     } else {
       error = 'File required';
     }
-  } else if (inputType === 'int') {
+  } else if (inputType === FIELD_TYPES.INT) {
     if (!newValue) {
       newValue = 0;
     }
@@ -125,7 +168,7 @@ const saveEdit = function () {
     if (isNaN(newValue)) {
       error = 'Invalid number';
     }
-  } else if (inputType === 'float') {
+  } else if (inputType === FIELD_TYPES.FLOAT) {
     if (!newValue) {
       newValue = 0;
     }
@@ -137,7 +180,7 @@ const saveEdit = function () {
 
   if (error) {
     editModal.$save.removeAttribute('disabled');
-    if (inputType !== 'attachment') {
+    if (inputType !== FIELD_TYPES.ATTACHMENT) {
       input.select();
     }
     alert(error);
@@ -155,7 +198,7 @@ const saveEdit = function () {
     inputType
   )
     .then((response) => {
-      if (inputType !== 'attachment') {
+      if (inputType !== FIELD_TYPES.ATTACHMENT) {
         pushUndo({ ...editModal.editing, currentValue: newValue });
       }
 
@@ -171,7 +214,7 @@ const saveEdit = function () {
     .catch((error) => {
       console.error(error);
       alert(error && error.message ? error.message : error);
-      if (inputType !== 'attachment') {
+      if (inputType !== FIELD_TYPES.ATTACHMENT) {
         input.select();
       }
     })
@@ -186,9 +229,11 @@ const editModal = {
   $el: el,
   $input: document.getElementById('edit-input'),
   $attachment: document.getElementById('attachment-input'),
+  $lookup: document.getElementById('lookup-container'),
   $bulkWarning: document.getElementById('edit-count-warning'),
   $type: el.querySelector('select'),
-  $save: el.querySelector('.btn-primary'),
+  $save: el.querySelector('.btn.save'),
+  $clear: el.querySelector('.btn.clear'),
   getEditTarget: (td) => {
     let target = {};
 
@@ -220,7 +265,17 @@ const editModal = {
 
 editModal.modal = new bootstrap.Modal(editModal.$el);
 editModal.$el.addEventListener('shown.bs.modal', (event) => {
-  editModal.$input.select();
+  if (editModal.$type.value === FIELD_TYPES.LOOKUP) {
+    let iframe = editModal.$lookup.querySelector('iframe');
+    if (iframe) {
+      let filterInput = iframe.contentDocument.querySelector('#active-filters input');
+      if (filterInput) {
+        filterInput.select();
+      }
+    }
+  } else {
+    editModal.$input.select();
+  }
 });
 editModal.$el.addEventListener('hide.bs.modal', (event) => {
   editModal.$el.querySelector('.btn-close').removeAttribute('disabled');
@@ -229,132 +284,294 @@ editModal.$el.addEventListener('hide.bs.modal', (event) => {
   }
 });
 editModal.$save.addEventListener('click', saveEdit);
+editModal.$clear.addEventListener('click', (event) => {
+  editModal.$input.value = '';
+});
 editModal.$input.addEventListener('keyup', (event) => {
   if (event.key === 'Enter') {
     saveEdit();
   }
 });
 editModal.$type.addEventListener('change', (event) => {
-  if (event.target.value === 'attachment') {
+  let $dialog = editModal.$el.querySelector('.modal-dialog');
+  if (event.target.value === FIELD_TYPES.LOOKUP) {
+    editModal.$lookup.classList.remove('d-none');
+    $dialog.querySelector('.modal-title').innerText = 'Select';
+  } else {
+    editModal.$lookup.classList.add('d-none');
+    $dialog.querySelector('.modal-title').innerText = 'Edit Submission';
+  }
+
+  if (event.target.value === FIELD_TYPES.ATTACHMENT) {
     editModal.$attachment.classList.remove('d-none');
     editModal.$input.classList.add('d-none');
+  } else if (event.target.value === FIELD_TYPES.SEQUENCE) {
+    editModal.$input.setAttribute('disabled', 'disabled');
+  } else if (event.target.value === FIELD_TYPES.LOOKUP) {
   } else {
     editModal.$attachment.classList.add('d-none');
     editModal.$input.classList.remove('d-none');
+    editModal.$input.removeAttribute('disabled');
     editModal.$input.select();
   }
 });
 
-$data.addEventListener('dblclick', function (event) {
-  let td = event.target.closest('td.editable');
-  if (td) {
-    let curValue = td.dataset.value;
+if (IS_IFRAME) {
+  $data.addEventListener('dblclick', function (event) {
+    let $tr = event.target.closest('tr');
+    if ($tr) {
+      postParentMessage('save');
+    }
+  });
 
-    // Ensure current row is checked
-    let wasChecked = false;
-    let $checkbox = td.closest('tr').querySelector('.submission-check');
-    if (!$checkbox.checked) {
+  $data.addEventListener('click', function (event) {
+    let $tr = event.target.closest('tr');
+    if ($tr && $tr.dataset.id) {
+      let $checkbox = $tr.querySelector('.submission-check');
       $checkbox.checked = true;
-      wasChecked = true;
-    }
 
-    let target = editModal.getEditTarget(td);
-    let checkedCount = $data.querySelectorAll('.submission-check:checked').length;
+      let $td = $tr.querySelector(`td[data-field="${IS_IFRAME_FIELD}"]`);
+      let value = $td ? $td.dataset.value : $tr.dataset.id;
 
-    editModal.onClose = (saved = false) => {
-      // On save, only one, clear
-      // On cancel, only one, clear
-      // On cancel, multiple, clear target if it wasn't originally checked
-      if (checkedCount === 1) {
-        $checkbox.checked = false;
-      } else if (!saved && wasChecked) {
-        $checkbox.checked = false;
+      // Is number?
+      if (value && /^[\d\.]+$/.test(value)) {
+        if (value.indexOf('.') > -1) {
+          value = parseFloat(value);
+        } else {
+          value = parseInt(value);
+        }
+
+        if (isNaN(value)) {
+          value = '';
+        }
       }
-    };
 
-    editModal.editing = {
-      target: target,
-      field: td.dataset.field,
-      value: curValue
-    };
+      postParentMessage('set-lookup-value', value);
+    }
+  });
 
-    editModal.$attachment.classList.add('d-none');
-    editModal.$attachment.value = '';
-    editModal.$input.classList.remove('d-none');
-    editModal.$input.value = curValue || '';
+  document.addEventListener('keyup', (event) => {
+    if (event.key === 'Escape') {
+      postParentMessage('cancel');
+    }
+  });
+} else {
+  $data.addEventListener('dblclick', function (event) {
+    let td = event.target.closest('td.editable');
+    if (td) {
+      let curValue = td.dataset.value;
 
-    let type = 'text';
-    // Is number?
-    if (curValue && /^[\d\.]+$/.test(curValue)) {
-      type = 'int';
-      if (curValue.indexOf('.') > -1) {
-        type = 'float';
+      // Ensure current row is checked
+      let wasChecked = false;
+      let $checkbox = td.closest('tr').querySelector('.submission-check');
+      if (!$checkbox.checked) {
+        $checkbox.checked = true;
+        wasChecked = true;
       }
+
+      let target = editModal.getEditTarget(td);
+      let checkedCount = $data.querySelectorAll('.submission-check:checked').length;
+
+      editModal.onClose = (saved = false) => {
+        // On save, only one, clear
+        // On cancel, only one, clear
+        // On cancel, multiple, clear target if it wasn't originally checked
+        if (checkedCount === 1) {
+          $checkbox.checked = false;
+        } else if (!saved && wasChecked) {
+          $checkbox.checked = false;
+        }
+      };
+
+      editModal.editing = {
+        target: target,
+        field: td.dataset.field,
+        value: curValue
+      };
+
+      editModal.$attachment.classList.add('d-none');
+      editModal.$attachment.value = '';
+      editModal.$input.classList.remove('d-none');
+      editModal.$input.value = curValue || '';
+
+      let type = FIELD_TYPES.TEXT;
+      if (td.dataset.type) {
+        if (/source|view/.test(td.dataset.type)) {
+          type = FIELD_TYPES.LOOKUP;
+        } else {
+          type = td.dataset.type;
+        }
+      } else {
+        // Is number?
+        if (curValue && /^[\d\.]+$/.test(curValue)) {
+          type = FIELD_TYPES.INT;
+          if (curValue.indexOf('.') > -1) {
+            type = FIELD_TYPES.FLOAT;
+          }
+        }
+      }
+
+      editModal.editing.type = type;
+      editModal.$type.value = type;
+      editModal.$type
+        .querySelector(`option[value="${FIELD_TYPES.SEQUENCE}"]`)
+        .setAttribute('disabled', 'disabled');
+      editModal.$type
+        .querySelector(`option[value="${FIELD_TYPES.LOOKUP}"]`)
+        .setAttribute('disabled', 'disabled');
+
+      let $dialog = editModal.$el.querySelector('.modal-dialog');
+      if (type === FIELD_TYPES.LOOKUP) {
+        editModal.$input.setAttribute('disabled', 'disabled');
+        // editModal.$type.setAttribute('disabled', 'disabled');
+        let originType = td.dataset.type;
+        let originId = td.dataset.typeOrigin;
+        let originField = td.dataset.typeOriginField;
+        let $iframe = document.createElement('iframe');
+        $iframe.classList.add('lookup');
+        let filter = curValue ? encodeURIComponent(`"${curValue}"`) : '';
+        $iframe.setAttribute(
+          'src',
+          `/data-viewer/${originType}/${originId}?iframe=${encodeURIComponent(
+            originField
+          )}&${encodeURIComponent(originField)}=${filter}`
+        );
+        editModal.$lookup.replaceChildren($iframe);
+        editModal.$lookup.classList.remove('d-none');
+        $dialog.classList.remove('modal-lg');
+        $dialog.classList.add('modal-fullscreen');
+        $dialog.querySelector('.modal-title').innerText = 'Select';
+        editModal.$type
+          .querySelector(`option[value="${FIELD_TYPES.LOOKUP}"]`)
+          .removeAttribute('disabled', 'disabled');
+      } else {
+        if (type === FIELD_TYPES.SEQUENCE) {
+          editModal.$input.setAttribute('disabled', 'disabled');
+          editModal.$type
+            .querySelector(`option[value="${FIELD_TYPES.SEQUENCE}"]`)
+            .removeAttribute('disabled');
+        } else {
+          editModal.$input.removeAttribute('disabled');
+        }
+
+        editModal.$type.removeAttribute('disabled');
+        editModal.$lookup.innerHTML = '';
+        $dialog.classList.remove('modal-fullscreen');
+        $dialog.classList.add('modal-lg');
+        $dialog.querySelector('.modal-title').innerText = 'Edit Submission';
+      }
+
+      if (checkedCount > 1) {
+        const numberFormatter = new Intl.NumberFormat();
+        editModal.$bulkWarning.querySelector('span').innerText =
+          numberFormatter.format(checkedCount);
+        editModal.$bulkWarning.classList.remove('d-none');
+      } else {
+        editModal.$bulkWarning.classList.add('d-none');
+      }
+
+      editModal.modal.show();
     }
+  });
 
-    editModal.editing.type = type;
+  window.addEventListener(
+    'message',
+    (event) => {
+      if (event.origin !== window.location.origin || !event.data) {
+        return;
+      }
 
-    let inputType = editModal.$el.querySelector('select');
-    inputType.value = type;
-
-    if (checkedCount > 1) {
-      const numberFormatter = new Intl.NumberFormat();
-      editModal.$bulkWarning.querySelector('span').innerText = numberFormatter.format(checkedCount);
-      editModal.$bulkWarning.classList.remove('d-none');
-    } else {
-      editModal.$bulkWarning.classList.add('d-none');
-    }
-
-    editModal.modal.show();
-  }
-});
+      if (event.data?.action === 'set-lookup-value') {
+        let value = event.data.value;
+        editModal.$input.value = value;
+        if (typeof value === 'number') {
+          if (Number.isInteger(value)) {
+            editModal.$type.value = FIELD_TYPES.INT;
+          } else {
+            editModal.$type.value = FIELD_TYPES.FLOAT;
+          }
+        }
+      } else if (event.data?.action === 'save') {
+        saveEdit();
+      } else if (event.data?.action == 'cancel') {
+        editModal.modal.hide();
+        focusOnDataTable();
+      } else if (event.data?.action == 'load') {
+        let link = `<a href="/data-viewer/${event.data.value.type}/${event.data.value.id}"
+          target="_blank">
+          ${event.data.value.name}
+          <i class="bi bi-arrow-right-short align-middle"></i>
+        </a>`;
+        editModal.$el.querySelector('.modal-dialog .modal-title').innerHTML = 'Select from ' + link;
+      }
+    },
+    false
+  );
+}
 
 // #######################################################
 // # CHECKBOX LOGIC
 // #######################################################
-
-$data.addEventListener('click', (event) => {
+let CHECKED_SUBMISSIONS = [];
+if (!IS_IFRAME) {
   let $checkAll = document.getElementById('check-all');
-
-  // Check all event handler
-  if ($checkAll && (event.target === $checkAll || event.target.matches('th.checkbox'))) {
-    if (event.target.matches('th.checkbox')) {
-      $checkAll.checked = !$checkAll.checked;
-      $checkAll.indeterminate = false;
-    }
-
-    let checked = $checkAll.checked;
-    let indeterminate = $checkAll.indeterminate;
-    let checkAll = checked && !indeterminate;
-
-    $data.querySelectorAll('.submission-check').forEach((el) => {
-      el.checked = checkAll;
+  const onCheckedChange = function () {
+    CHECKED_SUBMISSIONS = [...$data.querySelectorAll('.submission-check:checked')].map(($check) => {
+      return $check.dataset.id;
     });
 
-    return;
-  }
-
-  // Row check event handler
-  let $checkbox = event.target.closest('.submission-check');
-  if ($checkbox && $checkAll && $checkAll.checked) {
-    let total = $data.querySelectorAll('.submission-check').length;
-    let totalChecked = $data.querySelectorAll('.submission-check:checked').length;
-    $checkAll.indeterminate = total !== totalChecked;
-    return;
-  }
-
-  // Checkbox TD helper.
-  if (event.target.classList.contains('for-submission-check')) {
-    let $checkbox = event.target.querySelector('.submission-check');
-    $checkbox.checked = !$checkbox.checked;
     if ($checkAll && $checkAll.checked) {
       let total = $data.querySelectorAll('.submission-check').length;
-      let totalChecked = $data.querySelectorAll('.submission-check:checked').length;
-      $checkAll.indeterminate = total !== totalChecked;
+      $checkAll.indeterminate = total !== CHECKED_SUBMISSIONS.length;
     }
-    return;
-  }
-});
+
+    $copyToBtn = document.getElementById('copy-to-btn');
+    if ($copyToBtn) {
+      if (CHECKED_SUBMISSIONS.length) {
+        $copyToBtn.removeAttribute('disabled');
+      } else {
+        $copyToBtn.setAttribute('disabled', 'disabled');
+      }
+    }
+  };
+
+  $data.addEventListener('click', (event) => {
+    let $checkAll = document.getElementById('check-all');
+
+    // Check all event handler
+    if ($checkAll && (event.target === $checkAll || event.target.matches('th.checkbox'))) {
+      if (event.target.matches('th.checkbox')) {
+        $checkAll.checked = !$checkAll.checked;
+        $checkAll.indeterminate = false;
+      }
+
+      let checked = $checkAll.checked;
+      let indeterminate = $checkAll.indeterminate;
+      let checkAll = checked && !indeterminate;
+
+      let $checks = $data.querySelectorAll('.submission-check');
+      $checks.forEach((el) => {
+        el.checked = checkAll;
+      });
+      onCheckedChange();
+      return;
+    }
+
+    // Row check event handler
+    if (event.target.closest('.submission-check')) {
+      onCheckedChange();
+      return;
+    }
+
+    // Checkbox TD helper.
+    if (event.target.classList.contains('for-submission-check')) {
+      let $checkbox = event.target.querySelector('.submission-check');
+      $checkbox.checked = !$checkbox.checked;
+      onCheckedChange();
+      return;
+    }
+  });
+}
 
 // #######################################################
 // # VIEW ONLY LOGIC
@@ -626,16 +843,22 @@ const addFilter = function (filter) {
   if (filter) {
     let inputs = filters.$activeFilters.querySelectorAll(`input[data-id="${filter}"`);
     if (inputs.length) {
-      inputs[inputs.length - 1].focus();
+      // Timeout for initial page load filter focusing.
+      setTimeout(() => {
+        inputs[inputs.length - 1].focus();
+      }, 0);
     }
   }
 
   resize();
 };
 
-const initFilter = function (filter) {
+const initFilter = function () {
   let params = new URLSearchParams(window.location.search);
   let filters = {};
+
+  let defaultFilterFocus = null;
+
   Array.from(params.keys())
     .filter((key) => {
       if (SYSTEM_PARAMS.includes(key)) {
@@ -646,15 +869,16 @@ const initFilter = function (filter) {
     })
     .forEach((key) => {
       let values = params.getAll(key).filter(Boolean);
-      if (values.length) {
-        filters[key] = values;
+      filters[key] = values;
+      if (!values.length) {
+        defaultFilterFocus = key;
       }
       params.delete(key);
     });
   currentFilters = filters;
   params.delete('offset');
   queryWithoutFilters = params.toString();
-  addFilter();
+  addFilter(defaultFilterFocus);
 };
 
 const fetchFilters = function () {
@@ -721,9 +945,9 @@ function hideFields(hiddenFields) {
 
 const updateExportLinks = (hidden) => {
   document.querySelectorAll('.export-btn').forEach(($a) => {
-    let href = $a.href.replace(/&hidden=[^&]+/i, '');
+    let href = $a.href.replace(/&_h=[^&]+/i, '');
     if (hidden && hidden.length) {
-      $a.href = href + '&hidden=' + encodeURIComponent(hidden.join(','));
+      $a.href = href + '&_h=' + encodeURIComponent(hidden.join(','));
     } else {
       $a.href = href;
     }
@@ -756,11 +980,11 @@ function initFieldToggles(initHiddenFields) {
   });
 
   $fieldTogglesBtn.addEventListener('hide.bs.dropdown', () => {
-    let hidden = Array.from(
-      $fieldToggles.querySelectorAll('input[type=checkbox]:not(:checked)')
-    ).map((el) => {
-      return el.value;
-    });
+    let hidden = Array.from($fieldToggles.querySelectorAll('input[type=checkbox]:not(:checked)'))
+      .map((el) => {
+        return el.value;
+      })
+      .sort();
 
     hideFields(hidden);
     $fieldTogglesBtn.querySelector('.visible-count').innerText = allFieldsCount - hidden.length;
@@ -928,19 +1152,24 @@ document.addEventListener('click', (event) => {
   let deleteAttachmentBtn = event.target.closest('.delete-attachment');
   if (deleteAttachmentBtn && confirm('Are you sure you want to delete this file?')) {
     updateSubmission(
-      deleteAttachmentBtn.dataset.submissionId,
-      deleteAttachmentBtn.dataset.fieldName,
+      { ids: [deleteAttachmentBtn.dataset.submissionId] },
+      deleteAttachmentBtn.dataset.field,
       '',
       deleteAttachmentBtn.dataset.name
-    ).then(() => {
-      // Remove attachment backdrop remnants.
-      document.body.classList.remove('modal-open');
-      document.body.style = '';
-      let backdrop = document.querySelector('body > .modal-backdrop.show');
-      if (backdrop) {
-        document.body.removeChild(backdrop);
-      }
-    });
+    )
+      .then(() => {
+        // Remove attachment backdrop remnants.
+        document.body.classList.remove('modal-open');
+        document.body.style = '';
+        let backdrop = document.querySelector('body > .modal-backdrop.show');
+        if (backdrop) {
+          document.body.removeChild(backdrop);
+        }
+      })
+      .catch((error) => {
+        console.error(error);
+        alert(error && error.message ? error.message : error);
+      });
   }
 });
 
@@ -954,6 +1183,44 @@ window.onAttachmentPreviewError = function (img) {
   }
   img.parentElement.innerText = 'No preview available';
 };
+
+// #######################################################
+// # COPY TO LOGIC (Source Only)
+// #######################################################
+if (ORIGIN_TYPE === 'source') {
+  let $copyToModal = document.getElementById('copy-to-modal');
+  const copyTo = {
+    $el: $copyToModal,
+    modal: new bootstrap.Modal($copyToModal)
+  };
+
+  copyTo.$el.addEventListener('shown.bs.modal', (event) => {
+    let $iframe = document.createElement('iframe');
+    $iframe.classList.add('copy-to');
+
+    if (!CHECKED_SUBMISSIONS.length) {
+      copyTo.modal.hide();
+      return;
+    }
+    if (CHECKED_SUBMISSIONS.length > 50) {
+      alert(
+        `Copying more than 50 records at a time is not supported at this time. Try an export import instead.`
+      );
+      copyTo.modal.hide();
+      return;
+    }
+
+    $iframe.setAttribute(
+      'src',
+      `/data-viewer/source/${ORIGIN_ID}/copy-to?id=${CHECKED_SUBMISSIONS.join('&id=')}`
+    );
+    copyTo.$el.querySelector('.modal-title .count').innerText =
+      CHECKED_SUBMISSIONS.length +
+      ' ' +
+      (CHECKED_SUBMISSIONS.length > 1 ? 'Submissions' : 'Submission');
+    copyTo.$el.querySelector('.modal-body').replaceChildren($iframe);
+  });
+}
 
 // #######################################################
 // # INIT
@@ -973,8 +1240,15 @@ function onLoad() {
     return new bootstrap.Popover(popoverTriggerEl);
   });
 
-  // Focus on first row so keyboard works well with up/down.
-  document.querySelector('tbody tr').focus();
+  if (IS_IFRAME) {
+    postParentMessage('load', {
+      id: ORIGIN_ID,
+      name: ORIGIN_NAME,
+      type: ORIGIN_TYPE
+    });
+  } else {
+    focusOnDataTable();
+  }
 
   // When we use arrow keys, focus on data for scrolling.
   window.addEventListener('keydown', (event) => {

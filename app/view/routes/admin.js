@@ -40,7 +40,8 @@ module.exports = function (opts) {
         includeDeleted: includeDeleted,
         sort,
         order,
-        sortLinks
+        sortLinks,
+        pageTitle: 'Users'
       };
       return res.render('admin/users', model);
     } catch (error) {
@@ -104,7 +105,8 @@ module.exports = function (opts) {
         results: queryResponse.results,
         sort,
         order,
-        sortLinks
+        sortLinks,
+        pageTitle: 'Audit'
       };
       return res.render('admin/audit', model);
     } catch (error) {

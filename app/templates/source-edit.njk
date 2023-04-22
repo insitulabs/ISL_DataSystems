@@ -14,7 +14,58 @@
     height: calc(3.5rem + 2px);
     line-height: 1.25;
   }
+
+  .field-type.empty {
+    color: #9aa2ae;
+  }
+
+/*
+  .fields .row {
+  border: 1px solid #ccc;
+  }
+  */
+
+  /*
+  .fields .row:nth-child(odd) > div {
+    background-color: red
+  }
+  */
+
+  .field-type {
+    max-width: 200px;
+  }
+
+/*
+  .form-floating>.form-control,
+.form-floating>.form-control-plaintext {
+  padding: 0rem 0.75rem !important;
+}
+
+.form-floating>.form-control,
+.form-floating>.form-control-plaintext,
+.form-floating>.form-select {
+  height: calc(2.5rem + 2px) !important;
+  line-height: 1 !important;
+}
+
+.form-floating>label {
+  padding: 0.5rem 0.75rem !important;
+}
+*/
+
+.no-rounded-bottom-left {
+  border-bottom-left-radius: 0 !important;
+}
+
+.no-rounded-bottom-right {
+  border-bottom-right-radius: 0 !important;
+}
+
 </style>
+{% endblock %}
+
+{% block pageTitle %}
+<span class="badge bg-primary">{{ source.name }}</span>
 {% endblock %}
 
 {% block content %}
@@ -29,15 +80,17 @@
         class="nav-link"
         :class="{active: tab === 'permissions'}"
         @click="tab = 'permissions'"
+        :disabled="isNew"
       >
         Permissions
       </button>
     </li>
-    <li class="nav-item" v-if="!isNew">
+    <li class="nav-item">
       <button
         class="nav-link"
         :class="{active: tab === 'advanced'}"
         @click="tab = 'advanced'"
+        :disabled="isNew"
       >
         Advanced
       </button>
@@ -53,28 +106,23 @@
         >Go To Source</a
       >
     </li>
-    <li class="nav-item">
-      <button class="btn btn-primary ms-2 text-nowrap" @click="save" :disabled="saving || isDeleted">
-        Save
-      </button>
-    </li>
   </ul>
 
-  <div v-if="isDeleted" class="alert alert-warning" role="alert">Deleted Source</div>
+  <div v-if="isDeleted" class="alert alert-warning" role="alert">Archived source</div>
   <div v-if="error" class="alert alert-danger" role="alert">${error}</div>
 
   <section v-if="tab === 'edit'">
     <div class="d-flex mt-2">
       <input
         type="text"
-        :disabled="!isNew || isDeleted"
+        disabled
         v-model.trim="system"
         class="form-control"
         placeholder="Source system..."
       />
       <input
         type="text"
-        :disabled="!isNew || isDeleted"
+        disabled
         v-model.trim="namespace"
         class="form-control ms-1"
         placeholder="Source namespace..."
@@ -101,18 +149,38 @@
       ></textarea>
     </div>
 
-
-    <div class="row sticky-top bg-white py-2">
-      <div class="col d-flex align-items-center justify-content-between">
-        <span>Field</span>
-        <input
-          type="text"
-          v-model="fieldSearch"
-          placeholder="Filter Field Name..."
-          @keyup.esc.stop="fieldSearch = ''"
-        />
+    <!--
+    <div class="row mt-2">
+      <div class="col">
+        <button class="btn btn-primary" @click="save" :disabled="saving || isDeleted || tab !== 'edit'">
+         Save
+        </button>
+        <span
+          v-if="saved && !dirty"
+          class="ms-2 text-success"
+        >
+          Source saved
+        </span>
       </div>
-      <div class="col d-flex align-items-center justify-content-between">
+    </div>
+    -->
+
+    <div class="row sticky-top bg-white py-2 mt-4">
+      <div class="col-10 d-flex align-items-center justify-content-between">
+        <div class="input-group">
+          <span class="input-group-text" id="basic-addon1">
+            <i class="bi bi-search"></i>
+          </span>
+          <input
+            class="form-control"
+            type="text"
+            v-model="fieldSearch"
+            placeholder="Filter Field Name..."
+            @keyup.esc.stop="fieldSearch = ''"
+          />
+        </div>
+      </div>
+      <div class="col-2 d-flex align-items-center justify-content-between">
         <template v-if="!isNew">
           <span>Sample Data</span>
           <button v-if="hasMoreSamples" class="btn btn-link btn-sm" @click="nextSample">
@@ -122,76 +190,202 @@
       </div>
     </div>
     <div class="fields">
-      <div v-for="(field, index) in visibleFields" :key="field.id" class="row align-items-center">
-        <div class="col d-flex">
-          <div class="input-group mb-1">
-            <div class="form-floating flex-fill">
-              <input
-                type="text"
-                class="form-control"
-                :id="`field-${field.id}`"
-                :placeholder="field.id"
-                @input="updateFieldName(field.id, $event)"
-                :value="field.name"
-                :disabled="isDeleted"
-              />
-              <label :for="`field-${field.id}`" class="text-secondary">${field.id}</label>
+      <div v-for="(field, index) in visibleFields"
+        :key="field.id"
+        class="row mb-1"
+      >
+        <div class="col-10">
+          <div :class="{'bg-light': index % 2 === 0}">
+            <div class="input-group">
+              <div class="form-floating flex-fill">
+                <input
+                  type="text"
+                  class="form-control"
+                  :class="{'bg-light': index % 2 === 0, 'no-rounded-bottom-left': hasMetaOptions(field)}"
+                  :id="`field-${field.id}`"
+                  :placeholder="field.id"
+                  @input="updateFieldName(field.id, $event)"
+                  :value="field.name"
+                  :disabled="isDeleted"
+                />
+                <label :for="`field-${field.id}`" class="text-secondary">${field.id}</label>
+              </div>
+
+              <div class="form-floating field-type">
+                <select
+                  class="form-select"
+                  :class="{empty: !field.meta.type, 'bg-light': index % 2 === 0}"
+                  v-model="field.meta.type"
+                >
+                  <option value=""></option>
+                  <option value="text">Text</option>
+                  <option value="int">Int (10)</option>
+                  <option value="float">Float (1.10)</option>
+                  <option value="attachment" disabled>Attachment</option>
+                  <option value="source">Source Lookup</option>
+                  <option value="view" disabled>View Lookup</option>
+                  <option value="sequence">Sequence (Auto-Increment)</option>
+                </select>
+                <label for="floatingSelect">Type</label>
+              </div>
+
+              <button
+                class="btn btn-outline-secondary btn-sm"
+                @click="moveField(index, 1)"
+                :disabled="index === fields.length - 1 || filteringFields || isDeleted"
+                title="Move field down"
+              >
+                <i class="bi bi-arrow-down-short"></i>
+              </button>
+              <button
+                @click="moveField(index, -1)"
+                class="btn btn-outline-secondary btn-sm"
+                :disabled="index === 0 || filteringFields || isDeleted"
+                title="Move field up"
+              >
+                <i class="bi bi-arrow-up-short"></i>
+              </button>
+
+              <button
+                class="btn btn-outline-danger btn-sm"
+                :class="{'no-rounded-bottom-right': hasMetaOptions(field)}"
+                @click="deleteField(field)"
+                title="Delete field"
+              >
+                <i class="bi bi-trash"></i>
+              </button>
             </div>
+          </div>
 
-            <button
-              class="btn btn-outline-secondary btn-sm"
-              @click="moveField(index, 1)"
-              :disabled="index === fields.length - 1 || filteringFields || isDeleted"
-              title="Move field down"
-            >
-              <i class="bi bi-arrow-down-short"></i>
-            </button>
-            <button
-              @click="moveField(index, -1)"
-              class="btn btn-outline-secondary btn-sm"
-              :disabled="index === 0 || filteringFields || isDeleted"
-              title="Move field up"
-            >
-              <i class="bi bi-arrow-up-short"></i>
-            </button>
-
-            <button
-              class="btn btn-outline-danger btn-sm"
-              @click="deleteField(field)"
-              title="Delete field"
-            >
-              <i class="bi bi-trash"></i>
-            </button>
+          <div
+            v-if="hasMetaOptions(field)"
+            class="d-flex justify-content-end border border-top-0 p-2 rounded-bottom"
+            :class="{'bg-light': index % 2 === 0}"
+          >
+            <div v-if="field?.meta?.type === 'sequence'" class="input-group w-50">
+              <div class="form-floating">
+                <input
+                  v-model="sequenceFields[field.id]"
+                  class="form-control"
+                  :id="'sequence-next-' + field.id"
+                  inputmode="decimal"
+                  type="number"
+                  min="1"
+                  @change="cleanFieldTypes"
+                />
+                <label :for="'sequence-next-' + field.id">
+                  Sequence Next Value
+                </label>
+              </div>
+            </div>
+            <div v-else class="input-group w-75">
+              <div class="form-floating">
+                <input
+                  v-model="field.meta.originId"
+                  list="lookup-origins"
+                  class="form-control"
+                  :id="'lookup-table-' + field.id"
+                  @change="cleanFieldTypes"
+                />
+                <label :for="'lookup-table-' + field.id">
+                  ${ getSourceName(field.meta.originId) || 'Lookup table' }
+                </label>
+              </div>
+              <div class="form-floating">
+                <input
+                  v-model="field.meta.originField"
+                  :list="`lookup-fields-${field.meta.originId}`"
+                  class="form-control"
+                  :id="'lookup-field-' + field.id"
+                />
+                <label :for="'lookup-field-' + field.id">Field</label>
+              </div>
+            </div>
           </div>
         </div>
-        <div class="col">
+        <div class="col-2">
           <input type="text" disabled :value="sample[field.id]" class="form-control sample" />
         </div>
       </div>
       <div class="row">
-        <div class="col-6">
-          <input
-            type="text"
-            :disabled="isDeleted"
-            class="form-control mb-1"
-            placeholder="Add field..."
-            @keyup.enter="addField"
-          />
+        <div class="col-10">
+          <div class="input-group">
+            <input
+              type="text"
+              :disabled="isDeleted"
+              class="form-control"
+              placeholder="Add field..."
+              @keyup.enter="addField"
+              ref="addField"
+            />
+          <button class="btn btn-outline-secondary" @click="addField">
+            <i class="bi bi-plus-circle"></i>
+          </button>
         </div>
       </div>
     </div>
+
+    <div class="row mt-4 mb-5">
+      <div class="col">
+        <button class="btn btn-primary" @click="save" :disabled="saving || isDeleted || tab !== 'edit'">
+         Save
+        </button>
+        <span
+          v-if="saved && !dirty"
+          class="ms-2 text-success"
+        >
+          Source saved
+        </span>
+      </div>
+    </div>
+
+    <datalist id="lookup-origins">
+      <option v-for="s in allSources" :key="s._id" :value="s._id">
+        ${ s.name }
+      </option>
+    </datalist>
+
+    <datalist v-for="s in allSources" :id="`lookup-fields-${s._id}`">
+      <option v-for="f in s.fields" :key="f.id" :value="f.id">
+        ${ f.name || f.id }
+      </option>
+    </datalist>
   </section>
 
   <section v-if="tab === 'permissions'" class="mt-2">
-    <div
-      v-if="loadingPermissions"
-      class="d-flex align-items-center justify-content-center loading-placeholder"
-    >
-      <div class="spinner-border" role="status">
-        <span class="visually-hidden">Loading...</span>
+    <h5 class="mt-4">All Users</h5>
+    <div class="p-2">
+      <div class="form-check">
+        <input
+          class="form-check-input"
+          type="checkbox"
+          v-model="permissions.read"
+          id="checkAllRead"
+          :disabled="isDeleted"
+        />
+        <label class="form-check-label" for="checkAllRead">
+          View
+        </label>
       </div>
     </div>
+
+
+    <h5 class="mt-3">Indvidual Users</h5>
     {% include "_permissions.njk" %}
+
+    <div class="row mt-4 mb-5">
+      <div class="col d-flex align-items-center">
+        <button class="btn btn-primary" @click="savePermissions" :disabled="saving || isDeleted">
+         Save
+        </button>
+        <span
+          v-if="permissionsSaved"
+          class="ms-2 text-success"
+        >
+          Permissions saved
+        </span>
+      </div>
+    </div>
   </section>
 
   <section v-if="tab === 'advanced'" class="mt-2">
@@ -212,18 +406,20 @@
       method="post"
       class="mt-4"
     >
-      <h5>Delete the source?</h5>
+      <h5>Archive the source?</h5>
       <p>
         NOTE: All user permissions for this source will be deleted.
         Restoring the source, will not bring these permissions back.
       </p>
-      <button class="btn-danger btn">Delete</button>
+      <button class="btn-danger btn">Archive</button>
     </form>
   </section>
 </div>
 
 <script>
   window._source = {{ source | dump | safe }};
+  window._allSources = {{ sources | dump | safe }};
+  window._sequenceFields = {{ sequenceFields | dump | safe }};
   {% if samples %}
   window._samples = {{ samples | dump | safe }};
   {% endif %}

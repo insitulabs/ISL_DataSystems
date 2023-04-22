@@ -97,6 +97,32 @@ module.exports = function (opts) {
     }
   });
 
+  // Update a view's workspace permissions.
+  router.put('/:id/permissions', async (req, res, next) => {
+    try {
+      getCurrentUser(res).validate(CurrentUser.PERMISSIONS.SOURCE_CREATE);
+      const viewManager = new View(getCurrentUser(res));
+      const userManager = new User(getCurrentUser(res));
+      const auditManager = new Audit(getCurrentUser(res));
+      const view = await viewManager.getView(req.params.id);
+
+      let allPermissions = req.body.all;
+      let updatedView = await viewManager.updateViewPermissions(view, allPermissions);
+
+      // TODO revisit
+      // let userPermissions = req.body.users;
+      // let previousUsers = await userManager.listUsersByView(source);
+      // users.forEach((u) => {
+      //   u.acl = u.views[view._id] || {};
+      // });
+
+      auditManager.logViewEdit(view);
+      res.json(updatedView);
+    } catch (error) {
+      next(error);
+    }
+  });
+
   return router;
 };
 

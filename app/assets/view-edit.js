@@ -1,9 +1,6 @@
-// import { createApp } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js';
-import { createApp } from '/assets/lib/vue.esm-browser.js';
-
 let beforeUnloadListener = null;
 
-createApp({
+Vue.createApp({
   delimiters: ['${', '}'],
   data() {
     // TODO revisit
@@ -30,12 +27,15 @@ createApp({
         selected: [],
         fieldSearch: ''
       },
-      allSources: allSources,
+      allSources,
       newSource: null,
       saving: false,
       error: null,
+      saved: false,
       loadingPreview: false,
-      dirty: false
+      dirty: false,
+      permissions: data.permissions || {},
+      permissionsSaved: false
     };
   },
 
@@ -165,6 +165,9 @@ createApp({
       }
     },
     name() {
+      this.dirty = true;
+    },
+    note() {
       this.dirty = true;
     },
     fields: {
@@ -338,6 +341,7 @@ createApp({
 
       this.saving = true;
       this.error = null;
+      this.saved = false;
       let isUpdate = this.id;
       let url = isUpdate ? `/api/view/${this.id}` : '/api/view';
       let method = isUpdate ? 'PUT' : 'POST';
@@ -357,6 +361,7 @@ createApp({
         body: JSON.stringify(body)
       })
         .then((data) => {
+          this.saved = true;
           this.id = data._id;
           this.name = data.name;
           this.note = data.note;
@@ -468,9 +473,43 @@ createApp({
      * @param {Event} event
      */
     onDeleteForm(event) {
-      if (!window.confirm('Are you sure you want to delete this view?')) {
+      if (!window.confirm('Are you sure you want to archive this view?')) {
         event.preventDefault();
       }
+    },
+
+    /**
+     * Save the workspace permissions for this source.
+     */
+    savePermissions() {
+      if (this.saving) {
+        return;
+      }
+
+      this.saving = true;
+      this.error = null;
+
+      let body = {
+        all: this.permissions,
+        // TODO revisit
+        users: null
+      };
+
+      $api(`/api/view/${this.id}/permissions`, {
+        method: 'PUT',
+        body: JSON.stringify(body)
+      })
+        .then(() => {
+          this.saving = false;
+          this.permissionsSaved = true;
+        })
+        .catch((err) => {
+          console.error(err);
+          this.error = err.message ? err.message : 'Error encountered during save.';
+        })
+        .finally(() => {
+          this.saving = false;
+        });
     }
   }
 }).mount('#app');
