@@ -264,6 +264,7 @@ module.exports = function (opts) {
     const pageParams = new URLSearchParams();
     pageParams.set('sort', sort);
     pageParams.set('order', order);
+    pageParams.set('limit', limit);
     if (isIFRAME) {
       pageParams.set('iframe', isIFRAME);
     }
