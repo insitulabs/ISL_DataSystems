@@ -63,10 +63,11 @@ const updateSubmission = function (target, field, value, currentValue, valueType
     url = '/data-viewer/api/edit/attachment';
   }
 
+  // TODO Look to bring back if people don't like updated cells persisting until page refresh.
   // Remove prior updated visual queues prior to saving new updates.
-  $data.querySelectorAll('td.updated').forEach(($td) => {
-    $td.classList.remove('updated');
-  });
+  // $data.querySelectorAll('td.updated').forEach(($td) => {
+  //   $td.classList.remove('updated');
+  // });
 
   return $api(url, {
     method: 'POST',

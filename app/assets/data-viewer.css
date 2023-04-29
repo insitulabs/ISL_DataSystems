@@ -108,7 +108,7 @@
 
 @keyframes edit-fade {
   from {
-    background-color:#fffd9c;
+    background-color: #fffd9c;
   }
   to {
     background-color: inherit;
@@ -116,7 +116,9 @@
 }
 
 #data td.updated {
-  animation: edit-fade 5s;
+  /* TODO Look to bring back if people don't like updated cells persisting until page refresh. */
+  /* animation: edit-fade 5s; */
+  background-color: #fffd9c;
 }
 
 #new-submission-modal .modal-body {
