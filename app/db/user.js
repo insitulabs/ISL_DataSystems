@@ -2,6 +2,7 @@ const { ObjectId } = require('mongodb');
 const Base = require('./base');
 const Errors = require('../lib/errors');
 const emailValidator = require('../lib/email-validator');
+const App = require('./app');
 
 const USERS = 'users';
 
@@ -329,17 +330,19 @@ class User extends Base {
       throw new Errors.BadRequest('Invalid prefs');
     }
 
+    let key = `${originType}_${originId}`;
     const users = this.collection(USERS);
     let existingUser = await this.getUserById(user._id);
     if (!existingUser) {
       if (user.isSuperAdmin) {
-        // Super admins who don't have local account, just ignore.
+        // Super admins who don't have local account, need prefs saved at the system level.
+        let appManager = new App();
+        await appManager.updateSuperAdminPrefs(user, this.workspace, key, prefs);
         return prefs;
       }
       throw new Errors.BadRequest('Invalid user');
     }
 
-    let key = `${originType}_${originId}`;
     let userPrefs = existingUser.userPrefs;
     if (!userPrefs) {
       userPrefs = {};

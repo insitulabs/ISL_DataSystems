@@ -24,6 +24,7 @@ class CurrentUser {
     this.email = user.email;
     this.admin = user.admin || !!isSuperAdmin;
     this.permissions = {};
+    this.prefs = user.prefs || {};
     if (this.admin) {
       this.permissions[CurrentUser.PERMISSIONS.SOURCE_CREATE] = true;
       this.permissions[CurrentUser.PERMISSIONS.VIEW_CREATE] = true;
@@ -31,7 +32,14 @@ class CurrentUser {
     this._user = user;
     this.workspace = workspace;
     this.isSuperAdmin = isSuperAdmin === 'guest' || isSuperAdmin === 'member';
-    this.preventAudit = isSuperAdmin === 'guest';
+
+    const isGuestSuperAdmin = isSuperAdmin === 'guest';
+    if (isGuestSuperAdmin) {
+      this.preventAudit = true;
+      if (user.prefs && user.prefs[workspace.dbName]) {
+        this.prefs = user.prefs[workspace.dbName];
+      }
+    }
     this.firstName = this.#getFirstName();
   }
 
@@ -126,8 +134,8 @@ class CurrentUser {
    * @return {object|null}
    */
   getPrefs(type, id) {
-    if (type && id && this._user.prefs) {
-      return this._user.prefs[`${type}_${id}`];
+    if (type && id && this.prefs) {
+      return this.prefs[`${type}_${id}`];
     }
 
     return null;

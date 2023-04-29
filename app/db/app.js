@@ -313,6 +313,31 @@ class App extends Base {
 
     return await this.collection(USERS).find({}).sort(sort).toArray();
   }
+
+  /**
+   * Set workspace preferences for a super admin.
+   * @param {CurrentUser} user The current user, which must be a super admin.
+   * @param {object} workspace The workspace the admin wants to set prefs for.
+   * @param {string} key The pref key.
+   * @param {object} prefs The pref object.
+   */
+  async updateSuperAdminPrefs(user, workspace, key, prefs = {}) {
+    if (!user || !ObjectId.isValid(user._id)) {
+      throw new Errors.BadRequest('Invalid super admin');
+    }
+
+    let existing = await this.collection(USERS).findOne({ _id: user._id });
+    if (!existing) {
+      throw new Errors.BadRequest('Super admin does not exist.');
+    }
+
+    let allPrefs = existing.prefs || {};
+    if (!allPrefs[workspace.dbName]) {
+      allPrefs[workspace.dbName] = {};
+    }
+    allPrefs[workspace.dbName][key] = prefs;
+    await this.collection(USERS).updateOne({ _id: existing._id }, { $set: { prefs: allPrefs } });
+  }
 }
 
 module.exports = App;
