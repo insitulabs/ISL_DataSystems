@@ -5,6 +5,9 @@
   .mw-0 {
     max-width: 0;
   }
+  .col-arrow {
+    flex: 0 0 2rem;
+  }
 </style>
 {% endblock %}
 
@@ -45,20 +48,65 @@
 
   <div v-if="!created" class="row">
     <div class="col">
-      <strong>Field Mapping</strong>
-      <div class="row">
-        <div class="col">
-          Source
-          <button v-if="submissions.length > 1" class="btn btn-link btn-sm" @click="nextSubmission">
-            Shuffle
-          </button>
-        </div>
-        <div class="col">
-          Destination
-        </div>
+      <div v-if="submissions.length > 1" class="d-flex align-items-center mb-2">
+        <span>Submissions</span>
+        <nav class="ms-2 d-flex align-items-center">
+          <ul class="pagination pagination-sm m-0">
+            <li
+              v-if="visibleSubmissionIndexes.length < submissions.length"
+              class="page-item"
+              :class="{disabled: submissionIndex === 0}"
+              @click="submissionIndex = 0"
+            >
+              <button
+                class="page-link"
+                :disabled="submissionIndex === 1"
+              >
+                First
+              </button>
+            </li>
+            <li
+              v-for="index in visibleSubmissionIndexes" :key="index"
+              class="page-item" :class="{active: submissionIndex === index - 1}"
+            >
+              <button
+                class="page-link" @click="submissionIndex = index -1">${index}</button>
+            </li>
+            <li
+              v-if="visibleSubmissionIndexes.length < submissions.length"
+              class="page-item"
+              :class="{disabled: submissionIndex === submissions.length - 1}"
+            >
+              <button
+                class="page-link"
+                :disabled="submissionIndex === submissions.length - 1"
+                @click="submissionIndex = submissions.length - 1"
+              >
+                Last
+              </button>
+            </li>
+          </ul>
+        </nav>
       </div>
+
+      <div class="input-group mb-1">
+        <span class="input-group-text" id="basic-addon1">
+          <i class="bi bi-search"></i>
+        </span>
+        <input
+          class="form-control"
+          type="text"
+          v-model="fieldSearch"
+          placeholder="Source fields"
+          @keyup.esc.stop="fieldSearch = ''"
+        />
+      </div>
+
       {% for f in source.fields %}
-      <div class="row">
+      <div
+        class="row"
+        :class="{'d-none': hideField('{{ f.id }}', '{{ f.name }}')}"
+      >
         <div class="col">
           <div class="form-floating">
             <input
@@ -70,6 +118,9 @@
             />
             <label for="source-field-{{ f.id | replace(' ', '_') }}">{{ f.name or f.id }}</label>
           </div>
+        </div>
+        <div class="col-arrow d-flex align-items-center justify-content-center p-0">
+          <i class="bi bi-arrow-right"></i>
         </div>
         <div class="col">
           <div class="form-floating">
@@ -161,8 +212,11 @@
           </a>
         </li>
       </ol>
-    </div>
 
+      <div>
+        <button class="btn btn-secondary" @click="done">Close</button>
+      </div>
+    </div>
   </div>
 
   <datalist id="destination-fields">

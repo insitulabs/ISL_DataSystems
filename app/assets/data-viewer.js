@@ -1221,6 +1221,16 @@ if (ORIGIN_TYPE === 'source') {
       (CHECKED_SUBMISSIONS.length > 1 ? 'Submissions' : 'Submission');
     copyTo.$el.querySelector('.modal-body').replaceChildren($iframe);
   });
+
+  window.addEventListener('message', (event) => {
+    if (event.origin !== window.location.origin || !event.data) {
+      return;
+    }
+
+    if (event.data?.action === 'done-copy-to') {
+      copyTo.modal.hide();
+    }
+  });
 }
 
 // #######################################################

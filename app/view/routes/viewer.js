@@ -1504,7 +1504,7 @@ module.exports = function (opts) {
         .map((s) => {
           return {
             _id: s._id,
-            data: s.data
+            data: Source.flattenSubmission(s.data)
           };
         });
       if (!submissions.length) {
