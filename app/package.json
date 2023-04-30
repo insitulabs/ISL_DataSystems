@@ -28,7 +28,7 @@
     "nodemailer": "^6.9.1",
     "nunjucks": "^3.2.4",
     "sharp": "^0.32.1",
-    "xlsx": "^0.18.5"
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.19.3/xlsx-0.19.3.tgz"
   },
   "devDependencies": {
     "jest": "^29.3.1",

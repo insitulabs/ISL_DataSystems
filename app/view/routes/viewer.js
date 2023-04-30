@@ -1442,7 +1442,10 @@ module.exports = function (opts) {
         const headers = [];
         const columnCount = XLSX.utils.decode_range(worksheet['!ref']).e.c + 1;
         for (let i = 0; i < columnCount; ++i) {
-          headers.push(worksheet[`${XLSX.utils.encode_col(i)}1`].v);
+          let col = worksheet[`${XLSX.utils.encode_col(i)}1`];
+          if (col) {
+            headers.push(worksheet[`${XLSX.utils.encode_col(i)}1`].v);
+          }
         }
         let newImport = await sourceManager.createImport(source, headers, data);
 
