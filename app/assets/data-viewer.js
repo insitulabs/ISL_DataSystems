@@ -14,6 +14,7 @@ const FIELD_TYPES = {
   SEQUENCE: 'sequence',
   TEXT: 'text'
 };
+let DBL_CLICK_TIMER = null;
 
 const focusOnDataTable = function () {
   // Focus on first row so keyboard works well with up/down.
@@ -230,7 +231,7 @@ const editModal = {
   $el: el,
   $input: document.getElementById('edit-input'),
   $attachment: document.getElementById('attachment-input'),
-  $lookup: document.getElementById('lookup-container'),
+  $lookup: el.querySelector('.lookup-container'),
   $bulkWarning: document.getElementById('edit-count-warning'),
   $type: el.querySelector('select'),
   $save: el.querySelector('.btn.save'),
@@ -318,46 +319,51 @@ editModal.$type.addEventListener('change', (event) => {
 });
 
 if (IS_IFRAME) {
-  $data.addEventListener('dblclick', function (event) {
-    let $tr = event.target.closest('tr');
-    if ($tr) {
-      postParentMessage('save');
-    }
-  });
-
-  $data.addEventListener('click', function (event) {
-    let $tr = event.target.closest('tr');
-    if ($tr && $tr.dataset.id) {
-      let $checkbox = $tr.querySelector('.submission-check');
-      $checkbox.checked = true;
-
-      let $td = $tr.querySelector(`td[data-field="${IS_IFRAME_FIELD}"]`);
-      let value = $td ? $td.dataset.value : $tr.dataset.id;
-
-      // Is number?
-      if (value && /^[\d\.]+$/.test(value)) {
-        if (value.indexOf('.') > -1) {
-          value = parseFloat(value);
-        } else {
-          value = parseInt(value);
-        }
-
-        if (isNaN(value)) {
-          value = '';
-        }
-      }
-
-      postParentMessage('set-lookup-value', value);
-    }
-  });
+  const IFRAME_ACTION = window.frameElement.dataset.action || 'select';
 
   document.addEventListener('keyup', (event) => {
     if (event.key === 'Escape') {
       postParentMessage('cancel');
     }
   });
+
+  if (IFRAME_ACTION === 'select') {
+    $data.addEventListener('dblclick', function (event) {
+      clearTimeout(DBL_CLICK_TIMER);
+      let $tr = event.target.closest('tr');
+      if ($tr) {
+        postParentMessage('save');
+      }
+    });
+
+    $data.addEventListener('click', function (event) {
+      let $tr = event.target.closest('tr');
+      if ($tr && $tr.dataset.id) {
+        let $checkbox = $tr.querySelector('.submission-check');
+        $checkbox.checked = true;
+        let $td = $tr.querySelector(`td[data-field="${IS_IFRAME_FIELD}"]`);
+        let value = $td ? $td.dataset.value : $tr.dataset.id;
+
+        // Is number?
+        if (value && /^[\d\.]+$/.test(value)) {
+          if (value.indexOf('.') > -1) {
+            value = parseFloat(value);
+          } else {
+            value = parseInt(value);
+          }
+
+          if (isNaN(value)) {
+            value = '';
+          }
+        }
+
+        postParentMessage('set-lookup-value', value);
+      }
+    });
+  }
 } else {
   $data.addEventListener('dblclick', function (event) {
+    clearTimeout(DBL_CLICK_TIMER);
     let td = event.target.closest('td.editable');
     if (td) {
       let curValue = td.dataset.value;
@@ -429,6 +435,7 @@ if (IS_IFRAME) {
         let originId = td.dataset.typeOrigin;
         let originField = td.dataset.typeOriginField;
         let $iframe = document.createElement('iframe');
+        $iframe.dataset.action = 'select';
         $iframe.classList.add('lookup');
         let filter = curValue ? encodeURIComponent(`"${curValue}"`) : '';
         $iframe.setAttribute(
@@ -1188,6 +1195,7 @@ window.onAttachmentPreviewError = function (img) {
 // #######################################################
 // # COPY TO LOGIC (Source Only)
 // #######################################################
+
 if (ORIGIN_TYPE === 'source') {
   let $copyToModal = document.getElementById('copy-to-modal');
   const copyTo = {
@@ -1227,11 +1235,82 @@ if (ORIGIN_TYPE === 'source') {
       return;
     }
 
-    if (event.data?.action === 'done-copy-to') {
+    if (event.data?.action == 'load') {
+      let link = `<a href="/data-viewer/${event.data.value.type}/${event.data.value.id}"
+      target="_blank">
+      ${event.data.value.name}
+      <i class="bi bi-arrow-right-short align-middle"></i>
+    </a>`;
+      editModal.$el.querySelector('.modal-dialog .modal-title').innerHTML = 'Select from ' + link;
+    } else if (event.data?.action === 'done-copy-to') {
       copyTo.modal.hide();
     }
   });
 }
+
+// #######################################################
+// # LINKED DATA PREVIEW LOGIC
+// #######################################################
+
+const $lookupRefModal = document.getElementById('lookup-ref-modal');
+const lookupRefModal = new bootstrap.Modal($lookupRefModal);
+$data.addEventListener('click', (event) => {
+  // If dbl click, ignore.
+  if (event.detail === 2) {
+    return;
+  }
+
+  let $td = event.target.closest('td');
+  if ($td) {
+    let $button = $td.querySelector('button');
+    if ($button) {
+      return;
+    }
+
+    let $a = event.target.closest('a');
+    if ($a) {
+      if (!event.ctrlKey && !event.shiftKey && !event.altKey && !event.metaKey) {
+        // prevent normal click of link within field value.
+        event.preventDefault();
+      } else {
+        return;
+      }
+    }
+
+    // Make sure we have the link within the field value.
+    $a = $td.querySelector('a');
+    if ($a) {
+      DBL_CLICK_TIMER = setTimeout(() => {
+        let src = $a.getAttribute('href');
+        src += '&iframe=' + encodeURIComponent($td.dataset.field) + '&_select=false';
+        let $iframe = document.createElement('iframe');
+        $iframe.classList.add('lookup');
+        $iframe.setAttribute('src', src);
+        $iframe.dataset.action = 'lookup';
+        $lookupRefModal.querySelector('.lookup-container').replaceChildren($iframe);
+        lookupRefModal.show();
+      }, 200);
+    }
+  }
+});
+
+window.addEventListener('message', (event) => {
+  if (event.origin !== window.location.origin || !event.data) {
+    return;
+  }
+
+  if (event.data?.action == 'load') {
+    let link = `<a href="/data-viewer/${event.data.value.type}/${event.data.value.id}"
+      target="_blank">
+      ${event.data.value.name}
+      <i class="bi bi-arrow-right-short align-middle"></i>
+    </a>`;
+    $lookupRefModal.querySelector('.modal-dialog .modal-title').innerHTML = link;
+  } else if (event.data?.action == 'cancel') {
+    lookupRefModal.hide();
+    focusOnDataTable();
+  }
+});
 
 // #######################################################
 // # INIT

@@ -18,7 +18,17 @@ const XLSX = require('xlsx');
 const NON_EDITABLE_FIELDS = ['_id', 'created'];
 
 // Reserved query params that can't be data filters.
-const PAGE_QUERY_PARAMS = ['sort', 'order', 'offset', 'limit', '_h', 'id', 'xhr', 'iframe'];
+const PAGE_QUERY_PARAMS = [
+  'sort',
+  'order',
+  'offset',
+  'limit',
+  '_h',
+  'id',
+  'xhr',
+  'iframe',
+  '_select'
+];
 
 const getFormBody = async (req) => {
   return new Promise((resolve, reject) => {
@@ -219,13 +229,15 @@ module.exports = function (opts) {
     const appPath = pagePath.split('/').slice(0, 2).join('/');
     const isXHR = !!req.query.xhr;
     const isIFRAME = req.query.iframe;
+    const disableSelect = req.query._select === 'false';
     const preventHeader = isIFRAME;
     return {
       appPath,
       pagePath,
       isXHR,
       isIFRAME,
-      preventHeader
+      preventHeader,
+      disableSelect
     };
   };
 
