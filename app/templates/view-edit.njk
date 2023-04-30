@@ -510,6 +510,6 @@
   window._view = {{ view | dump | safe }};
   window._allSources = {{ sources | dump | safe }};
 </script>
-<script type="module" src="/assets/view-edit.js"></script>
+<script type="module" src="{{ '/assets/view-edit.js' | appendVersion }}"></script>
 {% endblock %}
 

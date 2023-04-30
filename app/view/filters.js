@@ -15,7 +15,7 @@ const assetVersions = {};
 
 module.exports = function (nunjucks) {
   /**
-   * Take an MD5 hash of the file and append it as a ?v query param. To bush caches.
+   * Take an MD5 hash of the file and append it as a ?v query param. To bust caches.
    */
   nunjucks.addFilter(
     'appendVersion',

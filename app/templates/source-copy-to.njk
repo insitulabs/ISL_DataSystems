@@ -236,5 +236,5 @@
   window._sources = {{ sources | dump | safe }};
   window._submissions = {{ submissions | dump | safe }};
 </script>
-<script type="module" src="/assets/source-copy-to.js"></script>
+<script type="module" src="{{ '/assets/source-copy-to.js' | appendVersion }}"></script>
 {% endblock %}

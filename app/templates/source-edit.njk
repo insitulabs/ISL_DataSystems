@@ -424,6 +424,6 @@
   window._samples = {{ samples | dump | safe }};
   {% endif %}
 </script>
-<script type="module" src="/assets/source-edit.js"></script>
+<script type="module" src="{{ '/assets/source-edit.js' | appendVersion }}"></script>
 {% endblock %}
 
