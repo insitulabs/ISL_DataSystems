@@ -98,7 +98,7 @@
 
   <body {%- if user %} data-user="{{ user._id }}" {%- endif -%}>
     {% if not preventHeader %}
-    <nav class="navbar navbar-expand-md navbar-light bg-light">
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
       <div class="container-fluid">
         <a class="navbar-brand d-flex align-items-center" href="/">
           <img src="/assets/isl-100x100.png" alt="In Situ Labs Logo" />
@@ -114,6 +114,19 @@
           <div></div>
           {% endblock %}
           <ul class="navbar-nav ms-auto flex-row flex-nowrap">
+            {% if workspace and workspace.sync and workspace.sync.enabled %}
+            <li class="nav-item me-4">
+              <a
+                class="nav-link"
+                aria-current="page"
+                href="{{ workspace.sync.url }}"
+                target="_blank"
+              >
+                {{ workspace.sync.type }}
+                <i class="bi bi-box-arrow-up-right ms-1"></i>
+              </a>
+            </li>
+            {% endif %}
             <li class="nav-item me-4">
               <a class="nav-link" aria-current="page" href="/data-viewer/sources">Sources</a>
             </li>
