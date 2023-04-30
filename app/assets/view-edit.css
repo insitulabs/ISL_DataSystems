@@ -18,3 +18,31 @@
 #preview > .loading-placeholder {
   min-height: 50vh;
 }
+
+#preview tr.odd td {
+  --bs-table-accent-bg: var(--bs-table-striped-bg);
+  color: var(--bs-table-striped-color);
+}
+
+#preview th.checkbox {
+  width: 31px;
+  display: none;
+}
+
+#preview th[data-field='_id'],
+#preview td[data-field='_id'] {
+  width: 60px;
+  display: none;
+}
+
+#preview .for-submission-check {
+  display: none;
+}
+
+#preview th[data-field='created'] {
+  width: 120px;
+}
+
+#preview .add-filter {
+  display: none;
+}

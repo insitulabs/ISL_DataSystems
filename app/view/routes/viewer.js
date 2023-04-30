@@ -163,7 +163,7 @@ const extractFilters = function (req, fields, pageParams) {
   return filters;
 };
 
-const mapFieldsForUI = function (fields, userCanEdit = false, sort, order, pageParams) {
+const mapFieldsForUI = function (fields, userCanEdit = false, sort, order, limit, pageParams) {
   if (!fields || !fields.length) {
     fields = [];
   }
@@ -197,6 +197,9 @@ const mapFieldsForUI = function (fields, userCanEdit = false, sort, order, pageP
       if (pageParams) {
         const sortParams = new URLSearchParams(pageParams.toString());
         sortParams.set('sort', f.id);
+        if (limit) {
+          sortParams.set('limit', limit);
+        }
 
         if (sort === f.id && order === 'asc') {
           sortParams.set('order', 'desc');
@@ -276,7 +279,6 @@ module.exports = function (opts) {
     const pageParams = new URLSearchParams();
     pageParams.set('sort', sort);
     pageParams.set('order', order);
-    pageParams.set('limit', limit);
     if (isIFRAME) {
       pageParams.set('iframe', isIFRAME);
     }
@@ -287,7 +289,6 @@ module.exports = function (opts) {
     let view = null;
     let source = null;
     let theImport = null;
-    let pageTitle = '';
     let csvLink = null;
     let dataId = null;
     let dataType = null;
@@ -299,7 +300,6 @@ module.exports = function (opts) {
       fields = query.view.fields;
       dataType = 'view';
       dataId = view._id;
-      pageParams.set('view', query.view._id.toString());
       originName = view.name;
       userCanEdit =
         !view.deleted && currentUser.hasViewPermission(view, CurrentUser.PERMISSIONS.WRITE);
@@ -320,7 +320,6 @@ module.exports = function (opts) {
       fields = source.fields;
       dataType = 'source';
       dataId = source._id;
-      pageParams.set('source', query.source._id.toString());
       originName = source.name;
       userCanEdit =
         !source.deleted && currentUser.hasSourcePermission(source, CurrentUser.PERMISSIONS.WRITE);
@@ -341,7 +340,7 @@ module.exports = function (opts) {
     // Parse column filters and set on pageParams
     let filters = extractFilters(req, fields, pageParams);
 
-    fields = mapFieldsForUI(fields, userCanEdit, sort, order, pageParams);
+    fields = mapFieldsForUI(fields, userCanEdit, sort, order, limit, pageParams);
 
     let queryResponse = [];
     if (view) {
@@ -1163,7 +1162,7 @@ module.exports = function (opts) {
         });
       }
 
-      let fields = mapFieldsForUI(req.body.fields, userCanEdit, sort, order, pageParams);
+      let fields = mapFieldsForUI(req.body.fields, userCanEdit, sort, order, limit, pageParams);
 
       // Parse column filters
       let filters = extractFilters(req, fields, pageParams);

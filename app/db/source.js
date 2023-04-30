@@ -426,12 +426,12 @@ class Source extends Base {
     };
 
     toPersist.createdBy = {
-      id: ObjectId(this.user._id),
+      id: new ObjectId(this.user._id),
       name: this.user.name,
       email: this.user.email
     };
     toPersist.modifiedBy = {
-      id: ObjectId(this.user._id),
+      id: new ObjectId(this.user._id),
       name: this.user.name,
       email: this.user.email
     };
@@ -501,7 +501,7 @@ class Source extends Base {
     };
 
     toPersist.modifiedBy = {
-      id: ObjectId(this.user._id),
+      id: new ObjectId(this.user._id),
       name: this.user.name,
       email: this.user.email
     };
@@ -577,7 +577,7 @@ class Source extends Base {
     };
 
     toPersist.modifiedBy = {
-      id: ObjectId(this.user._id),
+      id: new ObjectId(this.user._id),
       name: this.user.name,
       email: this.user.email
     };
@@ -606,7 +606,7 @@ class Source extends Base {
     };
 
     toPersist.modifiedBy = {
-      id: ObjectId(this.user._id),
+      id: new ObjectId(this.user._id),
       name: this.user.name,
       email: this.user.email
     };
@@ -926,7 +926,7 @@ class Source extends Base {
       sourceName: source.name,
       created,
       createdBy: {
-        id: ObjectId(this.user._id),
+        id: new ObjectId(this.user._id),
         name: this.user.name,
         email: this.user.email
       },

@@ -166,12 +166,12 @@ class View extends Base {
     });
 
     toPersist.createdBy = {
-      id: ObjectId(this.user._id),
+      id: new ObjectId(this.user._id),
       name: this.user.name,
       email: this.user.email
     };
     toPersist.modifiedBy = {
-      id: ObjectId(this.user._id),
+      id: new ObjectId(this.user._id),
       name: this.user.name,
       email: this.user.email
     };
@@ -229,7 +229,7 @@ class View extends Base {
     });
 
     toPersist.modifiedBy = {
-      id: ObjectId(this.user._id),
+      id: new ObjectId(this.user._id),
       name: this.user.name,
       email: this.user.email
     };
@@ -304,7 +304,7 @@ class View extends Base {
 
     if (user) {
       toPersist.modifiedBy = {
-        id: ObjectId(user._id),
+        id: new ObjectId(user._id),
         name: user.name,
         email: user.email
       };
@@ -336,7 +336,7 @@ class View extends Base {
 
     if (user) {
       toPersist.modifiedBy = {
-        id: ObjectId(user._id),
+        id: new ObjectId(user._id),
         name: user.name,
         email: user.email
       };
