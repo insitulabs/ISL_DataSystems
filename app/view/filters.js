@@ -1,4 +1,3 @@
-const prettyBytes = require('pretty-bytes');
 const dayjs = require('dayjs');
 const crypto = require('crypto');
 const path = require('path');
@@ -61,7 +60,25 @@ module.exports = function (nunjucks) {
       return 0;
     }
 
-    return prettyBytes(bytes);
+    const si = true;
+    const thresh = si ? 1000 : 1024;
+    const dp = 1;
+
+    if (Math.abs(bytes) < thresh) {
+      return bytes + ' B';
+    }
+
+    const units = si
+      ? ['kB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
+      : ['KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB', 'ZiB', 'YiB'];
+    let u = -1;
+    const r = 10 ** dp;
+
+    do {
+      bytes /= thresh;
+      ++u;
+    } while (Math.round(Math.abs(bytes) * r) / r >= thresh && u < units.length - 1);
+    return bytes.toFixed(dp) + ' ' + units[u];
   });
 
   nunjucks.addFilter('formatCurrency', (value) => {

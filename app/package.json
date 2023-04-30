@@ -11,9 +11,9 @@
   "dependencies": {
     "@fast-csv/format": "^4.3.5",
     "agenda": "^5.0.0",
-    "aws-sdk": "^2.1292.0",
-    "axios": "^1.2.2",
-    "body-parser": "^1.20.0",
+    "aws-sdk": "^2.1368.0",
+    "axios": "^1.4.0",
+    "body-parser": "^1.20.2",
     "commander": "^9.5.0",
     "connect-mongo": "^4.6.0",
     "cookie-parser": "^1.4.6",
@@ -25,15 +25,14 @@
     "jsonwebtoken": "^9.0.0",
     "lodash": "^4.17.21",
     "mongodb": "^4.13.0",
-    "nodemailer": "^6.8.0",
-    "nunjucks": "^3.2.3",
-    "pretty-bytes": "^5.6.0",
-    "sharp": "^0.31.3",
+    "nodemailer": "^6.9.1",
+    "nunjucks": "^3.2.4",
+    "sharp": "^0.32.1",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "jest": "^29.3.1",
-    "nodemon": "^2.0.20"
+    "nodemon": "^2.0.22"
   },
   "jest": {
     "testEnvironment": "node",
