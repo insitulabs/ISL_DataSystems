@@ -157,7 +157,7 @@ class Source extends Base {
    */
   async getFormFields(system, namespace) {
     if (!system || !namespace) {
-      throw new Error('Invalid params: system or namespace');
+      throw new Errors.BadRequest('Invalid params: system or namespace');
     }
 
     let submissionKey = Source.submissionKey(system, namespace);
@@ -364,7 +364,7 @@ class Source extends Base {
     let sources = this.collection(SOURCES);
     let source = await sources.findOne({ _id: new ObjectId(id) });
     if (!source) {
-      throw new Error('Source not found: ' + id);
+      throw new Errors.BadRequest('Source not found: ' + id);
     }
 
     if (!ignorePermissionCheck) {
@@ -407,7 +407,9 @@ class Source extends Base {
     if (source) {
       return this.getSource(source._id);
     } else {
-      throw new Error(`Source not found: for system: [${system}] and namespace: [${namespace}]`);
+      throw new Errors.BadRequest(
+        `Source not found: for system: [${system}] and namespace: [${namespace}]`
+      );
     }
   }
 
@@ -428,7 +430,7 @@ class Source extends Base {
     if (source) {
       return await this.getSource(source._id);
     } else {
-      throw new Error(`Source not found: for key: ${key}`);
+      throw new Errors.BadRequest(`Source not found: for key: ${key}`);
     }
   }
 
@@ -507,7 +509,7 @@ class Source extends Base {
   async createSource(source) {
     this.#validateSource(source);
     if (source._id) {
-      throw new Error('Failed to create pre-existing source: ' + source.name);
+      throw new Errors.BadRequest('Failed to create pre-existing source: ' + source.name);
     }
 
     let now = new Date();
@@ -726,18 +728,18 @@ class Source extends Base {
    */
   #validateSource(source) {
     if (!source) {
-      throw new Error('Source required.');
+      throw new Errors.BadRequest('Source required.');
     }
 
     if (!source.name || typeof source.name !== 'string' || !source.name.trim().length > 0) {
-      throw new Error('Invalid source name.');
+      throw new Errors.BadRequest('Invalid source name.');
     }
 
     if (!source.system || typeof source.system !== 'string' || !source.system.trim().length > 0) {
-      throw new Error('Invalid source system.');
+      throw new Errors.BadRequest('Invalid source system.');
     }
     if (source.system.indexOf('.') >= 0) {
-      throw new Error('Invalid source system. Cannot contain periods.');
+      throw new Errors.BadRequest('Invalid source system. Cannot contain periods.');
     }
 
     if (
@@ -745,14 +747,14 @@ class Source extends Base {
       typeof source.namespace !== 'string' ||
       !source.namespace.trim().length > 0
     ) {
-      throw new Error('Invalid source namespace.');
+      throw new Errors.BadRequest('Invalid source namespace.');
     }
     if (source.namespace.indexOf('.') >= 0) {
-      throw new Error('Invalid source namespace. Cannot contain periods.');
+      throw new Errors.BadRequest('Invalid source namespace. Cannot contain periods.');
     }
 
     if (!source.fields || !Array.isArray(source.fields)) {
-      throw new Error('Source fields required.');
+      throw new Errors.BadRequest('Source fields required.');
     }
 
     if (
@@ -766,7 +768,7 @@ class Source extends Base {
         }
       })
     ) {
-      throw new Error('Invalid source fields');
+      throw new Errors.BadRequest('Invalid source fields');
     }
   }
 

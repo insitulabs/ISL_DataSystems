@@ -137,7 +137,7 @@ class View extends Base {
 
     this.#validateView(view);
     if (view._id) {
-      throw new Error('Failed to create pre-existing view: ' + view.name);
+      throw new Errors.BadRequest('Failed to create pre-existing view: ' + view.name);
     }
 
     let sources = view.sources.map((s) => {
@@ -357,11 +357,11 @@ class View extends Base {
     const submissions = this.collection(SUBMISSIONS);
 
     if (!fields || !fields.length) {
-      throw new Error('View fields are required');
+      throw new Errors.BadRequest('View fields are required');
     }
 
     if (!sources || !sources.length) {
-      throw new Error('At least one view sources is required');
+      throw new Errors.BadRequest('At least one view sources is required');
     }
 
     let viewSource = sources.reduce(
@@ -712,7 +712,7 @@ class View extends Base {
       let msg = `Views can only contain a single deconstructed field. You currently have ${
         deconstructedFields.size
       }: ${[...deconstructedFields].join(', ')}`;
-      throw new Error(msg);
+      throw new Errors.BadRequest(msg);
     }
   }
 
