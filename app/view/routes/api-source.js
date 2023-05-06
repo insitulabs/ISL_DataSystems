@@ -316,6 +316,80 @@ module.exports = function (opts) {
     }
   });
 
+  // Delete source submissions.
+  router.post('/:id/submissions/delete', async (req, res, next) => {
+    try {
+      let currentUser = getCurrentUser(res);
+      const sourceManager = new Source(currentUser);
+      const source = await sourceManager.getSource(req.params.id);
+
+      if (source.deleted) {
+        throw new Error.BadRequest('Cannot modify a deleted source.');
+      }
+      currentUser.validateSourcePermission(source, CurrentUser.PERMISSIONS.WRITE);
+
+      if (!req.body && !Array.isArray(req.body)) {
+        throw new Error.BadRequest('Invalid delete request');
+      }
+
+      await Promise.all(req.body.map((id) => sourceManager.deleteSubmission(id)));
+      const auditManager = new Audit(currentUser);
+
+      let auditRecord = {
+        type: 'source',
+        count: req.body.length,
+        ids: req.body,
+        source: {
+          _id: source._id,
+          name: source.name,
+          submissionKey: source.submissionKey
+        }
+      };
+      auditManager.logSubmissionDelete(auditRecord);
+
+      res.send({ success: true });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Restore source submissions.
+  router.post('/:id/submissions/restore', async (req, res, next) => {
+    try {
+      let currentUser = getCurrentUser(res);
+      const sourceManager = new Source(currentUser);
+      const source = await sourceManager.getSource(req.params.id);
+
+      if (source.deleted) {
+        throw new Error.BadRequest('Cannot modify a deleted source.');
+      }
+      currentUser.validateSourcePermission(source, CurrentUser.PERMISSIONS.WRITE);
+
+      if (!req.body && !Array.isArray(req.body)) {
+        throw new Error.BadRequest('Invalid delete request');
+      }
+
+      await Promise.all(req.body.map((id) => sourceManager.restoreSubmission(id)));
+      const auditManager = new Audit(currentUser);
+
+      let auditRecord = {
+        type: 'source',
+        count: req.body.length,
+        ids: req.body,
+        source: {
+          _id: source._id,
+          name: source.name,
+          submissionKey: source.submissionKey
+        }
+      };
+      auditManager.logSubmissionRestore(auditRecord);
+
+      res.send({ success: true });
+    } catch (error) {
+      next(error);
+    }
+  });
+
   // Update a source's workspace permissions.
   router.put('/:id/permissions', async (req, res, next) => {
     try {

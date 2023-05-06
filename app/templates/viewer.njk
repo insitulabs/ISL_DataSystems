@@ -123,6 +123,28 @@
                 Filter
               </button>
               <ul class="dropdown-menu filters dropdown-menu-dark" aria-labelledby="filter-column-dropdown">
+                {% if allowDeletedQuery %}
+                <li class="px-2">
+                  <div class="form-check form-switch">
+                    <input
+                      class="form-check-input me-1 deleted-toggle"
+                      type="checkbox"
+                      role="switch"
+                      id="show-deleted"
+                      {{ "checked" if isDeletedQuery }}
+                      name="deleted"
+                      value="1"
+                    />
+                    <label
+                      class="form-check-label text-nowrap"
+                      for="show-deleted"
+                    >
+                      Show Archived Submissions
+                    </label>
+                  </div>
+                </li>
+                <li><hr class="dropdown-divider"></li>
+                {% endif %}
                 <li class="px-2">
                   <input
                     id="filter-search"
@@ -168,6 +190,26 @@
                   Query: <strong>&gt; 1984-05-04 && &lt;= 1984-06-04</strong>
                 "
                 data-bs-html="true">?</a>
+
+            {% if isDeletedQuery %}
+            <div class="form-check form-switch d-flex align-items-center ms-3 my-0">
+              <input
+                class="form-check-input me-1 deleted-toggle my-0"
+                type="checkbox"
+                role="switch"
+                id="show-restored"
+                checked
+                name="deleted"
+                value="1"
+              />
+              <label
+                class="form-check-label text-nowrap align-middle"
+                for="show-restored"
+              >
+                Archived
+              </label>
+            </div>
+            {% endif %}
           </div>
         </div>
       </div>
@@ -183,32 +225,63 @@
         {% endif %}
       {% endif %}
 
-      {% if not theImport and not view %}
+      {% if not theImport and not view and not isIFRAME %}
       <div class="dropdown ms-1">
         <button class="btn btn-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
           Actions
         </button>
         <ul class="dropdown-menu">
           {% if userCanCreate %}
-          <button
-            type="button"
-            class="dropdown-item"
-            data-bs-toggle="modal"
-            data-bs-target="#new-submission-modal"
-          >
-            Create Submission
-          </button>
+          <li>
+            <button
+              type="button"
+              class="dropdown-item"
+              data-bs-toggle="modal"
+              data-bs-target="#new-submission-modal"
+            >
+              Create Submission
+            </button>
+          </li>
           {% endif %}
-          <button
-            id="copy-to-btn"
-            type="button"
-            class="dropdown-item"
-            data-bs-toggle="modal"
-            data-bs-target="#copy-to-modal"
-            disabled
-          >
-            Copy To
-          </button>
+
+          <li>
+            <button
+              id="copy-to-btn"
+              type="button"
+              class="dropdown-item"
+              data-bs-toggle="modal"
+              data-bs-target="#copy-to-modal"
+              disabled
+            >
+              Copy To
+            </button>
+          </li>
+
+          {% if showArchiveBtn %}
+          <li>
+            <button
+              id="delete-btn"
+              type="button"
+              class="dropdown-item"
+              disabled
+            >
+              Archive Submission(s)
+            </button>
+          </li>
+          {% endif %}
+
+          {% if showRestoreBtn %}
+          <li>
+            <button
+              id="delete-btn"
+              type="button"
+              class="dropdown-item restore"
+              disabled
+            >
+              Restore Submission(s)
+            </button>
+          </li>
+          {% endif %}
         </ul>
       </div>
       {% endif %}

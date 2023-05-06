@@ -13,6 +13,8 @@ const AuditEvent = Object.freeze({
   ImportDelete: 'import-delete',
   SubmissionCreate: 'submission-create',
   SubmissionEdit: 'submission-edit',
+  SubmissionDelete: 'submission-delete',
+  SubmissionRestore: 'submission-restore',
   Download: 'download',
   ViewEdit: 'view-edit',
   ViewCreate: 'view-create',
@@ -292,6 +294,34 @@ class Audit extends Base {
 
     let events = this.collection(AUDIT_EVENTS);
     let record = this.#userEvent(AuditEvent.SubmissionEdit, data);
+    return events.insertOne(record).catch(this.#onError);
+  }
+
+  /**
+   * Log a submission delete.
+   * @param {object} data  The data to log with this edit.
+   */
+  async logSubmissionDelete(data) {
+    if (this.user.preventAudit) {
+      return;
+    }
+
+    let events = this.collection(AUDIT_EVENTS);
+    let record = this.#userEvent(AuditEvent.SubmissionDelete, data);
+    return events.insertOne(record).catch(this.#onError);
+  }
+
+  /**
+   * Log a submission restore.
+   * @param {object} data  The data to log with this edit.
+   */
+  async logSubmissionRestore(data) {
+    if (this.user.preventAudit) {
+      return;
+    }
+
+    let events = this.collection(AUDIT_EVENTS);
+    let record = this.#userEvent(AuditEvent.SubmissionRestore, data);
     return events.insertOne(record).catch(this.#onError);
   }
 

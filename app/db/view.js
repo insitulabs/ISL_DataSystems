@@ -272,7 +272,7 @@ class View extends Base {
     };
 
     toPersist.modifiedBy = {
-      _id: this.user._id,
+      id: new ObjectId(this.user._id),
       email: this.user.email,
       name: this.user.name
     };
@@ -463,6 +463,7 @@ class View extends Base {
     });
 
     let $match = viewSource;
+    $match.deleted = { $ne: true };
 
     // If we have an single ID filter, include it in match.
     if (options.id && ObjectId.isValid(options.id)) {

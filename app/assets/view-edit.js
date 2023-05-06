@@ -201,7 +201,23 @@ Vue.createApp({
       let value = $event.target.value.trim();
 
       // Make sure field isn't a reserved word.
-      if (['_id', 'id', 'created', 'imported'].includes(value)) {
+      if (
+        [
+          '_id',
+          'id',
+          'created',
+          'imported',
+          'deleted',
+          'iframe',
+          'xhr',
+          'limit',
+          'order',
+          'sort',
+          'offset',
+          '_select',
+          '_h'
+        ].includes(value)
+      ) {
         value = null;
       }
 

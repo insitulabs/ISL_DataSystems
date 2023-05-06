@@ -533,12 +533,21 @@ if (!IS_IFRAME) {
       $checkAll.indeterminate = total !== CHECKED_SUBMISSIONS.length;
     }
 
-    $copyToBtn = document.getElementById('copy-to-btn');
+    let $copyToBtn = document.getElementById('copy-to-btn');
     if ($copyToBtn) {
       if (CHECKED_SUBMISSIONS.length) {
         $copyToBtn.removeAttribute('disabled');
       } else {
         $copyToBtn.setAttribute('disabled', 'disabled');
+      }
+    }
+
+    let $delSubmissionBtn = document.getElementById('delete-btn');
+    if ($delSubmissionBtn) {
+      if (CHECKED_SUBMISSIONS.length) {
+        $delSubmissionBtn.removeAttribute('disabled');
+      } else {
+        $delSubmissionBtn.setAttribute('disabled', 'disabled');
       }
     }
   };
@@ -720,6 +729,23 @@ if (ORIGIN_TYPE === 'import') {
     }
   });
 }
+
+// #######################################################
+// # SHOW DELETED TOGGLE
+// #######################################################
+
+[...document.querySelectorAll('.deleted-toggle')].forEach(($showDeleted) => {
+  $showDeleted.addEventListener('change', (event) => {
+    let params = new URLSearchParams(window.location.search);
+    let showDeleted = event.target.checked;
+    if (showDeleted) {
+      params.set('deleted', '1');
+    } else {
+      params.delete('deleted');
+    }
+    window.location.search = params.toString();
+  });
+});
 
 // #######################################################
 // # FILTERS
@@ -1244,6 +1270,41 @@ if (ORIGIN_TYPE === 'source') {
       editModal.$el.querySelector('.modal-dialog .modal-title').innerHTML = 'Select from ' + link;
     } else if (event.data?.action === 'done-copy-to') {
       copyTo.modal.hide();
+    }
+  });
+}
+
+// #######################################################
+// # DELETE SUBMISSION LOGIC
+// #######################################################
+
+if (ORIGIN_TYPE === 'source') {
+  document.addEventListener('click', (event) => {
+    let $deleteBtn = event.target.closest('#delete-btn');
+    if (!CHECKED_SUBMISSIONS.length) {
+      return;
+    }
+
+    if ($deleteBtn && CHECKED_SUBMISSIONS.length) {
+      let label = CHECKED_SUBMISSIONS.length > 1 ? 'submissions' : 'submission';
+      let operation = 'delete';
+      let prompt = `Are you sure you want to archive ${CHECKED_SUBMISSIONS.length} ${label}?`;
+      if ($deleteBtn.classList.contains('restore')) {
+        operation = 'restore';
+        prompt = `Are you sure you want to restore ${CHECKED_SUBMISSIONS.length} ${label}?`;
+      }
+      if (confirm(prompt)) {
+        $api(`/api/${ORIGIN_TYPE}/${ORIGIN_ID}/submissions/${operation}`, {
+          method: 'POST',
+          body: JSON.stringify(CHECKED_SUBMISSIONS)
+        })
+          .then(() => {
+            window.location.reload();
+          })
+          .catch((error) => {
+            alert(error && error.message ? error.message : error);
+          });
+      }
     }
   });
 }

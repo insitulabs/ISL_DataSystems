@@ -119,6 +119,26 @@
               {{ result.data.count | formatNumber }} {{ "record" if result.data.count === 1 else "records" }}
               </span>
 
+            {% elseif result.type === 'submission-delete' %}
+              {{ result.data.source.name }}
+
+              <span class="badge bg-primary">
+              {{ result.data.type }}
+              </span>
+              <span class="badge bg-success">
+              {{ result.data.count | formatNumber }} {{ "record" if result.data.count === 1 else "records" }}
+              </span>
+
+            {% elseif result.type === 'submission-restore' %}
+              {{ result.data.source.name }}
+
+              <span class="badge bg-primary">
+              {{ result.data.type }}
+              </span>
+              <span class="badge bg-success">
+              {{ result.data.count | formatNumber }} {{ "record" if result.data.count === 1 else "records" }}
+              </span>
+
             {% elseif result.type === 'source-edit' %}
               {{ result.data.name }}
               {% if result.data.deletedFields and result.data.deletedFields | length %}

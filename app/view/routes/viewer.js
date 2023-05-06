@@ -27,7 +27,8 @@ const PAGE_QUERY_PARAMS = [
   'id',
   'xhr',
   'iframe',
-  '_select'
+  '_select',
+  'deleted'
 ];
 
 const getFormBody = async (req) => {
@@ -279,6 +280,7 @@ module.exports = function (opts) {
     const pageParams = new URLSearchParams();
     pageParams.set('sort', sort);
     pageParams.set('order', order);
+
     if (isIFRAME) {
       pageParams.set('iframe', isIFRAME);
     }
@@ -294,6 +296,10 @@ module.exports = function (opts) {
     let dataType = null;
     let editLink = null;
     let isDeleted = false;
+    let showArchiveBtn = false;
+    let showRestoreBtn = false;
+    let allowDeletedQuery = false;
+    let isDeletedQuery = false;
 
     if (query.view) {
       view = query.view;
@@ -321,12 +327,22 @@ module.exports = function (opts) {
       dataType = 'source';
       dataId = source._id;
       originName = source.name;
-      userCanEdit =
-        !source.deleted && currentUser.hasSourcePermission(source, CurrentUser.PERMISSIONS.WRITE);
-      userCanCreate = userCanEdit;
       csvLink = '/data-viewer/csv/source/' + query.source._id.toString();
       editLink = '/data-viewer/source/' + source._id.toString() + '/edit';
       isDeleted = source.deleted;
+
+      allowDeletedQuery = true;
+      isDeletedQuery = req.query.deleted && req.query.deleted === '1' ? true : false;
+      if (isDeletedQuery) {
+        pageParams.set('deleted', '1');
+      }
+
+      if (!isDeleted && currentUser.hasSourcePermission(source, CurrentUser.PERMISSIONS.WRITE)) {
+        showArchiveBtn = !isDeletedQuery;
+        showRestoreBtn = isDeletedQuery;
+        userCanEdit = !isDeletedQuery;
+      }
+      userCanCreate = userCanEdit;
     } else {
       return next(new Errors.BadRequest());
     }
@@ -369,7 +385,8 @@ module.exports = function (opts) {
         limit,
         offset,
         filters,
-        id: idFilter
+        id: idFilter,
+        deleted: isDeletedQuery
       });
     }
 
@@ -412,7 +429,11 @@ module.exports = function (opts) {
       originName,
       editLink: currentUser.admin ? editLink : null,
       isDeleted,
-      libVue: false
+      libVue: false,
+      allowDeletedQuery,
+      isDeletedQuery,
+      showArchiveBtn,
+      showRestoreBtn
     };
 
     let template = isXHR ? '_table' : 'viewer';
@@ -502,12 +523,14 @@ module.exports = function (opts) {
           filters
         };
       } else {
+        let deletedQuery = req.query.deleted === '1';
         queryResponse = await sourceManager.getSubmissions(source, {
           sort,
           order,
           limit,
           offset,
-          filters
+          filters,
+          deleted: deletedQuery
         });
         auditRecord = {
           type: 'source',

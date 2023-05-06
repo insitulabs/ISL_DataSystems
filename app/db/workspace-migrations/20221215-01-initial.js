@@ -15,6 +15,8 @@ module.exports = async function (db) {
   );
   await db.collection('submissions').createIndex({ _attachmentsPresent: 1 });
 
+  await db.collection('submissions').createIndex({ source: 1, deleted: 1 });
+
   // Users email must be unique
   await db.collection('users').createIndex({ email: 1 }, { unique: true });
 

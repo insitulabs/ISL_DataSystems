@@ -73,12 +73,25 @@ class Source extends Base {
     return result;
   }
 
+  /**
+   * Build a mongodb query array for submissions.
+   * @param {object} $match What to query.
+   * @param {Object} options Query params (sort, order, limit (-1 for all), offset, filters, sample, id, deleted)
+   * @param {boolean} forCount True for a count, not a full search.
+   * @return {Array} The query.
+   */
   #buildSubmissionQuery($match, options, forCount = false) {
     let query = [
       {
         $match: $match
       }
     ];
+
+    if (options.deleted !== true) {
+      query[0].$match.deleted = { $ne: true };
+    } else {
+      query[0].$match.deleted = true;
+    }
 
     // If we have an single ID filter, include it in match.
     if (options.id && ObjectId.isValid(options.id)) {
@@ -194,7 +207,7 @@ class Source extends Base {
   /**
    * @param {Object || String || ObjectId} source The source.
    * Can be a source object, an _id or submissionKey.
-   * @param {Object} options Query params (sort, order, limit (-1 for all), offset, filters, sample, id)
+   * @param {Object} options Query params (sort, order, limit (-1 for all), offset, filters, sample, id, deleted)
    * @return {object} Result set with results and totalResults keys.
    */
   async getSubmissions(source, options = {}) {
@@ -250,6 +263,90 @@ class Source extends Base {
       throw new Errors.BadRequest('Submission not found.');
     }
     return submission;
+  }
+
+  /**
+   * Delete a single submission.
+   * @param {ObjectId || String} id
+   * @return {object} The deleted submission.
+   */
+  async deleteSubmission(id) {
+    if (!id || !ObjectId.isValid(id)) {
+      throw new Errors.BadRequest('Invalid ID param');
+    }
+
+    const submissions = this.collection(SUBMISSIONS);
+    let submission = await submissions.findOne({ _id: new ObjectId(id) });
+    if (!submission) {
+      throw new Errors.BadRequest('Submission not found.');
+    }
+
+    let auditRecord = {
+      deleted: true,
+      modified: new Date(),
+      modifiedBy: {
+        id: new ObjectId(this.user._id),
+        name: this.user.name,
+        email: this.user.email
+      }
+    };
+
+    await submissions.updateOne(
+      { _id: new ObjectId(id) },
+      {
+        $set: {
+          deleted: true
+        },
+        $push: {
+          _edits: auditRecord
+        }
+      }
+    );
+
+    return this.getSubmission(id);
+  }
+
+  /**
+   * Restore a single deleted submission.
+   * @param {ObjectId || String} id
+   * @return {object} The restored submission.
+   */
+  async restoreSubmission(id) {
+    if (!id || !ObjectId.isValid(id)) {
+      throw new Errors.BadRequest('Invalid ID param');
+    }
+
+    const submissions = this.collection(SUBMISSIONS);
+    let submission = await submissions.findOne({ _id: new ObjectId(id) });
+    if (!submission) {
+      throw new Errors.BadRequest('Submission not found.');
+    }
+
+    if (submission.deleted !== true) {
+      throw new Errors.BadRequest('Submission not archived.');
+    }
+
+    let auditRecord = {
+      deleted: false,
+      modified: new Date(),
+      modifiedBy: {
+        id: new ObjectId(this.user._id),
+        name: this.user.name,
+        email: this.user.email
+      }
+    };
+
+    await submissions.updateOne(
+      { _id: new ObjectId(id) },
+      {
+        $unset: { deleted: '' },
+        $push: {
+          _edits: auditRecord
+        }
+      }
+    );
+
+    return this.getSubmission(id);
   }
 
   /**
@@ -547,7 +644,7 @@ class Source extends Base {
     };
 
     toPersist.modifiedBy = {
-      _id: this.user._id,
+      id: new ObjectId(this.user._id),
       email: this.user.email,
       name: this.user.name
     };
@@ -711,8 +808,9 @@ class Source extends Base {
       value,
       modified: new Date(),
       modifiedBy: {
-        _id: this.user._id,
-        email: this.user.email
+        id: new ObjectId(this.user._id),
+        email: this.user.email,
+        name: this.user.name
       }
     };
 
@@ -757,8 +855,9 @@ class Source extends Base {
       value,
       modified: new Date(),
       modifiedBy: {
-        _id: this.user._id,
-        email: this.user.email
+        id: new ObjectId(this.user._id),
+        email: this.user.email,
+        name: this.user.name
       }
     };
 
@@ -1348,8 +1447,9 @@ class Source extends Base {
       value,
       modified: new Date(),
       modifiedBy: {
-        _id: this.user._id,
-        email: this.user.email
+        id: new ObjectId(this.user._id),
+        email: this.user.email,
+        name: this.user.name
       }
     };
 
