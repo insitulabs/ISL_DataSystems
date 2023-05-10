@@ -16,24 +16,28 @@
 
 [![Data System Screen Shot](https://insitulabs.org/static-assets/data-viewer-screenshot.jpg?v=1)](https://insitulabs.org/static-assets/data-viewer-screenshot.jpg)
 
-The In Situ Laboratory Data System is a combination of tools to capture, organize, and analyze field data. The following describes the flow of data:
+The In Situ Laboratory Data System is a combination of tools to capture, organize, clean, and synchornize data for a variety of downstream applications. The following describes the flow of data:
 
 [![Data System Screen Shot](https://insitulabs.org/static-assets/isl-data-system-flow.jpg?v=1)](https://insitulabs.org/static-assets/isl-data-system-flow.jpg)
 
 
-1. Input forms are designed to let researchers collect data.
-1. The forms are loaded onto mobile devices (phone, tablet) and data is captured offline.
-1. When the mobile device has an internet connection, the data is uploaded to an [ODK Central](https://github.com/getodk/central) server.
-1. Within minutes the data is extracted from the [ODK Central](https://github.com/getodk/central) server and stored in a [MongoDB](https://www.mongodb.com) database. MongoDB allows for storing arbitrary documents, removing the complexity of fixed data typing or data normalizing raw data in it's initial collection stage.
+1. ODK input forms are designed to allow researchers to collect data in a standardized way.
+1. The forms are loaded onto mobile devices (phone, tablet) using ODK Collect (Andriod) or GIC Collect (Os) and data is captured offline.
+1. When the mobile device acquire an internet connection, the data is uploaded to an [ODK Central](https://github.com/getodk/central) server.
+1. Within minutes the data is extracted from the [ODK Central](https://github.com/getodk/central) server and stored in a [MongoDB](https://www.mongodb.com) database. MongoDB allows for storing arbitrary documents, removing the complexity of fixed data typing or normalizing of raw data in the initial collection stage.
    * Note: The usage of [ODK Central](https://github.com/getodk/central) is not required.
    The data system is designed to be data source agnostic.
 1. Our custom data viewer tool allows researchers to:
     * Manage access to the data.
        * Users are granted secure access to the system without the need to manage a password.
-    * Review data collections.
-    * Correct mistakes in the data.
+    * Review source data collections with basic filter and sorting options.
+    * Create, modify, archive, or delete variables in source data collections
+    * Correct mistakes in the data with simple or bulk edit tools.
     * Upload additional binary attachments to go along with the data.
-    * Export customized views of the data.
+    * Create customized views of single and multi-source data
+    * Link data sources with look-up variables
+    * Populate new data sources with copy-to functions
+    * Export cleaned and organized data
 
 
 Additional Screenshots:
@@ -108,6 +112,13 @@ _For more examples, please refer to the [Documentation](https://example.com)_
 - [x] Data isolation through workspaces
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## In-progress
+
+- [x] bulk append column data to records
+- [x] Separate creator and editor user roles
+- [x] Data Viewer tutorial and help page
+
 
 ## Background
 
