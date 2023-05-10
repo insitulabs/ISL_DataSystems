@@ -115,10 +115,11 @@ _For more examples, please refer to the [Documentation](https://example.com)_
 
 ## In-progress
 
-- [x] bulk append column data to records
-- [x] Separate creator and editor user roles
-- [x] Data Viewer tutorial and help page
+- [] bulk append column data to records
+- [] Separate creator and editor user roles
+- [] Data Viewer tutorial and help page
 
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ## Background
 
