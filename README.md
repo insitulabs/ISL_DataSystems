@@ -93,13 +93,18 @@ _For more examples, please refer to the [Documentation](https://example.com)_
 ## Features
 
 - [x] Automated import of data feeds from ODK Central
+- [x] Manual import of SOURCE data from tab or comma dilimited text files
 - [x] User management with form based access control lists
+- [x] Auditing of data access, imports, exports, edits, source and view creation
 - [x] Inline data editing
-- [x] Form filtering and visible column selection
-- [x] Form column renaming
-- [x] Custom views to aggregate form data
+- [x] Source filtering and visible column selection
+- [x] Source column renaming
+- [x] Custom views to aggregate source data
+- [x] Data typing and modification, including auto-increment fields
 - [x] Record transpose or explode of record field
 - [x] CSV Import
+- [x] Source and record archiving
+- [x] Source look-up and copy-to features
 - [x] Data isolation through workspaces
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
