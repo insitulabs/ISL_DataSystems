@@ -1492,6 +1492,61 @@ class Source extends Base {
       $unset
     });
   }
+
+  /**
+   * Modify the field values of a particular submission to a new data type.
+   * @param {object} source The source to update.
+   * @param {string} fieldId The field to update.
+   * @param {string} type The type to convert to. int, float, text
+   * @return {number} Number of updated submissions.
+   */
+  async modifyFieldType(source, fieldId, type) {
+    if (!source) {
+      throw new Errors.BadRequest('Source is required');
+    }
+    let field = source.fields.find((f) => f.id === fieldId);
+    if (!field) {
+      throw new Errors.BadRequest('Invalid field');
+    }
+
+    if (!type || !['int', 'float', 'text'].includes(type)) {
+      throw new Errors.BadRequest('Invalid field type');
+    }
+
+    const submissions = this.collection(SUBMISSIONS);
+    let query = submissions.find({ source: source.submissionKey, deleted: { $ne: true } });
+    let modified = 0;
+    for await (let submission of query) {
+      let flatRecord = Source.flattenSubmission(submission.data);
+      let value = flatRecord[field.id];
+      let toUpdate = value;
+
+      if (type === 'text') {
+        if (typeof value === 'number') {
+          toUpdate = String(value);
+        }
+      } else if (type === 'int') {
+        let int = parseInt(value);
+        if (!isNaN(int)) {
+          toUpdate = int;
+        }
+      } else if (type === 'float') {
+        let float = parseFloat(value);
+        if (!isNaN(float)) {
+          toUpdate = float;
+        }
+      }
+
+      if (value !== toUpdate) {
+        let $set = {};
+        $set[this.getFieldKey(field.id)] = toUpdate;
+        await submissions.updateOne({ _id: submission._id }, { $set });
+        modified++;
+      }
+    }
+
+    return modified;
+  }
 }
 
 module.exports = Source;

@@ -109,7 +109,8 @@ module.exports = function (nunjucks) {
 
       return day.format('MMM D, YYYY HH:mm');
     } else if (type === 'number') {
-      return numberFormatter.format(value);
+      // TODO: Revisit a way to toggle on and off.
+      // return numberFormatter.format(value);
     }
 
     return value;

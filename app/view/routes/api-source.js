@@ -416,6 +416,25 @@ module.exports = function (opts) {
     }
   });
 
+  /**
+   * Bulk update a field type for a source.
+   */
+  router.put('/:id/field-type/:field/:type', async (req, res, next) => {
+    try {
+      const currentUser = getCurrentUser(res);
+      currentUser.validate(CurrentUser.PERMISSIONS.SOURCE_CREATE);
+      const sourceManager = new Source(currentUser);
+      const auditManager = new Audit(currentUser);
+      const source = await sourceManager.getSource(req.params.id);
+      let count = await sourceManager.modifyFieldType(source, req.params.field, req.params.type);
+      auditManager.logSourceEdit(source);
+
+      res.json({ modified: count });
+    } catch (error) {
+      next(error);
+    }
+  });
+
   return router;
 };
 

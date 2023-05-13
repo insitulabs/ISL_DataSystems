@@ -40,7 +40,11 @@ Vue.createApp({
       sampleIndex: 0,
       allSources,
       permissions: data.permissions || {},
-      permissionsSaved: false
+      permissionsSaved: false,
+      bulkModifySaving: false,
+      bulkModifyType: 'text',
+      bulkModifyField: null,
+      bulkModifyResponse: null
     };
   },
 
@@ -367,6 +371,36 @@ Vue.createApp({
         .finally(() => {
           this.saving = false;
         });
+    },
+
+    /**
+     * Bulk modify the type of a single field.
+     */
+    onBulkModifyType() {
+      if (this.bulkModifyField && this.bulkModifyType) {
+        let yes = confirm(
+          `Are you sure you want to change the type of every submission for the field "${this.bulkModifyField}"? You can not undo this operation.`
+        );
+        if (yes) {
+          this.error = null;
+          this.bulkModifySaving = true;
+          this.bulkModifyResponse = null;
+          $api(`/api/source/${this.id}/field-type/${this.bulkModifyField}/${this.bulkModifyType}`, {
+            method: 'PUT'
+          })
+            .then((resp) => {
+              this.bulkModifySaving = false;
+              this.bulkModifyResponse = resp.modified + ' records modified';
+            })
+            .catch((err) => {
+              console.error(err);
+              this.error = err.message ? err.message : 'Error encountered during save.';
+            })
+            .finally(() => {
+              this.bulkModifySaving = false;
+            });
+        }
+      }
     }
   }
 }).mount('#app');

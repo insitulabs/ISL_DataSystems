@@ -389,6 +389,68 @@
   </section>
 
   <section v-if="tab === 'advanced'" class="mt-2">
+    <div
+      v-if="!isDeleted"
+      class="mt-4"
+    >
+      <h5>Bulk modify field type</h5>
+      <div class="row g-0">
+        <div class="col-3">
+          <div class="form-floating mb-3">
+            <input
+              list="bulk-modify-all-fields"
+              id="bulk-field-modify-id"
+              class="form-control mb-2"
+              required
+              v-model="bulkModifyField"
+            />
+            <label for="bulk-field-modify-id">Field</label>
+          </div>
+        </div>
+
+        <div class="col-3">
+          <div class="form-floating ms-2">
+            <select
+              id="bulk-field-modify-type"
+              class="form-select"
+              required
+              v-model="bulkModifyType"
+            >
+              <option value="text">Text</option>
+              <option value="int">Int (10)</option>
+              <option value="float">Float (1.10)</option>
+            </select>
+            <label for="bulk-field-modify-type">Field Type</label>
+          </div>
+        </div>
+      </div>
+
+      <datalist id="bulk-modify-all-fields">
+        <option v-for="f in fields" :key="f.id" :value="f.id">
+          ${ f.name || f.id }
+        </option>
+      </datalist>
+
+      <button
+        @click="onBulkModifyType"
+        class="btn-primary btn"
+        :disabled="bulkModifySaving || !bulkModifyField || !bulkModifyType"
+      >
+        Update
+      </button>
+
+      <div
+         v-if="bulkModifySaving"
+        class="spinner-border text-primary spinner-border-sm ms-2"
+        role="status"
+      >
+        <span class="visually-hidden">Saving...</span>
+      </div>
+      <span v-if="bulkModifyResponse" class="ms-2 text-success">${bulkModifyResponse}</span>
+    </div>
+
+    <hr />
+
     <form
       v-if="isDeleted"
       :action="`/api/source/${id}/restore`"
