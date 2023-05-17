@@ -7,7 +7,7 @@ const bodyParser = require('body-parser');
 const session = require('express-session');
 const { noCacheMiddleware } = require('./lib/route-helpers');
 
-const Agenda = require('agenda');
+const Agenda = require('@hokify/agenda').Agenda;
 const crypto = require('./lib/crypto');
 const Errors = require('./lib/errors');
 const CurrentUser = require('./lib/current-user');
