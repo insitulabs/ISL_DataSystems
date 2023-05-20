@@ -201,8 +201,8 @@ class Source extends Base {
 
     const col = this.collection(SUBMISSIONS);
     const docs = await col.aggregate([
-      { $match: { source: submissionKey } },
-      { $sample: { size: 100 } },
+      { $match: { source: submissionKey, deleted: { $ne: true } } },
+      { $sample: { size: 200 } },
       { $project: { data: 1, _id: 0 } },
       {
         $replaceRoot: {
@@ -212,10 +212,10 @@ class Source extends Base {
     ]);
 
     let allFields = [];
-    await docs.forEach((doc) => {
+    for await (let doc of docs) {
       const nestedFields = getDocumentNestedFields(doc, new Set());
       allFields = new Set([...allFields, ...nestedFields]);
-    });
+    }
     allFields = Array.from(allFields);
 
     // Sometimes GPS points and other nested objects can be null, so we get a false field
