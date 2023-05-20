@@ -84,7 +84,7 @@ class Source extends Base {
   /**
    * Unflatten a single level object into depth.
    * @param {object} data
-   * @return {object}
+   * @return {object}an object into a single level.
    */
   static unflattenSubmission(data) {
     var result = {};

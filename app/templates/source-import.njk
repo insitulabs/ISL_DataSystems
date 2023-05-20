@@ -64,17 +64,27 @@
   <div class="mt-2">
     <form id="parse" action="./parse" method="POST" enctype="multipart/form-data">
       <input type="hidden" name="id" value="{{ source._id }}" />
-      <input class="form-control" type="file" name="file" required aria-describedby="fileHelp" />
-      <div id="fileHelp" class="form-text">
-        Supported file types:
-        <span class="badge bg-light text-dark">xlsx</span>
-        <span class="badge bg-light text-dark">csv</span>
-      </div>
+
+      {% if enabled %}
+        <input class="form-control" type="file" name="file" required aria-describedby="fileHelp" />
+        <div id="fileHelp" class="form-text">
+          Supported file types:
+          <span class="badge bg-light text-dark">xlsx</span>
+          <span class="badge bg-light text-dark">csv</span>
+        </div>
+      {% endif %}
 
       {% if error %}
         <div class="alert alert-danger mt-2 mb-0" role="alert">{{ error}}</div>
       {% endif %}
-      <button class="btn btn-primary mt-2" type="submit">Upload</button>
+
+      <button
+        class="btn btn-primary mt-2"
+        type="submit"
+        {% if not enabled %} disabled {% endif %}
+      >
+        Upload
+      </button>
     </form>
   </div>
 </div>

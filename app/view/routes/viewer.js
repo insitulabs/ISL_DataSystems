@@ -1417,8 +1417,17 @@ module.exports = function (opts) {
       let source = await sourceManager.getSource(req.params.id);
       currentUser.validateSourcePermission(source, CurrentUser.PERMISSIONS.WRITE);
 
+      let error = req.query.error;
+      let enabled = true;
+
       if (source.deleted) {
-        throw new Errors.BadRequest('Deleted sources cannot be added to');
+        error = 'Deleted sources cannot be added to';
+        enabled = false;
+      }
+
+      if (source.lastSync) {
+        error = 'ODK synced sources cannot be imported to.';
+        enabled = false;
       }
 
       const viewData = await getPageRenderData(req, res);
@@ -1427,7 +1436,8 @@ module.exports = function (opts) {
         ...viewData,
         source,
         imports,
-        error: req.query.error,
+        error,
+        enabled,
         pageTitle: source.name + ' - Import'
       };
 
