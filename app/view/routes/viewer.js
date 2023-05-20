@@ -15,8 +15,6 @@ const CurrentUser = require('../../lib/current-user');
 const { getCurrentUser } = require('../../lib/route-helpers');
 const XLSX = require('xlsx');
 
-const NON_EDITABLE_FIELDS = ['_id', 'created'];
-
 // Reserved query params that can't be data filters.
 const PAGE_QUERY_PARAMS = [
   'sort',
@@ -187,7 +185,7 @@ const mapFieldsForUI = function (fields, userCanEdit = false, sort, order, limit
         name: f.name || f.id,
         displayName: (f.name || f.id).replace(/\./g, '.<br>'),
         sortable: true,
-        editable: userCanEdit && !NON_EDITABLE_FIELDS.includes(f.id),
+        editable: userCanEdit && !Source.NON_EDITABLE_FIELDS.includes(f.id),
         meta: f.meta
       };
 

@@ -51,10 +51,17 @@ class Source extends Base {
     this.user = user;
   }
 
+  static NON_EDITABLE_FIELDS = ['_id', 'created'];
+
   static submissionKey(system, namespace) {
     return `${system}__${namespace}`.toLowerCase();
   }
 
+  /**
+   * Flatten an object into a single level.
+   * @param {object} data
+   * @return {object}
+   */
   static flattenSubmission(data) {
     var result = {};
     function recurse(cur, prop) {
@@ -66,10 +73,29 @@ class Source extends Base {
           isEmpty = false;
           recurse(cur[p], prop ? prop + '.' + p : p);
         }
-        if (isEmpty && prop) result[prop] = {};
+        if (isEmpty && prop) {
+          result[prop] = {};
+        }
       }
     }
     recurse(data, '');
+    return result;
+  }
+  /**
+   * Unflatten a single level object into depth.
+   * @param {object} data
+   * @return {object}
+   */
+  static unflattenSubmission(data) {
+    var result = {};
+    for (var i in data) {
+      var keys = i.split('.');
+      keys.reduce(function (r, e, j) {
+        return (
+          r[e] || (r[e] = isNaN(Number(keys[j + 1])) ? (keys.length - 1 == j ? data[i] : {}) : [])
+        );
+      }, result);
+    }
     return result;
   }
 

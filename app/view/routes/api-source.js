@@ -295,6 +295,40 @@ module.exports = function (opts) {
         throw new Error.BadRequest('Invalid submission data');
       }
 
+      // Convert our flat submissions into a object to better mirror what we might have gotten
+      // from ODK. Also ensure any object has all the fields so that nested data
+      // can be populated later.
+      submissions = submissions.map((s) => {
+        let submissionFields = Object.keys(s);
+        for (const f of source.fields) {
+          if (!submissionFields.includes(f.id)) {
+            s[f.id] = null;
+          }
+
+          if (f?.meta?.type !== 'text') {
+            let value = s[f.id];
+            // Is number?
+            if (value && /^[\d\.]+$/.test(value)) {
+              if (value.indexOf('.') > -1) {
+                value = parseFloat(value);
+              } else {
+                value = parseInt(value);
+              }
+
+              if (isNaN(value)) {
+                value = null;
+              }
+            }
+
+            if (value !== s[f.id]) {
+              s[f.id] = value;
+            }
+          }
+        }
+
+        return Source.unflattenSubmission(s);
+      });
+
       let ids = await sourceManager.insertSubmissions(source, submissions);
       let created = await Promise.all(ids.map((id) => sourceManager.getSubmission(id)));
 
