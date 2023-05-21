@@ -59,7 +59,7 @@ const updateSubmission = function (target, field, value, currentValue, valueType
 
   let url = `/data-viewer/api/edit/${ORIGIN_TYPE}`;
   let isAttachment = false;
-  if (ORIGIN_TYPE === 'source' && value instanceof File) {
+  if (value instanceof File) {
     isAttachment = true;
     url = '/data-viewer/api/edit/attachment';
   }
@@ -1183,14 +1183,19 @@ document.addEventListener('click', (event) => {
     img.style.transform = `rotate(${angle}deg)`;
   }
 
-  let deleteAttachmentBtn = event.target.closest('.delete-attachment');
-  if (deleteAttachmentBtn && confirm('Are you sure you want to delete this file?')) {
-    updateSubmission(
-      { ids: [deleteAttachmentBtn.dataset.submissionId] },
-      deleteAttachmentBtn.dataset.field,
-      '',
-      deleteAttachmentBtn.dataset.name
-    )
+  let $deleteAttachmentBtn = event.target.closest('.delete-attachment');
+  if ($deleteAttachmentBtn && confirm('Are you sure you want to delete this file?')) {
+    let $td = $deleteAttachmentBtn.closest('td');
+    let target = {
+      ids: [$td.dataset.id]
+    };
+    if (ORIGIN_TYPE === 'view') {
+      target = {
+        fields: [{ id: $td.dataset.id, field: $td.dataset.field }]
+      };
+    }
+
+    updateSubmission(target, $td.dataset.field, '', $deleteAttachmentBtn.dataset.name)
       .then(() => {
         // Remove attachment backdrop remnants.
         document.body.classList.remove('modal-open');

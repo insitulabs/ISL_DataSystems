@@ -91,13 +91,19 @@ module.exports = class Uploader {
     return null;
   }
 
-  async uploadAttachment(workspace, source, submissionId, fileName, fileSize, file) {
+  async uploadAttachment(workspace, source, submissionId, fileName, fileSize, file, label) {
     const s3Key = this.generateFileKey(workspace, source, submissionId, fileName);
     const objectParams = { Bucket: this.S3_BUCKET, Key: s3Key };
 
     try {
       let s3Body = typeof file === 'string' ? fs.createReadStream(file) : file;
-      await s3.putObject({ ...objectParams, Body: s3Body }).promise();
+      await s3
+        .putObject({
+          ...objectParams,
+          Body: s3Body,
+          ContentDisposition: `attachment; filename=${label || fileName}`
+        })
+        .promise();
 
       let transcodes = null;
       let transcodeError = null;
@@ -114,6 +120,7 @@ module.exports = class Uploader {
 
       return {
         name: fileName,
+        label: label || fileName,
         s3Key: s3Key,
         size: fileSize,
         transcodes,
@@ -124,8 +131,25 @@ module.exports = class Uploader {
     }
   }
 
-  getSignedUrl(key, expires = 60) {
-    return s3.getSignedUrl('getObject', { Bucket: this.S3_BUCKET, Key: key, Expires: expires });
+  /**
+   * Generate a signed URL for the attachment.
+   * @param {string} key
+   * @param {string} fileName A name to save the file with if we want.
+   * @param {number} expires
+   * @return {string} The URL.
+   */
+  getSignedUrl(key, fileName = null, expires = 60) {
+    let options = {
+      Bucket: this.S3_BUCKET,
+      Key: key,
+      Expires: expires
+    };
+
+    if (fileName) {
+      options.ResponseContentDisposition = `attachment; filename=${fileName}`;
+    }
+
+    return s3.getSignedUrl('getObject', options);
   }
 };
 

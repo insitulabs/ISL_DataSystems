@@ -1022,7 +1022,7 @@ class Source extends Base {
       toAdd = attachments;
     }
 
-    let results = await col.updateOne(
+    await col.updateOne(
       { _id: submission._id },
       {
         $push: { attachments: { $each: toAdd } }

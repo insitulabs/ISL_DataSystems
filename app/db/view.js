@@ -484,7 +484,8 @@ class View extends Base {
                 _id: '$_id',
                 created: '$created',
                 source: '$source',
-                viewData: '$viewData'
+                viewData: '$viewData',
+                attachments: '$attachments'
               },
               {
                 $switch: {
@@ -638,6 +639,8 @@ class View extends Base {
         }
       });
     }
+
+    // this.debug(results);
     return {
       totalResults,
       offset: offset,

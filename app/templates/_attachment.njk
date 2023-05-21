@@ -1,6 +1,6 @@
 <button type="button" class="btn btn-secondary"
     data-bs-toggle="modal" data-bs-target="#{{ attachment.id }}">
-  {{ attachment.name }}
+  {{ attachment.label or attachment.name }}
 </button>
 
 <div class="modal fade attachment" id="{{ attachment.id }}" tabindex="-1" aria-labelledby="attachment-{{ attachment.id}}" aria-hidden="true">
@@ -42,7 +42,7 @@
           {% endif %}
           <a class="btn btn-primary"
             download
-            href="/data-viewer/api/attachment?key={{ attachment.s3Key | urlencode }}">
+            href="/data-viewer/api/attachment?key={{ attachment.s3Key | urlencode }}&label={{ (attachment.label or attachment.name) | urlencode }}">
             Download ({{ attachment.size | prettyBytes }})
           </a>
         </div>

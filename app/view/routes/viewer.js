@@ -14,6 +14,8 @@ const Audit = require('../../db/audit').Audit;
 const CurrentUser = require('../../lib/current-user');
 const { getCurrentUser } = require('../../lib/route-helpers');
 const XLSX = require('xlsx');
+const { v4: uuidv4 } = require('uuid');
+const { noCacheMiddleware } = require('../../lib/route-helpers');
 
 // Reserved query params that can't be data filters.
 const PAGE_QUERY_PARAMS = [
@@ -568,7 +570,7 @@ module.exports = function (opts) {
   /**
    * Get and redirect to an attachment's S3 URL.
    */
-  router.get('/api/attachment', async (req, res, next) => {
+  router.get('/api/attachment', noCacheMiddleware, async (req, res, next) => {
     try {
       let key = req.query.key;
       let size = req.query.size;
@@ -587,7 +589,7 @@ module.exports = function (opts) {
         auditManager.logFileDownload(key);
       }
 
-      let url = uploader.getSignedUrl(key);
+      let url = uploader.getSignedUrl(key, req.query.label);
       res.redirect(url);
     } catch (error) {
       next(error);
@@ -686,66 +688,130 @@ module.exports = function (opts) {
   router.post('/api/edit/attachment', async (req, res, next) => {
     const currentUser = getCurrentUser(res);
     const sourceManager = new Source(currentUser);
+    const viewManager = new View(currentUser);
     try {
       let body = await getFormBody(req);
+
+      if (!body.files?.value) {
+        throw new Errors.BadRequest('Invalid file param');
+      }
+
       const originType = body.fields.originType;
       const originId = body.fields.originId;
       if (!originId || !originType) {
         throw new Errors.BadRequest('Invalid params');
       }
 
-      if (originType !== 'source') {
-        throw new Errors.BadRequest('Attachments are only supported on single source edit.');
-      }
-
-      let ids = body.fields.ids ? body.fields.ids.split(',') : null;
-      if (!ids || !ids.length) {
-        throw new Errors.BadRequest('Invalid submission target');
-      }
-      if (ids.length > 1) {
-        throw new Errors.BadRequest('Attachments are not supported for bulk edit.');
-      }
-
-      const field = body.fields.field;
-      if (!field) {
-        throw new Errors.BadRequest('Invalid field param');
-      }
-
-      if (!body.files?.value) {
-        throw new Errors.BadRequest('Invalid file param');
-      }
-
-      const id = ids[0];
-      let submission = await sourceManager.getSubmission(id);
-      let source = await sourceManager.getSourceBySubmissionKey(submission.source);
-      currentUser.validateSourcePermission(source, CurrentUser.PERMISSIONS.WRITE);
-
+      let source = null;
+      let view = null;
+      let submission = null;
+      let persistFn = null;
+      let field = null;
       let tempFile = body.files.value;
       let fileName = tempFile.originalFilename;
+
+      // Save with a uuid to prevent overwrite.
+      let uniqueFileName = uuidv4() + path.extname(fileName).toLowerCase();
       let currentValue = body.fields.currentValue;
+
+      if (originType === 'source') {
+        let ids = body.fields.ids ? body.fields.ids.split(',') : null;
+        if (!ids || !ids.length) {
+          throw new Errors.BadRequest('Invalid submission target');
+        }
+        if (ids.length > 1) {
+          throw new Errors.BadRequest('Attachments are not supported for bulk edit.');
+        }
+
+        field = body.fields.field;
+        if (!field) {
+          throw new Errors.BadRequest('Invalid field param');
+        }
+
+        const id = ids[0];
+        submission = await sourceManager.getSubmission(id);
+        source = await sourceManager.getSourceBySubmissionKey(submission.source);
+        currentUser.validateSourcePermission(source, CurrentUser.PERMISSIONS.WRITE);
+
+        persistFn = async () => {
+          return await sourceManager.updateSubmission(id, field, uniqueFileName, currentValue);
+        };
+      } else if (originType === 'view') {
+        view = await viewManager.getView(originId);
+        getCurrentUser(res).validateViewPermission(view, CurrentUser.PERMISSIONS.WRITE);
+
+        let fields = body.fields.fields ? JSON.parse(body.fields.fields) : null;
+        if (!fields || !fields.length) {
+          throw new Errors.BadRequest('Invalid submission target');
+        }
+
+        if (fields.some((f) => !f.id || !f.field)) {
+          throw new Errors.BadRequest('Invalid fields');
+        }
+
+        if (fields.length > 1) {
+          throw new Errors.BadRequest('Attachments are not supported for bulk edit.');
+        }
+
+        let toUpdate = fields[0];
+
+        submission = await sourceManager.getSubmission(toUpdate.id);
+        let submissionSource = view.sources.find((s) => {
+          return s.source.submissionKey === submission.source;
+        });
+
+        if (!submissionSource) {
+          throw new Errors.BadRequest('Source not found in view: ' + submission.source);
+        }
+        source = await sourceManager.getSourceBySubmissionKey(submission.source);
+
+        // Check if field is an unwound multi-field
+        field = toUpdate.field;
+        let subIndex = /(.+)\[(\d+)\]$/.exec(field);
+        if (subIndex) {
+          field = subIndex[1];
+          subIndex = parseInt(subIndex[2]);
+        }
+
+        persistFn = async () => {
+          return await viewManager.updateSubmission(
+            view,
+            toUpdate.id,
+            subIndex,
+            field,
+            uniqueFileName
+          );
+        };
+      } else {
+        throw new Errors.BadRequest('Attachments are not supported for staged imports.');
+      }
+
       try {
+        const id = submission._id.toString();
+
         let attachment = await uploader.uploadAttachment(
           res.locals.workspace,
           source,
           id,
-          fileName,
+          uniqueFileName,
           tempFile.size,
-          tempFile.filepath
+          tempFile.filepath,
+          fileName
         );
 
-        let value = fileName;
         submission = await sourceManager.addSubmissionAttachments(id, [attachment]);
-        submission = await sourceManager.updateSubmission(id, field, value, currentValue);
+        submission = await persistFn();
+
         let html = nunjucks.render('_attachment.njk', {
           submission: {
-            id: submission._id.toString()
+            id
           },
           field: {
             id: field
           },
           attachment: {
             ...attachment,
-            id: `file-${Date.now()}-${submission._id.toString()}`,
+            id: `file-${Date.now()}-${id}`,
             editable: true
           }
         });
@@ -756,24 +822,30 @@ module.exports = function (opts) {
         let auditRecord = {
           type: originType,
           count: 1,
-          id: id,
-          ids: id[0],
-          source: {
-            _id: source._id,
-            name: source.name,
-            submissionKey: source.submissionKey
-          },
+          id,
           field,
-          value: value,
+          value: fileName,
           previous: currentValue,
           isAttachment: true
         };
+        if (view) {
+          auditRecord.view = {
+            _id: view._id,
+            name: view.name
+          };
+        } else {
+          auditRecord.source = {
+            _id: source._id,
+            name: source.name,
+            submissionKey: source.submissionKey
+          };
+        }
         auditManager.logSubmissionEdit(auditRecord);
 
         res.json({
-          ids: ids,
+          ids: [id],
           isAttachment: true,
-          value,
+          value: fileName,
           html
         });
       } catch (error) {
