@@ -50,7 +50,7 @@ Vue.createApp({
       let invalid = this.sources.reduce((invalid, s) => {
         for (const [sourceField, viewField] of Object.entries(s.rename)) {
           if (viewField && !this.fields.some((f) => f.name === viewField)) {
-            invalid[s.source + sourceField] = true;
+            invalid[s.source._id + sourceField] = true;
           }
         }
         return invalid;
@@ -352,6 +352,11 @@ Vue.createApp({
 
     save() {
       if (this.saving) {
+        return;
+      }
+
+      if (Object.keys(this.invalidField).length) {
+        this.error = 'Invalid field mapping. Fix before saving.';
         return;
       }
 
