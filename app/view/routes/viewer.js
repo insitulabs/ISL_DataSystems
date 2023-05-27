@@ -1251,7 +1251,7 @@ module.exports = function (opts) {
 
       if (req.body.fields) {
         req.body.fields.forEach((f) => {
-          f.id = View.normalizeFieldName(f.name);
+          f.id = f.id || View.normalizeFieldName(f.name);
         });
       }
 

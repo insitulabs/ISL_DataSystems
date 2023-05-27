@@ -153,7 +153,11 @@
           {% set attachment = submission.isAttachment(submission.flat[field.id]) %}
           {% set isSourceField = submission.isSourceField(field.id) %}
           {% set isUnwoundField = submission.isUnwoundField(field.id) %}
-          {% set fieldMetaInfo = submission.getFieldInfo(field, submission.subIndex) %}
+          {% if isUnwoundField %}
+            {% set fieldMetaInfo = submission.getFieldInfo(field, submission.subIndex) %}
+            {% else %}
+            {% set fieldMetaInfo = submission.getFieldInfo(field) %}
+          {% endif %}
           <td
               data-id="{{ submission.id }}"
 

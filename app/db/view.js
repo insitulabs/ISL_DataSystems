@@ -400,21 +400,25 @@ class View extends Base {
       branch.then = {};
 
       let fieldOccurrenceCount = Object.values(s.rename).reduce((aggr, f) => {
-        aggr[f] = aggr[f] || 0;
-        aggr[f]++;
+        let mappedViewField = fields.find((field) => field.name === f);
+        if (mappedViewField) {
+          let id = mappedViewField.id;
+          aggr[id] = aggr[id] || 0;
+          aggr[id]++;
+        }
         return aggr;
       }, {});
 
       let sourceMap = {};
       for (const [existingField, newField] of Object.entries(s.rename)) {
         // Ensure rename sources are mapped to actual view fields
-        if (fields.some((f) => f.name === newField)) {
-          let isArrayField = fieldOccurrenceCount[newField] > 1;
-
-          // Never let fields have . in them, or Mongo will blow up
-          let newFieldLabel = View.normalizeFieldName(newField);
+        let mappedViewField = fields.find((f) => f.name === newField);
+        if (mappedViewField) {
+          // Never let fields have . in them, or Mongo will blow up,
+          let newFieldLabel = mappedViewField.id;
           let sourceFieldKey = newFieldLabel;
 
+          let isArrayField = fieldOccurrenceCount[newFieldLabel] > 1;
           if (isArrayField) {
             unwindFields.add(newFieldLabel);
             if (!branch.then[newFieldLabel]) {
@@ -640,7 +644,6 @@ class View extends Base {
       });
     }
 
-    // this.debug(results);
     return {
       totalResults,
       offset: offset,
@@ -693,7 +696,7 @@ class View extends Base {
       throw new Errors.BadRequest('Invalid view sources');
     }
 
-    // Ensure the view contains a max of one deconstructred/expldoed/unwound field.
+    // Ensure the view contains a max of one deconstructed/exploded/unwound field.
     let deconstructedFields = view.sources.reduce((explodedFields, s) => {
       let fields = Object.values(s.rename);
       let fieldCount = fields.reduce((counts, fieldName) => {
