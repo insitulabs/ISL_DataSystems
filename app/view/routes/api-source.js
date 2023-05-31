@@ -308,7 +308,7 @@ module.exports = function (opts) {
           if (f?.meta?.type !== 'text') {
             let value = s[f.id];
             // Is number?
-            if (value && /^[\d\.]+$/.test(value)) {
+            if (value && typeof value === 'string' && /^[\d\.]+$/.test(value)) {
               if (value.indexOf('.') > -1) {
                 value = parseFloat(value);
               } else {
