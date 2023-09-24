@@ -1,11 +1,11 @@
-const aws = require('aws-sdk');
 const fs = require('fs');
-const s3 = new aws.S3();
 const _ = require('lodash');
 const path = require('path');
 const CONFIG = require('../config');
-
+const S3 = require('./s3');
 const imgTranscoder = require('./imgTranscoder');
+
+const s3 = new S3();
 
 module.exports = class Uploader {
   constructor() {
@@ -31,24 +31,6 @@ module.exports = class Uploader {
     }
   }
 
-  async uploadFileToS3(buffer, metadata, key) {
-    const objectParams = { Bucket: this.S3_BUCKET, Key: key };
-    const response = await s3.putObject({ ...objectParams, Body: buffer }).promise();
-    return key;
-  }
-
-  getFileFromS3(key) {
-    return new Promise((resolve, reject) => {
-      s3.getObject({ Bucket: this.S3_BUCKET, Key: key }, (err, data) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(data);
-        }
-      });
-    });
-  }
-
   /**
    * Get an attachment.
    * @param {object} workspace
@@ -59,20 +41,15 @@ module.exports = class Uploader {
    */
   async getAttachment(workspace, source, submissionId, fileName) {
     const s3Key = this.generateFileKey(workspace, source, submissionId, fileName);
-    const objectParams = { Bucket: this.S3_BUCKET, Key: s3Key };
     try {
-      const head = await s3.headObject(objectParams).promise();
+      const head = await s3.head(s3Key);
       let keyPrefix = path.dirname(s3Key);
       let ext = path.extname(s3Key);
       let key = path.basename(s3Key, ext);
 
       // Lookup transcoded files.
-      let transcoded = await s3
-        .listObjectsV2({
-          Bucket: this.S3_BUCKET,
-          Prefix: `${keyPrefix}/${key}-`
-        })
-        .promise();
+      const transcoded = await s3.list(`${keyPrefix}/${key}-`);
+
       return {
         name: fileName,
         s3Key: s3Key,
@@ -93,17 +70,12 @@ module.exports = class Uploader {
 
   async uploadAttachment(workspace, source, submissionId, fileName, fileSize, file, label) {
     const s3Key = this.generateFileKey(workspace, source, submissionId, fileName);
-    const objectParams = { Bucket: this.S3_BUCKET, Key: s3Key };
 
     try {
       let s3Body = typeof file === 'string' ? fs.createReadStream(file) : file;
-      await s3
-        .putObject({
-          ...objectParams,
-          Body: s3Body,
-          ContentDisposition: `attachment; filename=${label || fileName}`
-        })
-        .promise();
+      await s3.upload(s3Key, s3Body, {
+        ContentDisposition: `attachment; filename=${label || fileName}`
+      });
 
       let transcodes = null;
       let transcodeError = null;
@@ -138,18 +110,8 @@ module.exports = class Uploader {
    * @param {number} expires
    * @return {string} The URL.
    */
-  getSignedUrl(key, fileName = null, expires = 60) {
-    let options = {
-      Bucket: this.S3_BUCKET,
-      Key: key,
-      Expires: expires
-    };
-
-    if (fileName) {
-      options.ResponseContentDisposition = `attachment; filename=${fileName}`;
-    }
-
-    return s3.getSignedUrl('getObject', options);
+  async getSignedUrl(key, fileName = null, expires = 60) {
+    return s3.signedUrl(key, fileName, expires);
   }
 };
 

@@ -1,28 +1,9 @@
 const path = require('path');
 const sharp = require('sharp');
-const aws = require('aws-sdk');
-const s3 = new aws.S3();
+const S3 = require('./s3');
+const s3 = new S3();
 
 module.exports = function (S3_REGION, S3_BUCKET) {
-  // TODO MOVE TO UPLOADER
-  const upload = async function (buffer, metadata, key) {
-    const objectParams = { Bucket: S3_BUCKET, Key: key };
-    const response = await s3.putObject({ ...objectParams, Body: buffer }).promise();
-    return key;
-  };
-
-  const getFile = function (key) {
-    return new Promise((resolve, reject) => {
-      s3.getObject({ Bucket: S3_BUCKET, Key: key }, (err, data) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(data);
-        }
-      });
-    });
-  };
-
   return {
     transcode: async function (url, file) {
       let keyPrefix = path.dirname(url);
@@ -35,7 +16,7 @@ module.exports = function (S3_REGION, S3_BUCKET) {
       }
 
       if (!file) {
-        const response = await getFile(url);
+        const response = await s3.get(url);
         file = response.Body;
       }
 
@@ -60,7 +41,7 @@ module.exports = function (S3_REGION, S3_BUCKET) {
           .jpeg({ quality: 80, progressive: true })
           .toBuffer({ resolveWithObject: true })
           .then(({ data, info }) => {
-            return upload(data, info, `${keyPrefix}/${key}-thumbnail.jpg`);
+            return s3.upload(`${keyPrefix}/${key}-thumbnail.jpg`, data);
           })
       );
 
@@ -74,7 +55,7 @@ module.exports = function (S3_REGION, S3_BUCKET) {
           .jpeg({ quality: 80, progressive: true })
           .toBuffer({ resolveWithObject: true })
           .then(({ data, info }) => {
-            return upload(data, info, `${keyPrefix}/${key}-small.jpg`);
+            return s3.upload(`${keyPrefix}/${key}-small.jpg`, data);
           })
       );
 
@@ -88,7 +69,7 @@ module.exports = function (S3_REGION, S3_BUCKET) {
           .jpeg({ quality: 80, progressive: true })
           .toBuffer({ resolveWithObject: true })
           .then(({ data, info }) => {
-            return upload(data, info, `${keyPrefix}/${key}-medium.jpg`);
+            return s3.upload(`${keyPrefix}/${key}-medium.jpg`, data);
           })
       );
 
@@ -102,7 +83,7 @@ module.exports = function (S3_REGION, S3_BUCKET) {
           .jpeg({ quality: 80, progressive: true })
           .toBuffer({ resolveWithObject: true })
           .then(({ data, info }) => {
-            return upload(data, info, `${keyPrefix}/${key}-large.jpg`);
+            return s3.upload(`${keyPrefix}/${key}-large.jpg`, data);
           })
       );
 

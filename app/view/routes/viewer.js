@@ -1,7 +1,8 @@
 const CONFIG = require('../../config');
 const express = require('express');
 const path = require('path');
-const formidable = require('formidable');
+const { formidable } = require('formidable');
+const { firstValues } = require('formidable/src/helpers/firstValues.js');
 const paginate = require('../paginate');
 const Uploader = require('../../lib/uploader');
 const Errors = require('../../lib/errors');
@@ -43,7 +44,9 @@ const getFormBody = async (req) => {
       if (err) {
         reject(err);
       } else {
-        resolve({ fields, files });
+        // Formidable 3.x returns everything as arrays now, revert this.
+        const fieldsAsSingles = firstValues(form, fields);
+        resolve({ fields: fieldsAsSingles, files });
       }
     });
   });
@@ -589,7 +592,7 @@ module.exports = function (opts) {
         auditManager.logFileDownload(key);
       }
 
-      let url = uploader.getSignedUrl(key, req.query.label);
+      let url = await uploader.getSignedUrl(key, req.query.label);
       res.redirect(url);
     } catch (error) {
       next(error);
@@ -691,7 +694,6 @@ module.exports = function (opts) {
     const viewManager = new View(currentUser);
     try {
       let body = await getFormBody(req);
-
       if (!body.files?.value) {
         throw new Errors.BadRequest('Invalid file param');
       }
@@ -707,7 +709,7 @@ module.exports = function (opts) {
       let submission = null;
       let persistFn = null;
       let field = null;
-      let tempFile = body.files.value;
+      let tempFile = body.files.value[0];
       let fileName = tempFile.originalFilename;
 
       // Save with a uuid to prevent overwrite.
@@ -1531,7 +1533,7 @@ module.exports = function (opts) {
 
       let body = await getFormBody(req);
       if (body?.files?.file) {
-        let tempFile = body.files.file;
+        let tempFile = body.files.file[0];
         // https://www.npmjs.com/package/xlsx#parsing-options
         let workbook = XLSX.readFile(tempFile.filepath, {});
         if (!workbook.SheetNames.length) {
