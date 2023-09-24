@@ -78,6 +78,7 @@ module.exports = async function (workspace, sourceManager) {
   };
 
   let sources = (await sourceManager.listSources({ limit: -1 })).results;
+  sources = sources.filter((s) => s.system === 'ODK');
 
   for (let source of sources) {
     try {
