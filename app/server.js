@@ -1,5 +1,4 @@
 const CONFIG = require('./config');
-const DEV_MODE = CONFIG.IS_LOCAL_DEV_ENV;
 
 const path = require('path');
 const express = require('express');
@@ -180,8 +179,8 @@ const emailValidator = require('./lib/email-validator');
       if (emailValidator(email)) {
         let min = 100;
         let max = 1000;
-        let APP_LINK = (DEV_MODE ? 'http' : 'https') + `://${req.hostname}`;
-        if (DEV_MODE) {
+        let APP_LINK = (CONFIG.IS_LOCAL_DEV_ENV ? 'http' : 'https') + `://${req.hostname}`;
+        if (CONFIG.IS_LOCAL_DEV_ENV) {
           APP_LINK += ':' + CONFIG.PORT;
         }
 
@@ -200,6 +199,15 @@ const emailValidator = require('./lib/email-validator');
                 console.error(error);
                 mailer.sendError(error);
               });
+            }
+
+            if (CONFIG.IS_LOCAL_DEV_ENV) {
+              // In local DEV env, skip email and simply redirect to authorized link.
+              return res.redirect(
+                APP_LINK +
+                  '?token=' +
+                  encodeURIComponent(crypto.getUserToken(email, req.body.return))
+              );
             }
 
             mailer.sendLoginEmail(email, APP_LINK, req.body.return).catch((error) => {
