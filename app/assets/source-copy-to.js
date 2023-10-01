@@ -2,10 +2,13 @@ Vue.createApp({
   delimiters: ['${', '}'],
   data() {
     return {
+      destinationQuery: null,
       destinationId: null,
       destinationFields: [],
       destinationSamples: [],
       destinationSampleIndex: 0,
+      linkInSource: null,
+      linkInDestination: null,
       loading: false,
       mapping: {},
       source: window._source,
@@ -52,6 +55,18 @@ Vue.createApp({
         }
       });
       return invalid;
+    },
+
+    invalidLinkInSource() {
+      if (this.linkInSource) {
+        return !this.source.fields.find((f) => f.id === this.linkInSource);
+      }
+    },
+
+    invalidLinkInDestination() {
+      if (this.linkInDestination) {
+        return !this.destinationFields.find((f) => f.id === this.linkInDestination);
+      }
     },
 
     canSave() {
@@ -112,6 +127,16 @@ Vue.createApp({
   },
 
   watch: {
+    /**
+     * When we have a valid destination set the ID.
+     */
+    destinationQuery(query) {
+      let dest = window._sources.find((s) => s.name === query);
+      if (dest) {
+        this.destinationId = dest._id;
+      }
+    },
+
     destinationId(id) {
       this.mapping = {};
       this.selectSourceFields(id);
@@ -133,6 +158,12 @@ Vue.createApp({
         });
       }
     }
+  },
+
+  mounted() {
+    this.$nextTick(() => {
+      this.$refs.destination.focus();
+    });
   },
 
   methods: {
@@ -209,8 +240,45 @@ Vue.createApp({
       })
         .then((created) => {
           this.created = created;
+
+          // If we are re-linking the copied submissions back to source:
+          if (
+            this.linkInSource &&
+            !this.invalidLinkInSource &&
+            this.linkInDestination &&
+            !this.invalidLinkInDestination
+          ) {
+            let linkSaves = this.submissions.map((s, index) => {
+              const value = created[index].data[this.linkInDestination];
+              const formData = new FormData();
+              formData.set('ids', s._id);
+              formData.set('field', this.linkInSource);
+              formData.set('value', value);
+              formData.set('originType', 'source');
+              formData.set('originId', this.source._id);
+
+              return $api('/data-viewer/api/edit/source', {
+                method: 'POST',
+                body: formData
+              });
+            });
+
+            return Promise.all(linkSaves);
+          }
+        })
+        .then((links) => {
+          if (links && window?.parent) {
+            let updates = links.map((l) => {
+              return { id: l.ids[0], field: this.linkInSource, value: l.value, html: l.html };
+            });
+            window.parent.postMessage({
+              action: 'copy-to-updates',
+              updates
+            });
+          }
         })
         .catch((error) => {
+          console.error(error);
           alert(error && error.message ? error.message : error);
         })
         .finally(() => {

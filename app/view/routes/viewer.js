@@ -1641,7 +1641,8 @@ module.exports = function (opts) {
         sources: editableSources,
         source,
         submissions,
-        pageTitle: source.name + ' - Copy To'
+        pageTitle: source.name + ' - Copy To',
+        userCanLink: currentUser.hasSourcePermission(source, CurrentUser.PERMISSIONS.WRITE)
       };
       res.render('source-copy-to', model);
     } catch (err) {

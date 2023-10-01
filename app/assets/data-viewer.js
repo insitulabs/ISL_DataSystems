@@ -1275,6 +1275,19 @@ if (ORIGIN_TYPE === 'source') {
       editModal.$el.querySelector('.modal-dialog .modal-title').innerHTML = 'Select from ' + link;
     } else if (event.data?.action === 'done-copy-to') {
       copyTo.modal.hide();
+    } else if (event.data?.action === 'copy-to-updates') {
+      if (event.data.updates) {
+        event.data.updates.forEach((update) => {
+          let $td = $data.querySelector(
+            `tr[data-id="${update.id}"] > td[data-field="${update.field}"]`
+          );
+          if ($td) {
+            $td.classList.add('editable', 'updated');
+            $td.dataset.value = update.value !== null ? update.value : '';
+            $td.innerHTML = update.html;
+          }
+        });
+      }
     }
   });
 }

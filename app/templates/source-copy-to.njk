@@ -17,20 +17,26 @@
     <div class="col">
       <p>1. Select source to copy to:</p>
       <div class="form-floating">
-        <select
-          class="form-select"
-          id="destinationSelect"
+        <input
+          ref="destination"
+          id="destination"
+          class="form-control"
+          type="text"
           aria-label="Destination"
-          v-model="destinationId"
+          v-model="destinationQuery"
           :disabled="created"
-        >
-          <option selected disabled></option>
-          {% for s in sources %}
-          <option value="{{ s._id }}">{{ s.name }}</option>
-          {% endfor %}
-        </select>
-        <label for="destinationSelect">Destination</label>
+          list="destinations"
+        />
+        <label for="destination">Destination</label>
       </div>
+
+      <datalist id="destinations">
+        {% for s in sources %}
+        <option value="{{ s.name }}">
+          {{ s._id }}
+        </option>
+        {% endfor %}
+      </datalist>
     </div>
   </div>
 
@@ -129,7 +135,7 @@
               class="form-control"
               id="dest-field-{{ f.id | replace(' ', '_') }}"
               :class="{'is-invalid': invalidFields['{{ f.id }}'] }"
-              list="destination-fields"
+              list="available-destination-fields"
               v-model.trim="mapping['{{ f.id }}']"
               :disabled="!destinationId"
             />
@@ -141,11 +147,54 @@
       </div>
     {% endfor %}
 
+    {% if userCanLink %}
+    <div v-if="!created" class="row mt-4">
+      <div class="col">
+        <p>3. Link new record(s) back to <b>{{ source.name}}</b>:</p>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col">
+        <div class="form-floating">
+          <input
+            id="linkInSource"
+            type="text"
+            class="form-control"
+            :class="{'is-invalid': invalidLinkInSource }"
+            list="source-fields"
+            v-model.trim="linkInSource"
+            :disabled="!destinationId"
+          />
+
+          <label for="linkInSource">Source field</label>
+        </div>
+      </div>
+      <div class="col-arrow d-flex align-items-center justify-content-center p-0">
+        <i class="bi bi-arrow-left"></i>
+      </div>
+
+      <div class="col">
+        <div class="form-floating">
+          <input
+            id="linkInDestination"
+            type="text"
+            class="form-control"
+            :class="{'is-invalid': invalidLinkInDestination }"
+            list="destination-fields"
+            v-model.trim="linkInDestination"
+            :disabled="!destinationId"
+          />
+          <label for="linkInDestination">Destination field</label>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
     <div v-if="error" class="my-2">
       <div class="alert alert-danger my-0" role="alert">${error}</div>
     </div>
 
-    <div class="mb-4 mt-2">
+    <div class="mb-4 mt-4">
       <button
         class="save btn btn-primary"
         :disabled="!canSave || saving || loading"
@@ -221,6 +270,17 @@
 
   <datalist id="destination-fields">
     <option
+      v-for="f in destinationFields"
+      :value="f.id"
+      :key="f.id"
+    >
+      ${f.name}
+      <template v-if="f.meta && f.meta.type === 'sequence'">(auto increment)</template
+    </option>
+  </datalist>
+
+   <datalist id="available-destination-fields">
+    <option
       v-for="f in availableDestinationFields"
       :value="f.id"
       :key="f.id"
@@ -228,6 +288,15 @@
       ${f.name}
       <template v-if="f.meta && f.meta.type === 'sequence'">(auto increment)</template
     </option>
+  </datalist>
+
+  <datalist id="source-fields">
+    {% for f in source.fields %}
+    <option value="{{ f.id }}" {% if f.meta and f.meta.type === 'sequence' %} disabled {% endif %}>
+      {{ f.name }}
+      {% if f.meta and f.meta.type === 'sequence' %} (auto increment) {% endif %}
+    </option>
+    {% endfor %}
   </datalist>
 </div>
 
