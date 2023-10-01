@@ -3,6 +3,7 @@ Vue.createApp({
   data() {
     return {
       destinationQuery: null,
+      destinationName: null,
       destinationId: null,
       destinationFields: [],
       destinationSamples: [],
@@ -131,15 +132,18 @@ Vue.createApp({
      * When we have a valid destination set the ID.
      */
     destinationQuery(query) {
-      let dest = window._sources.find((s) => s.name === query);
+      let dest = window._sources.find((s) => s._id === query);
       if (dest) {
         this.destinationId = dest._id;
+        this.destinationName = dest.name;
       }
     },
 
     destinationId(id) {
       this.mapping = {};
-      this.selectSourceFields(id);
+      if (id) {
+        this.selectSourceFields(id);
+      }
     },
 
     /**
@@ -167,6 +171,18 @@ Vue.createApp({
   },
 
   methods: {
+    /**
+     * Clear destination field and focus.
+     */
+    clearDestination() {
+      this.destinationQuery = '';
+      this.destinationId = null;
+      this.error = null;
+      this.$nextTick(() => {
+        this.$refs.destination.focus();
+      });
+    },
+
     selectSourceFields(sourceId) {
       this.loading = true;
       this.error = null;

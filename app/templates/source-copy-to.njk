@@ -16,7 +16,7 @@
   <div class="row">
     <div class="col">
       <p>1. Select source to copy to:</p>
-      <div class="form-floating">
+      <div v-if="!destinationId" class="form-floating">
         <input
           ref="destination"
           id="destination"
@@ -24,16 +24,36 @@
           type="text"
           aria-label="Destination"
           v-model="destinationQuery"
-          :disabled="created"
           list="destinations"
         />
         <label for="destination">Destination</label>
       </div>
+      <div v-else class="input-group">
+        <div class="form-floating">
+          <input
+            class="form-control"
+            type="text"
+            aria-label="Destination"
+            v-model="destinationName"
+            disabled
+          />
+          <label for="destination">Destination</label>
+        </div>
+        <button
+          class="btn btn-primary"
+          type="button"
+          @click="clearDestination"
+          :disabled="created"
+          title="Change the destination"
+        >
+          <i class="bi bi-x-circle"></i>
+        </button>
+      </div>
 
       <datalist id="destinations">
         {% for s in sources %}
-        <option value="{{ s.name }}">
-          {{ s._id }}
+        <option value="{{ s._id }}">
+          {{ s.name }}
         </option>
         {% endfor %}
       </datalist>
