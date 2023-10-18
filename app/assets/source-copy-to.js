@@ -18,7 +18,8 @@ Vue.createApp({
       saving: false,
       error: window._sources.length === 0 ? 'Access denied. No editable sources.' : null,
       created: null,
-      fieldSearch: ''
+      fieldSearch: '',
+      enableLinkBack: false
     };
   },
 
@@ -194,11 +195,24 @@ Vue.createApp({
             this.error = 'Invalid destination. No fields found on source.';
           }
 
+          let linkInSource;
+          let linkInDestination;
           this.source.fields.forEach((f) => {
             let df = this.destinationFields.find((df) => df.id === f.id);
             if (df && df?.meta?.type !== 'sequence') {
               this.mapping[f.id] = df.id;
             }
+
+            if (f?.meta?.type === 'source' && f.meta.originId === sourceId) {
+              let df = this.destinationFields.find((df) => df.id === f.meta.originField);
+              if (df) {
+                linkInSource = f.id;
+                linkInDestination = df.id;
+              }
+            }
+
+            this.linkInSource = linkInSource ? linkInSource : null;
+            this.linkInDestination = linkInDestination ? linkInDestination : null;
           });
         })
         .catch((err) => {
@@ -259,6 +273,7 @@ Vue.createApp({
 
           // If we are re-linking the copied submissions back to source:
           if (
+            this.enableLinkBack &&
             this.linkInSource &&
             !this.invalidLinkInSource &&
             this.linkInDestination &&

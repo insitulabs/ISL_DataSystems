@@ -31,6 +31,7 @@
       <div v-else class="input-group">
         <div class="form-floating">
           <input
+            id="destination"
             class="form-control"
             type="text"
             aria-label="Destination"
@@ -170,7 +171,17 @@
     {% if userCanLink %}
     <div v-if="!created" class="row mt-4">
       <div class="col">
-        <p>3. Link new record(s) back to <b>{{ source.name}}</b>:</p>
+        <div class="form-check">
+          <input
+            class="form-check-input"
+            type="checkbox"
+            id="enable-link-back"
+            v-model="enableLinkBack"
+          />
+          <label class="form-check-label" for="enable-link-back">
+            Link new record(s) back to <b>{{ source.name}}</b>:
+          </label>
+        </div>
       </div>
     </div>
     <div class="row">
@@ -180,10 +191,10 @@
             id="linkInSource"
             type="text"
             class="form-control"
-            :class="{'is-invalid': invalidLinkInSource }"
+            :class="{'is-invalid': enableLinkBack && invalidLinkInSource }"
             list="source-fields"
             v-model.trim="linkInSource"
-            :disabled="!destinationId"
+            :disabled="!enableLinkBack || !destinationId"
           />
 
           <label for="linkInSource">Source field</label>
@@ -199,10 +210,10 @@
             id="linkInDestination"
             type="text"
             class="form-control"
-            :class="{'is-invalid': invalidLinkInDestination }"
+            :class="{'is-invalid': enableLinkBack && invalidLinkInDestination }"
             list="destination-fields"
             v-model.trim="linkInDestination"
-            :disabled="!destinationId"
+            :disabled="!enableLinkBack || !destinationId"
           />
           <label for="linkInDestination">Destination field</label>
         </div>
