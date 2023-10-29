@@ -18,6 +18,9 @@ const XLSX = require('xlsx');
 const { v4: uuidv4 } = require('uuid');
 const { noCacheMiddleware } = require('../../lib/route-helpers');
 
+// Default page size.
+const DEFAULT_LIMIT = 50;
+
 // Reserved query params that can't be data filters.
 const PAGE_QUERY_PARAMS = [
   'sort',
@@ -29,7 +32,10 @@ const PAGE_QUERY_PARAMS = [
   'xhr',
   'iframe',
   '_select',
-  'deleted'
+  'deleted',
+  '__key',
+  '__operation',
+  '__mode'
 ];
 
 const getFormBody = async (req) => {
@@ -139,6 +145,13 @@ const sendCSV = function (res, fileName, fields, submissions, next) {
     });
 };
 
+/**
+ *
+ * @param {object} req Request object.
+ * @param {Array} fields The fields for the data being queried.
+ * @param {URLSearchParams} pageParams If we want to copy params to a new query object.
+ * @return {object} The filters
+ */
 const extractFilters = function (req, fields, pageParams) {
   // Parse column filters
   let filters = {};
@@ -149,7 +162,7 @@ const extractFilters = function (req, fields, pageParams) {
         return false;
       }
 
-      return fieldNames.includes(key) || ['created', 'imported'].includes(key);
+      return fieldNames.includes(key) || ['created', 'imported', '_id'].includes(key);
     })
     .forEach((key) => {
       let values = Array.isArray(req.query[key]) ? req.query[key] : [req.query[key]];
@@ -268,11 +281,11 @@ module.exports = function (opts) {
       offset = parseInt(req.query.offset);
     }
 
-    let limit = 50;
+    let limit = DEFAULT_LIMIT;
     if (req.query.limit) {
       limit = parseInt(req.query.limit);
       if (isNaN(limit) || limit < 1 || limit > 1000) {
-        limit = 50;
+        limit = DEFAULT_LIMIT;
       }
     }
 
@@ -432,7 +445,6 @@ module.exports = function (opts) {
       originName,
       editLink: currentUser.admin ? editLink : null,
       isDeleted,
-      libVue: false,
       allowDeletedQuery,
       isDeletedQuery,
       showArchiveBtn,
@@ -469,7 +481,7 @@ module.exports = function (opts) {
       const sourceManager = new Source(getCurrentUser(res));
       let submission = await sourceManager.getSubmission(req.params.id);
       let source = await sourceManager.getSourceBySubmissionKey(submission.source);
-      res.redirect(`/data-viewer/source/${source._id}?id=${submission._id}`);
+      res.redirect(`/data-viewer/source/${source._id}?_id=${submission._id}`);
     } catch (error) {
       next(error);
     }
@@ -1118,8 +1130,7 @@ module.exports = function (opts) {
         sortLinks,
         nameQuery,
         deleted,
-        pageTitle: 'Views',
-        libVue: false
+        pageTitle: 'Views'
       };
 
       res.render('view-list', model);
@@ -1379,8 +1390,7 @@ module.exports = function (opts) {
         sortLinks,
         nameQuery,
         deleted,
-        pageTitle: 'Sources',
-        libVue: false
+        pageTitle: 'Sources'
       };
 
       res.render('source-list', model);
@@ -1428,6 +1438,194 @@ module.exports = function (opts) {
       const sourceManager = new Source(getCurrentUser(res));
       let source = await sourceManager.getSource(req.params.id);
       return await renderPageOfResults({ source: source }, req, res, next);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  /**
+   * Group By and Reduce.
+   * Next steps:
+   *  - Render page with controls that produce this data.
+   *  - Embed page in iframe from source/view
+   */
+  router.get('/:type/:id/reduce', async (req, res, next) => {
+    try {
+      let type = req.params.type;
+      if (type !== 'source' && type !== 'view') {
+        throw new Errors.BadRequest();
+      }
+
+      let currentUser = getCurrentUser(res);
+      const sourceManager = new Source(currentUser);
+      const viewManager = new View(currentUser);
+
+      const viewData = await getPageRenderData(req, res);
+      const { pagePath } = viewData;
+      let source = null;
+      let view = null;
+      let filters = null;
+
+      if (type === 'source') {
+        source = await sourceManager.getSource(req.params.id);
+        filters = extractFilters(req, source.fields);
+      } else {
+        view = await viewManager.getView(req.params.id);
+        filters = extractFilters(req, view.fields);
+      }
+
+      const pageParams = new URLSearchParams('__mode=analyze');
+      const isDeletedQuery = req.query.deleted && req.query.deleted === '1' ? true : false;
+      if (isDeletedQuery) {
+        pageParams.set('deleted', '1');
+      }
+
+      let groupId = req.query.__key;
+      if (groupId && !Array.isArray(groupId)) {
+        groupId = [groupId];
+      }
+
+      let operation = req.query.__operation;
+      let operationCommand = null;
+      if (operation) {
+        let operationStr = operation.split(':');
+        if (operationStr.length < 2) {
+          throw new Errors.BadRequest('Invalid group operation');
+        }
+        operationCommand = operationStr[0];
+      }
+
+      let sort = req.query.sort || null;
+      if (!sort && operationCommand) {
+        sort = operationCommand;
+      }
+      // sort: Source.normalizeFieldName('sample_info.body_condition'),
+      // sort: Source.normalizeFieldName(),
+
+      let order = req.query.order || 'desc';
+
+      let offset = 0;
+      if (req.query.offset) {
+        offset = parseInt(req.query.offset);
+      }
+
+      let limit = DEFAULT_LIMIT;
+      if (req.query.limit) {
+        limit = parseInt(req.query.limit);
+        if (isNaN(limit) || limit < 1 || limit > 1000) {
+          limit = DEFAULT_LIMIT;
+        }
+      }
+
+      if (sort) {
+        pageParams.set('sort', sort);
+        pageParams.set('order', order);
+      }
+
+      if (groupId) {
+        groupId.forEach((key) => {
+          pageParams.append('__key', key);
+        });
+      }
+      if (operation) {
+        pageParams.set('__operation', operation);
+      }
+
+      let results = null;
+      let fields = [];
+      let pagination;
+      if (groupId) {
+        // http://fpi.localhost:3000/data-viewer/source/63fb8f2aee0ffc4ab350fce4/reduce?__key=_submitterName&__key=sample_info.body_condition&__operation=count:*
+        // http://fpi.localhost:3000/data-viewer/source/63fb8f2aee0ffc4ab350fce4/reduce?__key=_submitterName&__key=sample_info.body_condition&__operation=sum:sample_info.animal_number
+        let options = {
+          reduce: {
+            id: groupId,
+            // operation: 'count:*'
+            // operation: 'sum:sample_info.animal_number'
+            operation
+          },
+          filters,
+          deleted: isDeletedQuery,
+          offset,
+          limit,
+          sort,
+          order
+        };
+
+        let queryResponse = null;
+        if (source) {
+          queryResponse = await sourceManager.getSubmissions(source, options);
+        } else {
+          queryResponse = await viewManager.queryView(view._id, view.fields, view.sources, {
+            ...options,
+            view
+          });
+        }
+
+        results = queryResponse.results;
+        let currentPage = Math.floor(offset / limit) + 1;
+        pagination = paginate(queryResponse.totalResults, currentPage, limit, 10);
+
+        // for (let r of results) {
+        //   for (let i = 0, len = groupId.length; i < len; i++) {
+        //     let field = groupId[i];
+        //     r.data[field] = r._id[i];
+        //   }
+        // }
+
+        // Mongo makes us normalize field names, get back the original for the table.
+        let idDisplayNames = groupId.reduce((agg, f) => {
+          agg[Source.normalizeFieldName(f)] = f;
+          return agg;
+        }, {});
+
+        if (results && results.length) {
+          let originFields = source ? source.fields : view.fields;
+          Object.keys(queryResponse.results[0].data).forEach((fieldId) => {
+            if (idDisplayNames[fieldId]) {
+              fieldId = idDisplayNames[fieldId];
+            }
+
+            const sortParams = new URLSearchParams(pageParams.toString());
+            sortParams.set('sort', fieldId);
+            sortParams.set('limit', limit);
+            sortParams.set('offset', 0);
+            if (sort === fieldId && order === 'asc') {
+              sortParams.set('order', 'desc');
+            } else if (sort === fieldId && order === 'desc') {
+              sortParams.set('order', 'asc');
+            }
+
+            let field = originFields.find((f) => f.id === fieldId);
+            let fieldName = field ? field.name || field.id : fieldId;
+
+            fields.push({
+              id: fieldId,
+              name: fieldName,
+              displayName: fieldName.replace(/\./g, '.<br>'),
+              sortable: true,
+              filterable: !!field,
+              url: '?' + sortParams.toString(),
+              isSorted: sort === fieldId ? order : null
+            });
+          });
+        }
+      }
+
+      let model = {
+        ...viewData,
+        preventHeader: true,
+        pagePathWQuery: pagePath + '?' + pageParams.toString(),
+        source,
+        view,
+        operation,
+        fields,
+        filters,
+        results,
+        pagination
+      };
+
+      res.render('group-by', model);
     } catch (err) {
       next(err);
     }

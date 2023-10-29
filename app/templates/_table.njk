@@ -5,7 +5,7 @@
   </div>
   <ul class="pagination pagination-sm m-0">
     <li class="page-item {% if 1 === pagination.currentPage %} disabled {% endif %}">
-      <a class="page-link" href="{{ pagePathWQuery }}&limit={{ pagination.pageSize }}"
+      <a class="page-link" href="{{ pagePathWQuery }}&offset=0&limit={{ pagination.pageSize }}"
           {% if 1 === pagination.currentPage %} tabindex="-1" aria-disabled="true" {% endif %}>First</a>
      </li>
     {% for page in pagination.pages %}
@@ -216,7 +216,7 @@
 
   <ul class="pagination pagination-sm p-2">
     <li class="page-item first {% if 1 === pagination.currentPage %} disabled {% endif %}">
-      <a class="page-link" href="{{ pagePathWQuery }}&limit={{ pagination.pageSize }}"
+      <a class="page-link" href="{{ pagePathWQuery }}&offset=0&limit={{ pagination.pageSize }}"
           {% if 1 === pagination.currentPage %} tabindex="-1" aria-disabled="true" {% endif %}>First</a>
      </li>
     {% for page in pagination.pages %}
@@ -278,7 +278,7 @@
 {% endif %}
 
 <div class="modal fade" id="edit-modal"
-    tabindex="-1" aria-labelledby="edit-modal-title" aria-hidden="true">
+    tabindex="-1" aria-labelledby="edit-modal-title" aria-hidden="true" data-bs-backdrop="static">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
       <div class="modal-header">
@@ -321,7 +321,7 @@
           </div>
         </div>
         <div>
-          <div class="spinner-border text-primary spinner-border-sm d-none" role="status">
+          <div class="spinner-border text-primary spinner-border-sm d-none me-1" role="status">
             <span class="visually-hidden">Loading...</span>
           </div>
           <button class="save btn btn-primary">Save</button>

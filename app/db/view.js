@@ -586,6 +586,13 @@ class View extends Base {
       pipeline.push({ $unset: '_filter' });
     }
 
+    // If we're grouping and reducing, apply stages:
+    if (options.reduce) {
+      let stages = this.groupByStage(options.reduce.id, options.reduce.operation);
+      pipeline.push({ $group: stages.$group });
+      pipeline.push({ $addFields: stages.$addFields });
+    }
+
     let totalResults = await submissions
       .aggregate([...pipeline, { $count: 'totalResults' }])
       .toArray();
@@ -628,7 +635,8 @@ class View extends Base {
     let results = await submissions.aggregate(pipeline).toArray();
 
     // If we have additional view source field information, populate it.
-    if (options.view && options.view.sourceFields) {
+    // Not needed for grouping and reduction.
+    if (!options.reduce && options.view && options.view.sourceFields) {
       results.forEach((r) => {
         for (const [viewField, map] of Object.entries(r.sourceMap)) {
           if (options.view.sourceFields[map.sourceKey]) {

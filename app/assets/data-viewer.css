@@ -1,3 +1,7 @@
+:root {
+  --fixed-header-height: 0;
+}
+
 .modal.attachment .modal-body {
   overflow: hidden;
 }
@@ -57,6 +61,7 @@
 #data {
   width: 100vw;
   overflow: auto;
+  scrollbar-gutter: stable;
 }
 
 #data tr.odd td {
@@ -139,8 +144,17 @@
   z-index: 1;
 }
 
+#active-filters > .input-group {
+  width: auto;
+}
+
 .filter-instruction-popover {
   --bs-popover-max-width: 500px;
+}
+
+.filter-input {
+  flex: 0 0 120px !important;
+  max-width: 120px;
 }
 
 .modal-dialog.modal-fullscreen {
@@ -182,6 +196,14 @@
   border: none;
   margin: 0;
   padding: 0;
+}
+
+#analyze .sticky-header th {
+  top: var(--fixed-header-height);
+}
+
+#analyze > .data-placeholder {
+  min-height: 50vh;
 }
 
 @media only screen and (max-width: 620px) {

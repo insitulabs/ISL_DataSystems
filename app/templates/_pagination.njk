@@ -1,0 +1,47 @@
+<nav>
+  <div class="px-2 pb-2">
+    Showing {{ results.length }} of {{ pagination.totalItems | formatNumber }} items.
+  </div>
+  <ul class="pagination pagination-sm p-2">
+    <li class="page-item {% if 1 === pagination.currentPage %} disabled {% endif %}">
+      <a class="page-link" href="{{ pagePathWQuery }}&offset=0&limit={{ pagination.pageSize }}"
+          {% if 1 === pagination.currentPage %} tabindex="-1" aria-disabled="true" {% endif %}>First</a>
+    </li>
+    {% for page in pagination.pages %}
+    <li class="page-item {% if page === pagination.currentPage %} active {% endif %}">
+      {% if page !== pagination.currentPage %}
+        <a class="page-link"
+          href="{{ pagePathWQuery }}&offset={{ (page - 1) * pagination.pageSize }}&limit={{ pagination.pageSize }}">{{ page }}</a>
+      {% else %}
+        <span class="page-link">{{ page }}</span>
+      {% endif %}
+      </li>
+    {% endfor %}
+    <li class="page-item {% if pagination.totalPages === pagination.currentPage %} disabled {% endif %}">
+      <a class="page-link"
+          href="{{ pagePathWQuery }}&offset={{ (pagination.totalPages - 1) * pagination.pageSize }}&limit={{ pagination.pageSize }}"
+          {% if pagination.totalPages === pagination.currentPage %} tabindex="-1" aria-disabled="true" {% endif %}>Last</a>
+    </li>
+    <li class="ms-2">
+      <div class="btn-group dropup">
+        <button type="button"
+            id="itemsPerPageBtn"
+            class="btn btn-secondary dropdown-toggle btn-sm"
+            data-bs-toggle="dropdown"
+            aria-expanded="false">
+          Show rows: {{ pagination.pageSize | formatNumber }}
+        </button>
+        <ul class="dropdown-menu" aria-labelledby="itemsPerPageBtn">
+          <li><a class="dropdown-item {% if 50 == pagination.pageSize %} active {% endif %}"
+            href="{{ pagePathWQuery }}&limit=50">50</a></li>
+          <li><a class="dropdown-item {% if 100 == pagination.pageSize %} active {% endif %}"
+            href="{{ pagePathWQuery }}&limit=100">100</a></li>
+          <li><a class="dropdown-item {% if 500 == pagination.pageSize %} active {% endif %}"
+            href="{{ pagePathWQuery }}&limit=500">500</a></li>
+          <li><a class="dropdown-item {% if 1000 == pagination.pageSize %} active {% endif %}"
+            href="{{ pagePathWQuery }}&limit=1000">1,000</a></li>
+        </ul>
+      </div>
+    </li>
+  </ul>
+</nav>

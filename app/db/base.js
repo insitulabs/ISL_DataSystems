@@ -1,6 +1,7 @@
 const CONFIG = require('../config');
 const { MongoClient, Collection } = require('mongodb');
 const util = require('util');
+const Errors = require('../lib/errors');
 
 let _mongoClient = new MongoClient(CONFIG.MONGO_URI);
 
@@ -244,6 +245,100 @@ class Base {
     return {
       match,
       addFields
+    };
+  }
+
+  groupByOperation(operationStr) {
+    if (!operationStr && typeof operationStr !== 'string') {
+      throw new Errors.BadRequest('Invalid group operation');
+    }
+    let operation = null;
+    let operationField = null;
+    operationStr = operationStr.split(':');
+    if (operationStr.length < 2) {
+      throw new Errors.BadRequest('Invalid group operation');
+    }
+
+    return {
+      operation: operationStr.shift(),
+      operationField: operationStr.join('')
+    };
+  }
+
+  /**
+   * Build a $group stage for Mongo aggregation.
+   *
+   *  {
+   *    '$group': {
+   *       _id: { '0': { '$ifNull': [ '$data.file', null ] } },
+   *       count: { '$count': {} }
+   *     }
+   *  }, {
+   *    '$addFields': {
+   *       data: { file: '$_id.0', count: '$count' }
+   *    }
+   *  }
+   *
+   * @param {String|Array} groupId The list of fields to group by.
+   * @param {String} operationStr The operation string: 'count:*' or 'sum:[fieldId]'
+   * @return {object}
+   */
+  groupByStage(groupId, operationStr) {
+    if (groupId && !Array.isArray(groupId)) {
+      groupId = [groupId];
+    }
+
+    if (!groupId || !groupId.filter(Boolean).length) {
+      throw new Errors.BadRequest('Invalid group ID');
+    }
+
+    let operation = null;
+    let operationField = null;
+    if (!operationStr && typeof operationStr !== 'string') {
+      throw new Errors.BadRequest('Invalid group operation');
+    }
+    operationStr = operationStr.split(':');
+    if (operationStr.length < 2) {
+      throw new Errors.BadRequest('Invalid group operation');
+    }
+    operation = operationStr.shift();
+    operationField = operationStr.join('');
+
+    let dataFields = {};
+    // Evaluate if this is the best way to do an ID. it's kind of ugly output.
+    groupId = groupId.reduce((agg, field, index) => {
+      // Ensure we always have every key accounted for in our groupId object, even if null.
+      agg[index] = { $ifNull: ['$' + this.getFieldKey(field), null] };
+      dataFields[Base.normalizeFieldName(field)] = '$_id.' + index;
+      return agg;
+    }, {});
+
+    let $groupStage = {
+      _id: groupId
+    };
+
+    if (operation === 'count') {
+      $groupStage.count = { $count: {} };
+    } else if (operation === 'avg' && operationField) {
+      $groupStage.avg = { $avg: '$' + this.getFieldKey(operationField) };
+    } else if (operation === 'max' && operationField) {
+      $groupStage.max = { $max: '$' + this.getFieldKey(operationField) };
+    } else if (operation === 'min' && operationField) {
+      $groupStage.min = { $min: '$' + this.getFieldKey(operationField) };
+    } else if (operation === 'sum' && operationField) {
+      $groupStage.sum = { $sum: '$' + this.getFieldKey(operationField) };
+    } else if (operation === 'stdDev' && operationField) {
+      $groupStage.stdDev = { $stdDevPop: '$' + this.getFieldKey(operationField) };
+    }
+
+    // This gets us a data field so sorting is like other queries but is it wasteful?
+    dataFields[operation] = '$' + operation;
+
+    return {
+      $group: $groupStage,
+      $addFields: {
+        data: dataFields
+      }
     };
   }
 }

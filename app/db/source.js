@@ -138,6 +138,13 @@ class Source extends Base {
       query.push({ $unset: '_filter' });
     }
 
+    // If we're grouping and reducing, apply stages:
+    if (options.reduce) {
+      let stages = this.groupByStage(options.reduce.id, options.reduce.operation);
+      query.push({ $group: stages.$group });
+      query.push({ $addFields: stages.$addFields });
+    }
+
     if (forCount) {
       return query;
     }
@@ -150,7 +157,9 @@ class Source extends Base {
       // TODO If we need case insensitive sort, look at collation or normalizing a string to then sort on
       if (options.sort) {
         let sort = {};
-        let sortKey = this.getFieldKey(options.sort);
+        let sortKey = options.sort;
+        sortKey = this.getFieldKey(options.sort);
+
         sort[sortKey] = options.order === 'asc' ? 1 : -1;
         // Include a unique value in our sort so Mongo doesn't screw up limit/skip operation.
         sort._id = sort[sortKey];
@@ -172,6 +181,7 @@ class Source extends Base {
       }
     }
 
+    // this.debug(query);
     return query;
   }
 

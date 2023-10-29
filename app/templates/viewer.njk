@@ -1,7 +1,5 @@
-{% extends "layout.njk" %}
-
-{% block styles %}
-<link href="{{ '/assets/data-viewer.css' | appendVersion }}" rel="stylesheet">
+{% extends "layout.njk" %} {% block styles %}
+<link href="{{ '/assets/data-viewer.css' | appendVersion }}" rel="stylesheet" />
 
 {% if hiddenFields | length > 0 %}
 <style id="field-visibility-styles">
@@ -11,313 +9,460 @@
     }
   {% endfor %}
 </style>
-{% endif %}
-{% endblock %}
-
-{% block scripts %}
+{% endif %} {% endblock %} {% block scripts %}
 <script>
   window._prefs = {{ prefs | dump | safe }};
+  window._fields = {{ fields | dump | safe }};
+  window._ORIGIN_TYPE = "{{ dataType }}";
+  window._ORIGIN_ID = "{{ dataId }}";
+  window._ORIGIN_NAME = "{{ originName }}";
+  window._IS_IFRAME_FIELD = "{{ isIFRAME }}";
 </script>
+<script src="{{'/assets/data-viewer2.js' | appendVersion }}"></script>
 <script src="{{'/assets/data-viewer.js' | appendVersion }}"></script>
-{% endblock %}
-
-{% if pageTitle %}
-  {% block pageTitle %}
-  <span class="badge bg-primary">
-    {{ pageTitle }}
-    {% if editLink %}
-    <a
-      href="{{ editLink }}"
-      title="Edit source"
-      class="text-white ms-1"
-      ><i class="bi bi-pencil-square"></i></a>
-    {% endif %}
-  </span>
-  {% endblock %}
-{% endif %}
-
-{% block content %}
-
-{% if isDeleted %}
+{% endblock %} {% if pageTitle %} {% block pageTitle %}
+<span class="badge bg-primary">
+  {{ pageTitle }} {% if editLink %}
+  <a href="{{ editLink }}" title="Edit source" class="text-white ms-1">
+    <i class="bi bi-pencil-square"></i>
+  </a>
+  {% endif %}
+</span>
+{% endblock %} {% endif %} {% block content %} {% if isDeleted %}
 <div class="px-2 mt-2">
   <div class="alert alert-warning mb-0" role="alert">
     Archived {{ "view" if view else "source"}}. The data is read-only.
   </div>
 </div>
-{% endif %}
-
-{% if source and source.note %}
+{% endif %} {% if source and source.note %}
 <div class="px-2 mt-2">
-  <div class="alert alert-secondary mb-0" role="alert">{{ source.note | urlize | nl2br | safe }}</div>
+  <div class="alert alert-secondary mb-0" role="alert">
+    {{ source.note | urlize | nl2br | safe }}
+  </div>
 </div>
-{% endif %}
-
-{% if view and view.note %}
+{% endif %} {% if view and view.note %}
 <div class="px-2 mt-2">
   <div class="alert alert-secondary mb-0" role="alert">{{ view.note | urlize | nl2br | safe }}</div>
 </div>
 {% endif %}
 
-<header class="sticky-top bg-white w-100">
-  <section class="p-2">
-    <div class="d-flex align-items-center justify-content-between ">
-      <div class="flex-fill">
-        <div class="d-flex align-items-center">
-          <div class="flex-fill d-flex">
-            <div class="dropdown me-2">
-              <button class="btn btn-secondary btn-sm dropdown-toggle"
-                  type="button"
-                  id="field-toggles"
-                  data-bs-toggle="dropdown"
-                  data-bs-auto-close="outside"
-                  aria-expanded="false">
-                <span class="visible-count">{{ (fields | length) - (hiddenFields | length)}}</span>
-                of
-                <span class="all-count">{{ fields | length }}</span>
-              </button>
-              <ul class="dropdown-menu dropdown-menu-dark" aria-labelledby="field-toggles">
-                <li class="px-2">
+<header class="sticky-top bg-white border-white w-100 p-2" ref="header">
+  <section class="d-flex">
+    <div class="border rounded bg-light p-2 flex-fill d-flex">
+      <div>
+        <div>
+          <span class="dropdown filters">
+            <button
+              class="btn btn-secondary dropdown-toggle btn-sm"
+              type="button"
+              id="filter-column-dropdown"
+              data-bs-toggle="dropdown"
+              aria-expanded="false"
+            >
+              Filter
+            </button>
+            <ul
+              class="dropdown-menu filters dropdown-menu-dark"
+              aria-labelledby="filter-column-dropdown"
+            >
+              {% if allowDeletedQuery %}
+              <li class="px-2">
+                <div class="form-check form-switch">
                   <input
-                    id="field-toggles-search"
-                    type="text"
-                    class="form-control"
-                    placeholder="Filter Field Name..."
-                   />
-                </li>
-                <li>
-                  <div class="dropdown-item d-flex align-items-center">
-                    <span class="me-2">
-                      Select
-                    </span>
-                    <button type="button" class="btn btn-link btn-sm link-light select-all">All</button>
-                    /
-                    <button type="button" class="btn btn-link btn-sm link-light select-none">None</button>
-                  </div>
-                </li>
-                {% for f in fields %}
-                  <li class="toggle" data-id="{{ f.id }}" data-name="{{ f.name }}">
-                    <div class="dropdown-item">
-                      <div class="form-check">
-                        <input
-                            class="form-check-input"
-                            type="checkbox"
-                            value="{{ f.id }}"
-                            id="field-toggle-{{ f.id }}"
-                            {% if hiddenFieldsAsObj[f.id] !== true %} checked {% endif %}>
-                        <label class="form-check-label d-block" for="field-toggle-{{ f.id }}">
-                          {{ f.name }}
-                        </label>
-                      </div>
-                    </div>
-                  </li>
-                {% endfor %}
-              </ul>
-            </div>
-
-            <span class="dropdown filters">
-              <button class="btn btn-secondary dropdown-toggle btn-sm"
-                  type="button"
-                  id="filter-column-dropdown"
-                  data-bs-toggle="dropdown"
-                  aria-expanded="false">
-                Filter
-              </button>
-              <ul class="dropdown-menu filters dropdown-menu-dark" aria-labelledby="filter-column-dropdown">
-                {% if allowDeletedQuery %}
-                <li class="px-2">
-                  <div class="form-check form-switch">
-                    <input
-                      class="form-check-input me-1 deleted-toggle"
-                      type="checkbox"
-                      role="switch"
-                      id="show-deleted"
-                      {{ "checked" if isDeletedQuery }}
-                      name="deleted"
-                      value="1"
-                    />
-                    <label
-                      class="form-check-label text-nowrap"
-                      for="show-deleted"
-                    >
-                      Show Archived Submissions
-                    </label>
-                  </div>
-                </li>
-                <li><hr class="dropdown-divider"></li>
-                {% endif %}
-                <li class="px-2">
-                  <input
-                    id="filter-search"
-                    type="text"
-                    class="form-control"
-                    placeholder="Filter Field Name..."
-                   />
-                </li>
-                {% for f in fields %}
-                  <li class="add-filter" data-id="{{ f.id }}" data-name="{{ f.name }}">
-                    <span class="dropdown-item btn">{{ f.name }}</span>
-                  <li>
-                {% endfor %}
-              </ul>
-            </span>
-
-            <a tabindex="0" class="btn btn-link btn-sm"
-                role="button"
-                data-bs-toggle="popover"
-                data-bs-trigger="focus"
-                data-bs-custom-class="filter-instruction-popover"
-                data-bs-content="
-                  Query: <strong>*</strong> to find any value.<br>
-                  Query: <strong>null</strong> to find empty value.<br>
-                  Query: <strong>! [expression]</strong> to negate the query.<br>
-
-                  <br>
-                  <h6>Exact Match</h6>
-                  Query: <strong>&#x22;value&#x22;</strong><br>
-
-                  <br>
-                  <h6>Regular Expression (PCRE)</h6>
-                  Query: <strong>/[regex]/i</strong><br>
-
-                  <br>
-                  <h6>Numerical Comparison</h6>
-                  Query: <strong>&gt; 20.5</strong><br>
-                  Query: <strong>&gt; 20.5 && &lt;= 30</strong><br>
-
-                  <br>
-                  <h6>Date Comparison</h6>
-                  Query: <strong>&gt; 1984-05-04</strong><br>
-                  Query: <strong>&gt; 1984-05-04 && &lt;= 1984-06-04</strong>
-                "
-                data-bs-html="true">?</a>
-
-            {% if isDeletedQuery %}
-            <div class="form-check form-switch d-flex align-items-center ms-3 my-0">
-              <input
-                class="form-check-input me-1 deleted-toggle my-0"
-                type="checkbox"
-                role="switch"
-                id="show-restored"
-                checked
-                name="deleted"
-                value="1"
-              />
-              <label
-                class="form-check-label text-nowrap align-middle"
-                for="show-restored"
+                    v-model="showDeleted"
+                    class="form-check-input me-1 deleted-toggle"
+                    type="checkbox"
+                    role="switch"
+                    id="show-deleted"
+                  />
+                  <label class="form-check-label text-nowrap" for="show-deleted">
+                    Show Archived Submissions
+                  </label>
+                </div>
+              </li>
+              <li><hr class="dropdown-divider" /></li>
+              {% endif %}
+              <li class="px-2">
+                <input
+                  v-model.trim="filterSearchInput"
+                  ref="filter-search"
+                  type="text"
+                  class="form-control"
+                  placeholder="Filter Field Name..."
+                />
+              </li>
+              <li
+                v-for="f in availableFilterFields"
+                :key="f.id"
+                class="add-filter"
+                @click="addFilter(f.id, true)"
               >
-                Archived
-              </label>
-            </div>
-            {% endif %}
-          </div>
+                <span class="dropdown-item btn">${ f.name || f.id }</span>
+              </li>
+            </ul>
+          </span>
+
+          <a
+            tabindex="0"
+            class="btn btn-link btn-sm"
+            role="button"
+            data-bs-toggle="popover"
+            data-bs-trigger="focus"
+            data-bs-custom-class="filter-instruction-popover"
+            data-bs-content="
+              Query: <strong>*</strong> to find any value.<br>
+              Query: <strong>null</strong> to find empty value.<br>
+              Query: <strong>! [expression]</strong> to negate the query.<br>
+
+              <br>
+              <h6>Exact Match</h6>
+              Query: <strong>&#x22;value&#x22;</strong><br>
+
+              <br>
+              <h6>Regular Expression (PCRE)</h6>
+              Query: <strong>/[regex]/i</strong><br>
+
+              <br>
+              <h6>Numerical Comparison</h6>
+              Query: <strong>&gt; 20.5</strong><br>
+              Query: <strong>&gt; 20.5 && &lt;= 30</strong><br>
+
+              <br>
+              <h6>Date Comparison</h6>
+              Query: <strong>&gt; 1984-05-04</strong><br>
+              Query: <strong>&gt; 1984-05-04 && &lt;= 1984-06-04</strong>
+            "
+            data-bs-html="true"
+            >?</a
+          >
         </div>
-      </div>
 
-      <div id="top-pagination" class="d-none d-md-block"></div>
-
-      {% if userCanEdit %}
-        {% if theImport %}
-        <div class="ms-1">
-          <button id="btn-delete-import" class="btn btn-danger btn-sm">Delete</button>
-          <button id="btn-import-records" class="btn btn-primary btn-sm">Import Records</button>
+        {% if isDeletedQuery %}
+        <div class="form-check form-switch d-flex align-items-center mt-1 me-2">
+          <input
+            class="form-check-input me-1 deleted-toggle my-0"
+            v-model="showDeleted"
+            type="checkbox"
+            role="switch"
+            id="show-restored"
+          />
+          <label class="form-check-label text-nowrap align-middle" for="show-restored">
+            Archived
+          </label>
         </div>
         {% endif %}
-      {% endif %}
-
-      {% if not theImport and not view and not isIFRAME %}
-      <div class="dropdown ms-1">
-        <button class="btn btn-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-          Actions
-        </button>
-        <ul class="dropdown-menu">
-          {% if userCanCreate %}
-          <li>
-            <button
-              type="button"
-              class="dropdown-item"
-              data-bs-toggle="modal"
-              data-bs-target="#new-submission-modal"
-            >
-              Create Submission
-            </button>
-          </li>
-          {% endif %}
-
-          <li>
-            <button
-              id="copy-to-btn"
-              type="button"
-              class="dropdown-item"
-              data-bs-toggle="modal"
-              data-bs-target="#copy-to-modal"
-              disabled
-            >
-              Copy To
-            </button>
-          </li>
-
-          {% if showArchiveBtn %}
-          <li>
-            <button
-              id="delete-btn"
-              type="button"
-              class="dropdown-item"
-              disabled
-            >
-              Archive Submission(s)
-            </button>
-          </li>
-          {% endif %}
-
-          {% if showRestoreBtn %}
-          <li>
-            <button
-              id="delete-btn"
-              type="button"
-              class="dropdown-item restore"
-              disabled
-            >
-              Restore Submission(s)
-            </button>
-          </li>
-          {% endif %}
-        </ul>
       </div>
-      {% endif %}
 
-      {% if userCanEdit %}
-        <div id="undo" class="ms-1">
-          <button class="btn btn-secondary btn-sm" disabled>Undo</button>
+      <div id="active-filters" v-cloak class="d-flex flex-wrap">
+        <div
+          v-for="(values, filter) in currentFilters"
+          :key="filter"
+          class="mb-2 me-2 input-group input-group-sm"
+        >
+          <span class="input-group-text">${ fieldName(filter) }</span>
+          <button
+            v-for="(value, valueIndex) in values"
+            :key="valueIndex"
+            type="button"
+            class="btn btn-warning btn-sm"
+            @click="removeFilter(filter, valueIndex)"
+            title="Remove filter"
+          >
+            ${ value }
+            <span class="ms-2">&times;</span>
+          </button>
+          <input
+            type="text"
+            @keyup.enter="addFilterValue(filter, $event.target.value)"
+            @keydown.backspace="($event) => { if (!$event.target.value) { removeFilter(filter); }}"
+            :placeholder="!values.length ? 'value' : 'or...'"
+            class="filter-input form-control"
+            :ref="'filterInput-' + filter"
+          />
         </div>
-      {% endif %}
+      </div>
     </div>
 
-    <div id="active-filters"></div>
+    {% if not theImport and not isIFRAME %}
+    <div class="ms-2">
+      <div class="btn-group-vertical" role="group" aria-label="View mode">
+        <input
+          v-model="viewMode"
+          type="radio"
+          class="btn-check"
+          name="data-mode"
+          id="view-mode-list"
+          autocomplete="off"
+          value="list"
+          checked
+        />
+        <label class="btn btn-outline-primary btn-sm" for="view-mode-list">List</label>
+        <input
+          v-model="viewMode"
+          type="radio"
+          class="btn-check"
+          name="data-mode"
+          id="view-mode-analyze"
+          value="analyze"
+        />
+        <label class="btn btn-outline-primary btn-sm" for="view-mode-analyze">Analyze</label>
+      </div>
+    </div>
+    {% endif %}
   </section>
 
-  <div id="page-error" class="mx-2 alert alert-danger
-      {% if not error %} d-none {% endif %}" role="alert">
-    ${error}
+  <div
+    id="page-error"
+    class="mx-2 alert alert-danger {% if not error %} d-none {% endif %}"
+    role="alert"
+  >
+    {{ error }}
   </div>
 </header>
 
-<section
-  id="data"
-  data-type="{{ dataType }}"
-  data-id="{{ dataId }}"
-  data-name="{{ originName }}"
-  data-iframe="{{ isIFRAME }}"
->
-  <div
-    id="data-loader"
-    class="d-flex align-items-center justify-content-center position-fixed top-50 start-50 translate-middle"
-  >
-    <div class="spinner-border" role="status">
-      <span class="visually-hidden">Loading...</span>
+<section v-show="isListMode">
+  <div class="d-flex align-items-center justify-content-between p-2 pt-0">
+    <div class="flex-fill">
+      <div class="d-flex align-items-center">
+        <div class="flex-fill d-flex">
+          <div class="dropdown me-2">
+            <button
+              class="btn btn-secondary btn-sm dropdown-toggle"
+              type="button"
+              id="field-toggles"
+              data-bs-toggle="dropdown"
+              data-bs-auto-close="outside"
+              aria-expanded="false"
+            >
+              <span class="visible-count">{{ (fields | length) - (hiddenFields | length)}}</span>
+              of
+              <span class="all-count">{{ fields | length }}</span>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-dark" aria-labelledby="field-toggles">
+              <li class="px-2">
+                <input
+                  id="field-toggles-search"
+                  type="text"
+                  class="form-control"
+                  placeholder="Filter Field Name..."
+                />
+              </li>
+              <li>
+                <div class="dropdown-item d-flex align-items-center">
+                  <span class="me-2"> Select </span>
+                  <button type="button" class="btn btn-link btn-sm link-light select-all">
+                    All
+                  </button>
+                  /
+                  <button type="button" class="btn btn-link btn-sm link-light select-none">
+                    None
+                  </button>
+                </div>
+              </li>
+              {% for f in fields %}
+              <li class="toggle" data-id="{{ f.id }}" data-name="{{ f.name }}">
+                <div class="dropdown-item">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" value="{{ f.id }}"
+                    id="field-toggle-{{ f.id }}" {% if hiddenFieldsAsObj[f.id] !== true %} checked
+                    {% endif %}>
+                    <label class="form-check-label d-block" for="field-toggle-{{ f.id }}">
+                      {{ f.name }}
+                    </label>
+                  </div>
+                </div>
+              </li>
+              {% endfor %}
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div ref="top-pagination" class="d-none d-md-block"></div>
+
+    {% if userCanEdit %} {% if theImport %}
+    <div class="ms-1">
+      <button id="btn-delete-import" class="btn btn-danger btn-sm">Delete</button>
+      <button id="btn-import-records" class="btn btn-primary btn-sm ms-1">Import Records</button>
+    </div>
+    {% endif %} {% endif %} {% if not theImport and not view and not isIFRAME %}
+    <div class="dropdown ms-1">
+      <button
+        class="btn btn-secondary btn-sm dropdown-toggle"
+        type="button"
+        data-bs-toggle="dropdown"
+        aria-expanded="false"
+      >
+        Actions
+      </button>
+      <ul class="dropdown-menu">
+        {% if userCanCreate %}
+        <li>
+          <button
+            type="button"
+            class="dropdown-item"
+            data-bs-toggle="modal"
+            data-bs-target="#new-submission-modal"
+          >
+            Create Submission
+          </button>
+        </li>
+        {% endif %}
+
+        <li>
+          <button
+            id="copy-to-btn"
+            type="button"
+            class="dropdown-item"
+            data-bs-toggle="modal"
+            data-bs-target="#copy-to-modal"
+            disabled
+          >
+            Copy To
+          </button>
+        </li>
+
+        {% if showArchiveBtn %}
+        <li>
+          <button id="delete-btn" type="button" class="dropdown-item" disabled>
+            Archive Submission(s)
+          </button>
+        </li>
+        {% endif %} {% if showRestoreBtn %}
+        <li>
+          <button id="delete-btn" type="button" class="dropdown-item restore" disabled>
+            Restore Submission(s)
+          </button>
+        </li>
+        {% endif %}
+      </ul>
+    </div>
+    {% endif %} {% if userCanEdit %}
+    <div id="undo" class="ms-1">
+      <button class="btn btn-secondary btn-sm" disabled>Undo</button>
+    </div>
+    {% endif %}
+  </div>
+  <div id="data" ref="data" @click="onDataElClick">
+    <div
+      id="data-loader"
+      class="d-flex align-items-center justify-content-center position-fixed top-50 start-50 translate-middle"
+    >
+      <div class="spinner-border" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+    </div>
+    {% include "_table.njk" %}
+  </div>
+</section>
+
+<section v-show="isAnalyzeMode" id="analyze" v-cloak>
+  <div class="container-fluid p-2 pt-0">
+    <div class="row gx-1 justify-content-between">
+      <div class="col col-sm-8 col-lg-9">
+        <div class="d-flex flex-wrap">
+          <div class="input-group input-group-sm">
+            <button
+              class="btn btn-secondary btn-sm dropdown-toggle"
+              type="button"
+              id="ana-field-toggles"
+              ref="ana-field-toggles"
+              data-bs-toggle="dropdown"
+              data-bs-auto-close="outside"
+              aria-expanded="false"
+              @click="anaSelectSearchFields"
+            >
+              Group By
+            </button>
+            <ul class="dropdown-menu dropdown-menu-dark" aria-labelledby="ana-field-toggles">
+              <li class="px-2">
+                <input
+                  type="text"
+                  class="form-control"
+                  placeholder="Filter Field Name..."
+                  v-model.trim="anaFieldSearch"
+                  ref="anaFieldSearch"
+                />
+              </li>
+              <li v-for="f of anaVisibleSourceFields" :key="f.id">
+                <div class="dropdown-item">
+                  <div class="form-check">
+                    <input
+                      class="form-check-input"
+                      type="checkbox"
+                      :value="f.id"
+                      :id="'ana-key-toggle-' + f.id"
+                      v-model="anaKeys"
+                    />
+                    <label class="form-check-label d-block" :for="'ana-key-toggle-' + f.id">
+                      ${ fieldName(f.id) }
+                    </label>
+                  </div>
+                </div>
+              </li>
+            </ul>
+
+            <button
+              v-for="key in anaKeys"
+              :key="key"
+              type="button"
+              class="btn btn-outline-secondary btn-sm"
+              @click="anaRemoveKey(key)"
+            >
+              ${ fieldName(key) }
+              <span class="ms-2">&times;</span>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="col col-sm-2 col-lg-3">
+        <div class="input-group input-group-sm">
+          <select
+            class="form-select form-select-sm"
+            aria-label="Operation"
+            v-model="anaOperationCommand"
+          >
+            <option value="count">Count</option>
+            <hr />
+            <option value="avg">Average</option>
+            <option value="max">Maximum</option>
+            <option value="min">Minimum</option>
+            <option value="sum">Sum</option>
+            <option value="stdDev">Standard Deviation</option>
+          </select>
+
+          <input
+            class="form-control"
+            type="text"
+            list="ana-operation-fields"
+            v-model="anaOperationField"
+            placeholder="Operation field"
+            :disabled="anaDisabledOperationField"
+            :class="{'is-invalid': anaInvalidOperationField }"
+          />
+        </div>
+        <datalist id="ana-operation-fields">
+          <option v-for="f in fields" :value="f.id">${ fieldName(f.id) }</option>
+        </datalist>
+      </div>
     </div>
   </div>
-  {% include "_table.njk" %}
+  <div v-if="validAnaParams">
+    <div v-if="anaError" class="mx-2 alert alert-danger" role="alert">${ anaError }</div>
+    <div v-else id="analyze-results" ref="analyze-results" @click="analyzeTableClick"></div>
+  </div>
+  <div
+    v-else
+    class="data-placeholder m-2 mt-0 border bg-light rounded d-flex justify-content-center align-items-center"
+  >
+    <p class="fs-4 m-0">
+      <button @click="triggerAnaKeysDropdown" class="btn btn-link fs-4 p-0 me-1">Select</button>
+      <span class="align-middle"
+        >one or more fields to group by and choose a valid data operation.</span
+      >
+    </p>
+  </div>
 </section>
 
 {% if userCanCreate %}
@@ -332,46 +477,33 @@
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title" id="new-submission-modal-title">Create Submission</h5>
-        <button
-          type="button"
-          class="btn-close"
-          data-bs-dismiss="modal"
-          aria-label="Close"
-        ></button>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
-        {% for field in fields %}
-          {% if field.editable %}
-          <div class="row align-items-center py-1">
-            <div class="col">
-              <div class="form-floating flex-fill field">
-                <input
-                  id="new-submission-field-{{ field.id }}"
-                  type="text"
-                  class="form-control"
-                  :placeholder="field.id"
-                  disabled
-                  value="{{ field.name if field.name !== field.id }}"
-                />
-                <label
-                  for="new-submission-field-{{ field.id }}"
-                  class="text-secondary"
-                  >{{ field.id }}</label>
-              </div>
-
-            </div>
-            <div class="col">
+        {% for field in fields %} {% if field.editable %}
+        <div class="row align-items-center py-1">
+          <div class="col">
+            <div class="form-floating flex-fill field">
               <input
+                id="new-submission-field-{{ field.id }}"
                 type="text"
-                name="{{ field.id }}"
-                class="form-control field-value"
-                {{ 'disabled' if field.meta.type === 'sequence' }}
-                {{ 'placeholder="[auto increment]"' | safe if field.meta.type === 'sequence' }}
+                class="form-control"
+                placeholder="{{ field.id }}"
+                disabled
+                value="{{ field.name if field.name !== field.id }}"
               />
+              <label for="new-submission-field-{{ field.id }}" class="text-secondary"
+                >{{ field.id }}</label
+              >
             </div>
           </div>
-          {% endif %}
-        {% endfor %}
+          <div class="col">
+            <input type="text" name="{{ field.id }}" class="form-control field-value" {{ 'disabled'
+            if field.meta.type === 'sequence' }} {{ 'placeholder="[auto increment]"' | safe if
+            field.meta.type === 'sequence' }}/>
+          </div>
+        </div>
+        {% endif %} {% endfor %}
       </div>
       <div class="modal-footer justify-content-end">
         <div class="spinner-border text-primary spinner-border-sm d-none" role="status">
@@ -382,9 +514,7 @@
     </div>
   </div>
 </div>
-{% endif %}
-
-{% if not theImport and not view %}
+{% endif %} {% if not theImport and not view %}
 <div
   class="modal fade"
   id="copy-to-modal"
@@ -396,18 +526,10 @@
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title" id="copy-to-modal-title">Copy <span class="count"></span></h5>
-        <button
-          type="button"
-          class="btn-close"
-          data-bs-dismiss="modal"
-          aria-label="Close"
-        ></button>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
-      <div class="modal-body">
-      </div>
+      <div class="modal-body"></div>
     </div>
   </div>
 </div>
-{% endif %}
-
-{% endblock %}
+{% endif %} {% endblock %}

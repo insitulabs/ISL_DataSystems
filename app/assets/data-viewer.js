@@ -1,10 +1,8 @@
-const SYSTEM_PARAMS = ['table', 'sort', 'order', 'offset', 'limit'];
-
 const $data = document.getElementById('data');
-const ORIGIN_TYPE = $data.dataset.type;
-const ORIGIN_ID = $data.dataset.id;
-const ORIGIN_NAME = $data.dataset.name;
-const IS_IFRAME_FIELD = $data.dataset.iframe;
+const ORIGIN_TYPE = window._ORIGIN_TYPE;
+const ORIGIN_ID = window._ORIGIN_ID;
+const ORIGIN_NAME = window._ORIGIN_NAME;
+const IS_IFRAME_FIELD = window._IS_IFRAME_FIELD;
 const IS_IFRAME = !!IS_IFRAME_FIELD && !!window.parent;
 const FIELD_TYPES = {
   ATTACHMENT: 'attachment',
@@ -15,11 +13,14 @@ const FIELD_TYPES = {
   TEXT: 'text'
 };
 let DBL_CLICK_TIMER = null;
+let DATA_MODE = 'list';
 
 const focusOnDataTable = function () {
   // Focus on first row so keyboard works well with up/down.
   document.querySelector('tbody tr').focus();
 };
+
+const INITIAL_PAGE_PARAMS = new URLSearchParams(window.location.search);
 
 /**
  * Broadcast message to parent window.
@@ -730,224 +731,6 @@ if (ORIGIN_TYPE === 'import') {
   });
 }
 
-// #######################################################
-// # SHOW DELETED TOGGLE
-// #######################################################
-
-[...document.querySelectorAll('.deleted-toggle')].forEach(($showDeleted) => {
-  $showDeleted.addEventListener('change', (event) => {
-    let params = new URLSearchParams(window.location.search);
-    let showDeleted = event.target.checked;
-    if (showDeleted) {
-      params.set('deleted', '1');
-    } else {
-      params.delete('deleted');
-    }
-    window.location.search = params.toString();
-  });
-});
-
-// #######################################################
-// # FILTERS
-// #######################################################
-
-let currentFilters = {};
-let queryWithoutFilters = null;
-const allFilters = Array.from($data.querySelectorAll('.table thead th')).reduce(
-  (map, el) => {
-    if (el.dataset.field) {
-      map[el.dataset.field] = el.dataset.name;
-    }
-    return map;
-  },
-  // Allow an ID filter param
-  { id: 'ID' }
-);
-
-const filters = {
-  $dropdownBtn: document.querySelector('.dropdown.filters'),
-  $dropdown: document.querySelector('.dropdown-menu.filters'),
-  $activeFilters: document.getElementById('active-filters'),
-  $search: document.getElementById('filter-search')
-};
-
-// Select new filter
-document.body.addEventListener('click', (event) => {
-  let $item = event.target.closest('.add-filter');
-  if ($item) {
-    let filter = $item.dataset.id;
-    currentFilters[filter] = currentFilters[filter] || [];
-    addFilter(filter);
-  }
-});
-
-// Search filter dropdown
-filters.$dropdownBtn.addEventListener('shown.bs.dropdown', (event) => {
-  filters.$search.select();
-});
-filters.$search.addEventListener('keyup', (event) => {
-  let query = event.target.value.toLowerCase();
-  filters.$dropdown.querySelectorAll('.add-filter').forEach((el) => {
-    if (
-      !query ||
-      el.dataset.name.toLowerCase().indexOf(query) >= 0 ||
-      el.dataset.id.toLowerCase().indexOf(query) >= 0
-    ) {
-      el.classList.remove('d-none');
-    } else {
-      el.classList.add('d-none');
-    }
-  });
-});
-
-filters.$activeFilters.addEventListener('click', (event) => {
-  let $btn = event.target.closest('.btn.remove-filter');
-  if ($btn) {
-    let filter = $btn.dataset.id;
-    let index = $btn.dataset.index;
-    currentFilters[filter].splice(index, 1);
-    addFilter(filter);
-    fetchFilters();
-  }
-});
-
-filters.$activeFilters.addEventListener('keyup', (event) => {
-  if (event.key === 'Enter') {
-    let $input = event.target.closest('.filter-input');
-    if ($input) {
-      let filter = $input.dataset.id;
-      currentFilters[filter] = currentFilters[filter] || [];
-      let value = $input.value.trim();
-      if (value) {
-        currentFilters[filter].push(value);
-        addFilter(filter);
-        fetchFilters();
-      }
-    }
-    return;
-  }
-
-  if (event.key === 'Backspace') {
-    let $input = event.target.closest('.filter-input');
-    if ($input) {
-      let filter = $input.dataset.id;
-      currentFilters[filter] = currentFilters[filter] || [];
-      if (currentFilters[filter].length > 0) {
-        currentFilters[filter].splice(currentFilters[filter].length - 1, 1);
-        addFilter(filter);
-        fetchFilters();
-      }
-    }
-  }
-});
-
-const addFilter = function (filter) {
-  let html = Object.keys(currentFilters).reduce((html, key) => {
-    let values = currentFilters[key];
-    let heading = `<strong class="my-0">${allFilters[key]}:</strong>`;
-    let buttons = values
-      .map((value, index) => {
-        return `<button
-          type="button"
-          class="btn btn-primary btn-sm ms-2 remove-filter"
-          data-id="${key}"
-          data-index="${index}"
-          data-value="${value.replace(/"/g, '"')}"
-          title="Remove filter">${value} <span class="ms-2" >&times;</span></button>`;
-      })
-      .join(' ');
-
-    let input = `<input
-        type="text"
-        data-id="${key}"
-        placeholder="${values.length ? 'or... ' : 'value'}"
-        class="filter-input px-2 ms-2" />`;
-
-    return (
-      html +
-      '<div class="d-flex align-items-center mb-2 mt-2">' +
-      heading +
-      buttons +
-      input +
-      '</div>'
-    );
-  }, '');
-  filters.$activeFilters.innerHTML = html;
-
-  if (filter) {
-    let inputs = filters.$activeFilters.querySelectorAll(`input[data-id="${filter}"`);
-    if (inputs.length) {
-      // Timeout for initial page load filter focusing.
-      setTimeout(() => {
-        inputs[inputs.length - 1].focus();
-      }, 0);
-    }
-  }
-
-  resize();
-};
-
-const initFilter = function () {
-  let params = new URLSearchParams(window.location.search);
-  let filters = {};
-
-  let defaultFilterFocus = null;
-
-  Array.from(params.keys())
-    .filter((key) => {
-      if (SYSTEM_PARAMS.includes(key)) {
-        return false;
-      }
-
-      return Object.keys(allFilters).includes(key);
-    })
-    .forEach((key) => {
-      let values = params.getAll(key).filter(Boolean);
-      filters[key] = values;
-      if (!values.length) {
-        defaultFilterFocus = key;
-      }
-      params.delete(key);
-    });
-  currentFilters = filters;
-  params.delete('offset');
-  queryWithoutFilters = params.toString();
-  addFilter(defaultFilterFocus);
-};
-
-const fetchFilters = function () {
-  let params = new URLSearchParams();
-
-  Object.keys(currentFilters).forEach((filter) => {
-    currentFilters[filter].filter(Boolean).forEach((v) => {
-      params.append(filter, v);
-    });
-  });
-
-  const url = queryWithoutFilters
-    ? '?' + queryWithoutFilters + '&' + params.toString()
-    : '?' + params.toString();
-  fetch(window.location.pathname + url + '&xhr=1')
-    .then((response) => {
-      return response.text();
-    })
-    .then((text) => {
-      if (url !== window.location.search) {
-        window.history.pushState(null, window.location.title, url);
-      }
-
-      $data.innerHTML = text;
-      updatePaginationPlacement();
-      updateExportLinks(getFormPrefs().hiddenFields);
-    })
-    .catch((error) => {
-      let msg = error && error.message ? error.message : error;
-      let errorEl = document.getElementById('page-error');
-      errorEl.classList.remove('d-none');
-      errorEl.innerText = msg;
-    });
-};
-
 function hideFields(hiddenFields) {
   const head = document.getElementsByTagName('head')[0];
   let styleTag = document.getElementById('field-visibility-styles');
@@ -1050,6 +833,11 @@ function setFormPref(field, value) {
   let prefs = getFormPrefs();
   prefs[field] = value;
 
+  if (ORIGIN_TYPE === 'import') {
+    // imports don't have a type so ignore.
+    return;
+  }
+
   return $api(`/api/user/pref/${ORIGIN_TYPE}/${ORIGIN_ID}`, {
     method: 'POST',
     body: JSON.stringify(prefs)
@@ -1143,21 +931,6 @@ if ($createModal) {
         $createModal.querySelector('.btn-close').removeAttribute('disabled');
       });
   });
-}
-
-// #######################################################
-// # PAGINATION NAV LOGIC
-// #######################################################
-
-function updatePaginationPlacement() {
-  let $top = document.getElementById('top-pagination');
-  $top.innerHTML = '';
-
-  let $nav = data.querySelector('#data .top-pagination');
-  if ($nav) {
-    $top.appendChild($nav);
-    $nav.classList.remove('d-none');
-  }
 }
 
 // #######################################################
@@ -1395,15 +1168,7 @@ window.addEventListener('message', (event) => {
 // # INIT
 // #######################################################
 
-function resize() {
-  let headerRect = document.body.querySelector('main > header').getBoundingClientRect();
-  $data.style.height = window.innerHeight - (headerRect.top + headerRect.height) + 'px';
-}
-
 function onLoad() {
-  initFilter();
-  updatePaginationPlacement();
-
   // Init Bootstrap popovers (help tips)
   document.querySelectorAll('[data-bs-toggle="popover"]').forEach((popoverTriggerEl) => {
     return new bootstrap.Popover(popoverTriggerEl);
@@ -1419,19 +1184,9 @@ function onLoad() {
     focusOnDataTable();
   }
 
-  // When we use arrow keys, focus on data for scrolling.
-  window.addEventListener('keydown', (event) => {
-    if (['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
-      if (event.target.closest('input[type=text],select,textarea,.dropdown-menu.modal') === null) {
-        document.querySelector('tbody tr').focus();
-      }
-    }
-  });
-
   let prefs = getFormPrefs();
   initFieldToggles(prefs.hiddenFields);
   document.getElementById('data-loader').classList.add('d-none');
-  window.addEventListener('resize', resize);
 }
 
 onLoad();

@@ -203,6 +203,8 @@ Vue.createApp({
               this.mapping[f.id] = df.id;
             }
 
+            // If our source has links to the destination source, default
+            // the link back feature.
             if (f?.meta?.type === 'source' && f.meta.originId === sourceId) {
               let df = this.destinationFields.find((df) => df.id === f.meta.originField);
               if (df) {
@@ -210,7 +212,6 @@ Vue.createApp({
                 linkInDestination = df.id;
               }
             }
-
             this.linkInSource = linkInSource ? linkInSource : null;
             this.linkInDestination = linkInDestination ? linkInDestination : null;
           });

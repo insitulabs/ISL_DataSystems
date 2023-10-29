@@ -1,0 +1,45 @@
+{% if results %}
+<table class="table sticky-header table-bordered">
+  <thead class="table-light">
+    <tr>
+      {% for column in fields %}
+      <th
+        scope="col"
+        data-field="{{ column.id }}"
+        data-name="{{ column.name }}"
+        class="{% if column.sortable %} sortable text-nowrap {% endif %} {% if column.isSorted %} is-sorted {% endif %}"
+      >
+        {% if column.sortable %}
+        <a
+          href="{{ column.url }}"
+          class="text-decoration-none {% if column.isSorted %} link-dark {{ column.isSorted }} {% else %} text-secondary {% endif %}"
+        >
+          {{ column.displayName | safe }}
+          <i class="bi bi-sort-down"></i>
+        </a>
+        {% else %}
+        <span class="text-secondary">{{ column.displayName }}</span>
+        {% endif %} {% if column.filterable %}
+        <button class="btn p-0 add-filter" data-id="{{ column.id }}" title="Filter field">
+          <i class="bi bi-funnel"></i>
+        </button>
+        {% endif %}
+      </th>
+      {% endfor %}
+    </tr>
+  </thead>
+  <tbody>
+    {% if results.length === 0 %}
+    <tr tabindex="0">
+      <td colspan="100%">No results</td>
+    </tr>
+    {% endif %} {% for row in results %}
+    <tr tabindex="0">
+      {% for field in fields %}
+      <td data-field="{{ field.id }}">{{ row.data[field.id] }}</td>
+      {% endfor %}
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% include "_pagination.njk" %} {% endif %}
