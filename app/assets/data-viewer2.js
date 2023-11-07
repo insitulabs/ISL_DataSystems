@@ -230,7 +230,6 @@ Vue.createApp({
         window.history.replaceState(null, '', '?' + this.anaQueryParams.toString());
       }
 
-      // TODO
       if (this.viewMode === VIEW_MODE.ANALYZE && this.validAnaParams) {
         this.analyze(this.anaQueryParams);
       }

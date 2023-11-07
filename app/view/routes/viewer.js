@@ -1499,8 +1499,6 @@ module.exports = function (opts) {
       if (!sort && operationCommand) {
         sort = operationCommand;
       }
-      // sort: Source.normalizeFieldName('sample_info.body_condition'),
-      // sort: Source.normalizeFieldName(),
 
       let order = req.query.order || 'desc';
 
@@ -1535,13 +1533,9 @@ module.exports = function (opts) {
       let fields = [];
       let pagination;
       if (groupId) {
-        // http://fpi.localhost:3000/data-viewer/source/63fb8f2aee0ffc4ab350fce4/reduce?__key=_submitterName&__key=sample_info.body_condition&__operation=count:*
-        // http://fpi.localhost:3000/data-viewer/source/63fb8f2aee0ffc4ab350fce4/reduce?__key=_submitterName&__key=sample_info.body_condition&__operation=sum:sample_info.animal_number
         let options = {
           reduce: {
             id: groupId,
-            // operation: 'count:*'
-            // operation: 'sum:sample_info.animal_number'
             operation
           },
           filters,
@@ -1565,13 +1559,6 @@ module.exports = function (opts) {
         results = queryResponse.results;
         let currentPage = Math.floor(offset / limit) + 1;
         pagination = paginate(queryResponse.totalResults, currentPage, limit, 10);
-
-        // for (let r of results) {
-        //   for (let i = 0, len = groupId.length; i < len; i++) {
-        //     let field = groupId[i];
-        //     r.data[field] = r._id[i];
-        //   }
-        // }
 
         // Mongo makes us normalize field names, get back the original for the table.
         let idDisplayNames = groupId.reduce((agg, f) => {
