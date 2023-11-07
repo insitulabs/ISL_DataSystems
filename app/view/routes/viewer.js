@@ -1568,7 +1568,8 @@ module.exports = function (opts) {
 
         if (results && results.length) {
           let originFields = source ? source.fields : view.fields;
-          Object.keys(queryResponse.results[0].data).forEach((fieldId) => {
+          Object.keys(results[0].data).forEach((normalizedFieldId) => {
+            let fieldId = normalizedFieldId;
             if (idDisplayNames[fieldId]) {
               fieldId = idDisplayNames[fieldId];
             }
@@ -1588,6 +1589,8 @@ module.exports = function (opts) {
 
             fields.push({
               id: fieldId,
+              // The escaped fieldId needed for reduction and where the data lives.
+              normalizedFieldId,
               name: fieldName,
               displayName: fieldName.replace(/\./g, '.<br>'),
               sortable: true,

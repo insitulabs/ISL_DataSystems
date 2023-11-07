@@ -36,7 +36,7 @@
     {% endif %} {% for row in results %}
     <tr tabindex="0">
       {% for field in fields %}
-      <td data-field="{{ field.id }}">{{ row.data[field.id] }}</td>
+      <td data-field="{{ field.id }}">{{ row.data[field.normalizedFieldId] }}</td>
       {% endfor %}
     </tr>
     {% endfor %}
