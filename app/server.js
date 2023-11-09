@@ -126,6 +126,12 @@ const emailValidator = require('./lib/email-validator');
 
   app.use('/assets', express.static(path.join(__dirname, 'assets')));
 
+  // Setup appropriate asset libraries for the UI.
+  app.use((req, res, next) => {
+    res.locals.libVue = CONFIG.IS_LOCAL_DEV_ENV ? 'vue.global.js' : 'vue.global.prod.min.js';
+    next();
+  });
+
   /**
    * Extract workspace out of host domain.
    */
@@ -318,12 +324,6 @@ const emailValidator = require('./lib/email-validator');
       auditManager.logUserActivity(path);
     }
 
-    next();
-  });
-
-  // Setup appropriate asset libraries for the UI.
-  app.use((req, res, next) => {
-    res.locals.libVue = CONFIG.IS_LOCAL_DEV_ENV ? 'vue.global.js' : 'vue.global.prod.min.js';
     next();
   });
 
