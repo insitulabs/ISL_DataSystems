@@ -58,6 +58,9 @@ module.exports = function (opts) {
       let offset = 0;
       if (req.query.offset) {
         offset = parseInt(req.query.offset);
+        if (isNaN(offset) || offset < 0) {
+          offset = 0;
+        }
       }
 
       let limit = 50;
@@ -77,6 +80,8 @@ module.exports = function (opts) {
       }
 
       let queryResponse = await auditManager.listEvents({
+        limit,
+        offset,
         sort,
         order
       });
@@ -85,13 +90,15 @@ module.exports = function (opts) {
       let pagination = paginate(queryResponse.totalResults, currentPage, limit, 10);
 
       let sortLinks = ['created', 'email', 'type'].reduce((links, col) => {
-        let url = '?sort=' + col;
+        const sortParams = new URLSearchParams();
+        sortParams.set('limit', limit);
+        sortParams.set('sort', col);
         if (sort === col && order === 'asc') {
-          url += '&order=' + 'desc';
+          sortParams.set('order', 'desc');
         } else if (sort === col && order === 'desc') {
-          url += '&order=' + 'asc';
+          sortParams.set('order', 'asc');
         }
-        links[col] = url;
+        links[col] = '?' + sortParams.toString();
         return links;
       }, {});
 
