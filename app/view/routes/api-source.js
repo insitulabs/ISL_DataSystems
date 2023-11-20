@@ -100,6 +100,10 @@ module.exports = function (opts) {
         throw new Error.BadRequest('Mismatch import to source');
       }
 
+      if (source.fields.length) {
+        throw new Error.BadRequest('Source cannot already have fields.');
+      }
+
       let newFieldId = await sourceManager.updateImportField(
         req.params.importId,
         req.body.id,
@@ -299,34 +303,7 @@ module.exports = function (opts) {
       // from ODK. Also ensure any object has all the fields so that nested data
       // can be populated later.
       submissions = submissions.map((s) => {
-        let submissionFields = Object.keys(s);
-        for (const f of source.fields) {
-          if (!submissionFields.includes(f.id)) {
-            s[f.id] = null;
-          }
-
-          if (f?.meta?.type !== 'text') {
-            let value = s[f.id];
-            // Is number?
-            if (value && typeof value === 'string' && /^[\d\.]+$/.test(value)) {
-              if (value.indexOf('.') > -1) {
-                value = parseFloat(value);
-              } else {
-                value = parseInt(value);
-              }
-
-              if (isNaN(value)) {
-                value = null;
-              }
-            }
-
-            if (value !== s[f.id]) {
-              s[f.id] = value;
-            }
-          }
-        }
-
-        return Source.unflattenSubmission(s);
+        return Source.flatRecordToSubmission(source, s);
       });
 
       let ids = await sourceManager.insertSubmissions(source, submissions);

@@ -3,36 +3,12 @@ const Base = require('./base');
 const Sequence = require('./sequence');
 const Errors = require('../lib/errors');
 const CurrentUser = require('../lib/current-user');
+const dayjs = require('dayjs');
 
 const SUBMISSIONS = 'submissions';
 const SOURCES = 'sources';
 const SUBMISSIONS_STAGED = 'submissionsStaged';
 const IMPORTS = 'imports';
-
-class SourceModel {
-  constructor(data) {
-    this.data = data;
-    return new Proxy(this, {
-      get: function (target, prop) {
-        console.log('here', prop);
-        const property = target[prop];
-        if (typeof property === 'function') {
-          return property.bind(target);
-        }
-
-        return target.data[prop];
-
-        // if (field in person) return person[field]; // normal case
-
-        // return model.data[field];
-      }
-    });
-  }
-
-  toString() {
-    return this.data.submissionKey;
-  }
-}
 
 class Source extends Base {
   /** @type {CurrentUser} */
@@ -81,21 +57,73 @@ class Source extends Base {
     recurse(data, '');
     return result;
   }
+
+  /**
+   * Convert a flat record to a submission with appropriate depth. Needed to mimic ODK style
+   * data on single submission create or imports.
+   * @param {object} source The source to create the submission for.
+   * @param {object} record The flat record to prep for submission insertion.
+   */
+  static flatRecordToSubmission(source, record) {
+    if (!source) {
+      throw new Errors.BadRequest('Source is required');
+    }
+    if (!record) {
+      throw new Errors.BadRequest('record is required');
+    }
+
+    // Convert our flat submissions into a object to better mirror what we might have gotten
+    // from ODK. Also ensure any object has all the fields so that nested data
+    // can be populated later.
+    let submissionFields = Object.keys(record);
+    for (const f of source.fields) {
+      // Populate all fields so ODK style deep objects are re-created later.
+      if (!submissionFields.includes(f.id)) {
+        record[f.id] = null;
+      }
+
+      if (f?.meta?.type !== 'text') {
+        let value = record[f.id];
+        // Is number?
+        if (value && typeof value === 'string' && /^[\d\.]+$/.test(value)) {
+          if (value.indexOf('.') > -1) {
+            value = parseFloat(value);
+          } else {
+            value = parseInt(value);
+          }
+
+          if (isNaN(value)) {
+            value = null;
+          }
+        }
+
+        if (value !== record[f.id]) {
+          record[f.id] = value;
+        }
+      }
+    }
+
+    return Source.unflattenSubmission(record);
+  }
+
   /**
    * Unflatten a single level object into depth.
    * @param {object} data
    * @return {object}an object into a single level.
    */
   static unflattenSubmission(data) {
-    var result = {};
-    for (var i in data) {
-      var keys = i.split('.');
+    let result = {};
+    for (let i in data) {
+      let keys = i.split('.');
       keys.reduce(function (r, e, j) {
-        return (
-          r[e] || (r[e] = isNaN(Number(keys[j + 1])) ? (keys.length - 1 == j ? data[i] : {}) : [])
-        );
+        if (r[e]) {
+          return r[e];
+        }
+        r[e] = keys.length - 1 === j ? data[i] : {};
+        return r[e];
       }, result);
     }
+
     return result;
   }
 
@@ -422,7 +450,6 @@ class Source extends Base {
       f.meta = f.meta || {};
     });
 
-    // return new SourceModel(source);
     return source;
   }
 
@@ -948,20 +975,21 @@ class Source extends Base {
     }
 
     let now = new Date();
-    let created = now;
     if (toInsert.length > 0) {
       toInsert = toInsert.map((s) => {
+        let created = now;
         let { _attachmentsPresent, ...rest } = s;
 
-        if (options.createdKey && s[options.createdKey]) {
+        if (options.createdKey && Object.hasOwn(s, options.createdKey)) {
           let createDate = s[options.createdKey];
+          delete rest[options.createdKey];
+
           if (typeof createDate === 'string') {
             createDate = new Date(createDate);
           }
 
           if (createDate instanceof Date && createDate.toString() !== 'Invalid Date') {
             created = createDate;
-            delete rest[options.createdKey];
           }
         }
 
@@ -1042,12 +1070,9 @@ class Source extends Base {
     return this.getSubmission(id);
   }
 
-  async createImport(source, fields, records) {
+  async createImport(source, records, fields) {
     if (!source) {
       throw new Errors.BadRequest('Source is required');
-    }
-    if (!fields || !Array.isArray(fields) || !fields.length) {
-      throw new Errors.BadRequest('Fields are required');
     }
     if (!records || !Array.isArray(records) || !records.length) {
       throw new Errors.BadRequest('Records are required');
@@ -1055,60 +1080,81 @@ class Source extends Base {
 
     const imports = this.collection(IMPORTS);
     const stagedSubmissions = this.collection(SUBMISSIONS_STAGED);
+    let today = new Date();
 
-    let created = new Date();
+    let newFields = null;
+    if (fields) {
+      newFields = fields
+        .filter((id) => {
+          return id !== 'created';
+        })
+        .map((id) => {
+          // Do not let fields overwrite our mandatory ones.
+          if (['_id', 'id', 'imported'].includes(id)) {
+            let newId = id + '_1';
+
+            records.forEach((r) => {
+              r[newId] = r[f];
+              delete r[f];
+            });
+
+            id = newId;
+          }
+
+          return {
+            id: id,
+            name: null
+          };
+        });
+
+      let duplicateFields = newFields.reduce((dups, f) => {
+        if (dups[f.id]) {
+          dups[f.id]++;
+        } else {
+          dups[f.id] = 1;
+        }
+
+        return dups;
+      }, {});
+
+      let duplicates = Object.keys(duplicateFields).filter((f) => duplicateFields[f] > 1);
+      if (duplicates.length) {
+        throw new Errors.BadRequest('Import has duplicate columns: ' + duplicates.join(', '));
+      }
+    }
 
     let toPersist = {
       sourceId: source._id,
       sourceName: source.name,
-      created,
+      created: today,
       createdBy: {
         id: new ObjectId(this.user._id),
         name: this.user.name,
         email: this.user.email
       },
-      fields: fields.map((f) => {
-        let id = Source.normalizeFieldName(f);
-
-        // Do not let fields overwrite our mandatory ones.
-        if (['_id', 'id', 'created', 'imported'].includes(id.toLowerCase())) {
-          let newId = id.toLowerCase() + '_1';
-
-          records.forEach((r) => {
-            r[newId] = r[f];
-            delete r[f];
-          });
-
-          id = newId;
-        }
-
-        return {
-          id: id,
-          name: null
-        };
-      })
+      fields: newFields
     };
-
-    let duplicateFields = toPersist.fields.reduce((dups, f) => {
-      if (dups[f.id]) {
-        dups[f.id]++;
-      } else {
-        dups[f.id] = 1;
-      }
-
-      return dups;
-    }, {});
-    let duplicates = Object.keys(duplicateFields).filter((f) => duplicateFields[f] > 1);
-    if (duplicates.length) {
-      throw new Errors.BadRequest('Import has duplicate columns: ' + duplicates.join(', '));
-    }
 
     let insertImport = await imports.insertOne(toPersist);
 
     let submissionsToPersist = records.map((r) => {
+      let created = today;
       let normalized = {};
-      for (const [key, value] of Object.entries(r)) {
+      for (let [key, value] of Object.entries(r)) {
         let newValue = value;
+
+        if (key.toLowerCase() === 'created' && newValue) {
+          key = 'created';
+          let createdDate = dayjs(newValue);
+          if (createdDate.isValid()) {
+            created = createdDate.toDate();
+            newValue = created;
+          } else {
+            // Clear out bad dates.
+            newValue = null;
+          }
+        }
+
         if (typeof newValue === 'string') {
           // Is number?
           if (value && /^[\d\.]+$/.test(value)) {
@@ -1124,7 +1170,7 @@ class Source extends Base {
           }
         }
 
-        normalized[Source.normalizeFieldName(key)] = newValue;
+        normalized[key] = newValue;
       }
 
       return {
@@ -1349,7 +1395,7 @@ class Source extends Base {
     let toCreate = queryResponse.results.map((r) => {
       return r.data;
     });
-    let ids = await this.insertSubmissions(source, toCreate);
+    let ids = await this.insertSubmissions(source, toCreate, { createdKey: 'created' });
     await this.deleteImport(theImport);
     return ids.length;
   }

@@ -1,88 +1,186 @@
-{% extends "layout.njk" %}
+{% extends "layout.njk" %} {% block styles %}
+<style>
+  .mw-0 {
+    max-width: 0;
+  }
+  .col-arrow {
+    flex: 0 0 2rem;
+  }
 
-{% block content %}
+  input[type=file][readonly] {
+    background-color: #e9ecef;
+    opacity: 1;
+    pointer-events: none;
+  }
+</style>
+{% endblock %} {% block content %}
 <div id="app" class="my-2 container-xxl">
   <ul class="nav nav-pills mb-2">
     <li class="nav-item flex-fill"></li>
     <li class="nav-item">
-      <a class="nav-link" href="/data-viewer/source/{{ source._id }}"
-        >Go To Source</a
-      >
+      <a class="nav-link" href="/data-viewer/source/{{ source._id }}">Go To Source</a>
     </li>
   </ul>
 
   <div class="d-flex mt-2">
-    <input
-      type="text"
-      disabled
-      value="{{ source.system }}"
-      class="form-control"
-    />
-    <input
-      type="text"
-      disabled
-      value="{{ source.namespace }}"
-      class="form-control ms-1"
-    />
+    <input type="text" disabled value="{{ source.system }}" class="form-control" />
+    <input type="text" disabled value="{{ source.namespace }}" class="form-control ms-1" />
   </div>
 
   <div class="d-flex mt-2">
-    <input
-      type="text"
-      value="{{ source.name }}"
-      class="form-control"
-      disabled
-    />
+    <input type="text" value="{{ source.name }}" class="form-control" disabled />
   </div>
 
   <div class="d-flex mt-2">
-    <textarea
-      v-model.trim="note"
-      class="form-control"
-      placeholder="Source note..."
-      disabled
-    >{{ source.note }}</textarea>
+    <textarea class="form-control" placeholder="Source note..." disabled>
+{{ source.note }}</textarea
+    >
   </div>
 
-  <ul>
-    {% for theImport in imports %}
-      <li>
+  {% if imports.length %}
+  <div class="mt-2 mb-4">
+    <strong>Pending imports</strong>
+    <ol class="list-group list-group-numbered">
+      {% for theImport in imports %}
+      <li class="list-group-item">
         <a href="/data-viewer/source/{{ source._id }}/import/{{ theImport._id }}">
           Import {{ loop.index }}
         </a>
         <ul>
-          <li>Created On: <time title="{{ theImport.created }}">{{ theImport.created | formatDate }}</time></li>
           <li>
-            Created By: {{ theImport.createdBy.name }}
-            (<a href="mailto:{{ theImport.createdBy.email }}">{{ theImport.createdBy.email }}</a>)
+            Created On:
+            <time title="{{ theImport.created }}">{{ theImport.created | formatDate }}</time>
+          </li>
+          <li>
+            Created By: {{ theImport.createdBy.name }} (<a
+              href="mailto:{{ theImport.createdBy.email }}"
+              >{{ theImport.createdBy.email }}</a
+            >)
           </li>
         </ul>
       </li>
-    {% endfor %}
-  </ul>
+      {% endfor %}
+    </ol>
+  </div>
+  {% endif %}
 
   <div class="mt-2">
-    <form id="parse" action="./parse" method="POST" enctype="multipart/form-data">
+    <strong>Create new import</strong>
+    <form
+      id="parse"
+      ref="form"
+      action="./parse"
+      method="POST"
+      enctype="multipart/form-data"
+      @submit="onSubmit"
+    >
       <input type="hidden" name="id" value="{{ source._id }}" />
 
-      {% if enabled %}
-        <input class="form-control" type="file" name="file" required aria-describedby="fileHelp" />
-        <div id="fileHelp" class="form-text">
-          Supported file types:
-          <span class="badge bg-light text-dark">xlsx</span>
-          <span class="badge bg-light text-dark">csv</span>
+      <input
+        class="form-control"
+        type="file"
+        name="file"
+        required
+        aria-describedby="fileHelp"
+        :readonly="headers"
+      />
+      <div id="fileHelp" class="form-text">
+        Supported file types:
+        <span class="badge bg-light text-dark">xlsx</span>
+        <span class="badge bg-light text-dark">csv</span>
+      </div>
+
+      <div v-cloak v-if="headers" class="row mt-4">
+        <div class="col">
+          <p>2. Map import columns to sourfe fields:</p>
         </div>
-      {% endif %}
+      </div>
 
-      {% if error %}
-        <div class="alert alert-danger mt-2 mb-0" role="alert">{{ error}}</div>
-      {% endif %}
+      <div v-cloak v-if="headers" class="row">
+        <div class="col">
+          <div class="row">
+            <div class="col d-flex align-items-center">
+              <strong>Spreadsheet Column</strong>
+              <button class="btn btn-link btn-sm" @click="nextSample" type="button">Shuffle</button>
+            </div>
+            <div class="col-arrow"></div>
+            <div class="col d-flex align-items-center">
+              <strong>Source Field</strong>
+            </div>
+          </div>
 
-      <button
-        class="btn btn-primary mt-2"
-        type="submit"
-        {% if not enabled %} disabled {% endif %}
-      >
+          <div v-for="(h, index) of headers" :key="h + index" class="row">
+            <div class="col">
+              <div class="form-floating">
+                <input type="text" class="form-control" :value="sample[h] || ''" disabled />
+                <label>${ h }</label>
+              </div>
+            </div>
+            <div class="col-arrow d-flex align-items-center justify-content-center p-0">
+              <i class="bi bi-arrow-right"></i>
+            </div>
+            <div class="col">
+              <div class="form-floating">
+                <input
+                  type="text"
+                  class="form-control"
+                  :id="fieldHtmlId(h)"
+                  :class="{'is-invalid': invalidFields[h] }"
+                  list="all-fields"
+                  v-model.trim="mapping[h]"
+                />
+                <label :for="fieldHtmlId(h)"> ${ fieldName(mapping[h]) } </label>
+              </div>
+            </div>
+          </div>
+
+          <datalist id="all-fields">
+            <option v-for="f in remainingFields" :value="f.id" :key="f.id">
+              ${f.name}
+              <template v-if="f.meta && f.meta.type === 'sequence'">(auto increment)</template>
+            </option>
+          </datalist>
+        </div>
+
+        <div class="col-5">
+          <strong>
+            Existing Source Data
+            <button
+              v-if="submissionSamples.length > 1"
+              class="btn btn-link btn-sm"
+              @click="nextSubmissionSample"
+              type="button"
+            >
+              Shuffle
+            </button>
+          </strong>
+          <table class="table w-100 table-light">
+            <thead>
+              <tr>
+                <th class="w-50">Field</th>
+                <th class="w-50">Data</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="f of fields" :key="f">
+                <td class="mw-0" :class="{'bg-warning': mappedFieldIds.includes(f.id) }">
+                  <div class="text-truncate" :title="f.name || f.id">${ f.name || f.id }</div>
+                </td>
+                <td class="mw-0">
+                  <div class="text-truncate" :title="submissionSample[f] || ''">
+                    ${ submissionSample[f.id] || '' }
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <input type="hidden" :value="mappingAsJSON" name="mapping" />
+
+      <div v-cloak v-if="error" class="alert alert-danger mt-2 mb-0" role="alert">${ error }</div>
+      <button class="btn btn-primary mt-2" type="submit" :disabled="isFormDisabled">
         Upload
       </button>
     </form>
@@ -90,7 +188,8 @@
 </div>
 
 <script>
-  window._source = {{ source | dump | safe }};
+  window._error = '{{ error }}';
 </script>
+<script type="module" src="{{ '/assets/source-import.js' | appendVersion }}"></script>
 {% endblock %}
 

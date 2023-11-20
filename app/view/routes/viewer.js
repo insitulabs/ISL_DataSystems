@@ -14,9 +14,9 @@ const Sequence = require('../../db/sequence');
 const Audit = require('../../db/audit').Audit;
 const CurrentUser = require('../../lib/current-user');
 const { getCurrentUser } = require('../../lib/route-helpers');
-const XLSX = require('xlsx');
 const { v4: uuidv4 } = require('uuid');
 const { noCacheMiddleware } = require('../../lib/route-helpers');
+const { parseSpreadsheet } = require('../../lib/spreadsheet');
 
 // Default page size.
 const DEFAULT_LIMIT = 50;
@@ -331,7 +331,8 @@ module.exports = function (opts) {
     } else if (query.import) {
       source = query.source;
       theImport = query.import;
-      fields = theImport.fields;
+      // Imports to empty sources can have new fields, otherwise use existing source fields.
+      fields = theImport.fields ? theImport.fields : source.fields;
       dataType = 'import';
       dataId = theImport._id;
       originName = 'Import for ' + theImport.sourceName;
@@ -1019,6 +1020,15 @@ module.exports = function (opts) {
 
       await sourceManager.updateBulkStagedSubmissions(theImport, ids, field, value);
 
+      // For lookup fields, create link to lookup.
+      let sourceField = source.fields.find((f) => f.id === field);
+      if (value && sourceField && /source|view/.test(sourceField?.meta?.type)) {
+        let link = `/data-viewer/${sourceField.meta.type}/${sourceField.meta.originId}?${
+          sourceField.meta.originField
+        }=${encodeURIComponent('"' + value + '"')}`;
+        html = `<a href="${link}">${html}</a>`;
+      }
+
       const auditManager = new Audit(currentUser);
       let auditRecord = {
         type: originType,
@@ -1680,16 +1690,9 @@ module.exports = function (opts) {
       currentUser.validateSourcePermission(source, CurrentUser.PERMISSIONS.WRITE);
 
       let error = req.query.error;
-      let enabled = true;
 
       if (source.deleted) {
-        error = 'Deleted sources cannot be added to';
-        enabled = false;
-      }
-
-      if (source.lastSync) {
-        error = 'ODK synced sources cannot be imported to.';
-        enabled = false;
+        throw new Errors.BadRequest('Deleted sources cannot be added to');
       }
 
       const viewData = await getPageRenderData(req, res);
@@ -1699,7 +1702,6 @@ module.exports = function (opts) {
         source,
         imports,
         error,
-        enabled,
         pageTitle: source.name + ' - Import'
       };
 
@@ -1713,55 +1715,93 @@ module.exports = function (opts) {
    * Parse submissions for a source import.
    */
   router.post('/source/:id/parse', async (req, res, next) => {
+    let tempFile;
     try {
       let currentUser = getCurrentUser(res);
       const sourceManager = new Source(currentUser);
+      const auditManager = new Audit(getCurrentUser(res));
       let source = await sourceManager.getSource(req.params.id);
       currentUser.validateSourcePermission(source, CurrentUser.PERMISSIONS.WRITE);
 
       let body = await getFormBody(req);
-      if (body?.files?.file) {
-        let tempFile = body.files.file[0];
-        // https://www.npmjs.com/package/xlsx#parsing-options
-        let workbook = XLSX.readFile(tempFile.filepath, {});
-        if (!workbook.SheetNames.length) {
-          throw new Errors.BadRequest('No sheets in spreadsheet');
-        }
-
-        let worksheet = workbook.Sheets[workbook.SheetNames[0]];
-        let data = XLSX.utils.sheet_to_json(worksheet, { raw: false });
-
-        const headers = [];
-        const columnCount = XLSX.utils.decode_range(worksheet['!ref']).e.c + 1;
-        for (let i = 0; i < columnCount; ++i) {
-          let col = worksheet[`${XLSX.utils.encode_col(i)}1`];
-          if (col) {
-            headers.push(worksheet[`${XLSX.utils.encode_col(i)}1`].v);
-          }
-        }
-        let newImport = await sourceManager.createImport(source, headers, data);
-
-        const auditManager = new Audit(getCurrentUser(res));
-        let auditRecord = {
-          type: 'source',
-          source: {
-            _id: source._id,
-            name: source.name,
-            submissionKey: source.submissionKey
-          },
-          import: newImport
-        };
-        auditManager.logImportCreate(auditRecord);
-
-        tempFile.destroy();
-
-        res.redirect(`/data-viewer/source/${source._id}/import/${newImport._id}`);
+      if (!body?.files?.file) {
+        throw new Errors.BadRequest('Missing import file');
       }
+
+      tempFile = body.files.file[0];
+      let { headers, records } = parseSpreadsheet(tempFile.filepath);
+      tempFile.destroy();
+      tempFile = null;
+
+      let auditRecord = {
+        type: 'source',
+        source: {
+          _id: source._id,
+          name: source.name,
+          submissionKey: source.submissionKey
+        }
+      };
+
+      // Import into blank source. Allow creation of fields.
+      if (!source.fields.length) {
+        let newFields = headers.map((h) => Source.normalizeFieldName(h));
+        records = records.map((r) => {
+          return headers.reduce((s, header) => {
+            s[Source.normalizeFieldName(header)] = r[header];
+            return s;
+          }, {});
+        });
+        let newImport = await sourceManager.createImport(source, records, newFields);
+        auditRecord.import = newImport;
+        auditManager.logImportCreate(auditRecord);
+        return res.send({ redirect: `/data-viewer/source/${source._id}/import/${newImport._id}` });
+      }
+
+      // We have an existing source field mapping
+      if (body.fields.mapping) {
+        // Key: spreadsheet header, Value: source field ID
+        let mapping = JSON.parse(body.fields.mapping);
+        if (!mapping) {
+          throw new Errors.BadRequest('Invalid header mapping');
+        }
+
+        records = records.map((r) => {
+          let submission = Object.keys(mapping).reduce((s, header) => {
+            s[mapping[header]] = r[header];
+            return s;
+          }, {});
+
+          return Source.flatRecordToSubmission(source, submission);
+        });
+
+        let newImport = await sourceManager.createImport(source, records);
+        auditRecord.import = newImport;
+        auditManager.logImportCreate(auditRecord);
+        return res.send({
+          redirect: `/data-viewer/source/${source._id}/import/${newImport._id}`
+        });
+      }
+
+      // Otherwise show a preview of the data and let the user map the fields.
+      let sampleCount = Math.min(10, records.length);
+      let submissionSamples = (await sourceManager.getSubmissions(source, { sample: 10 })).results;
+      res.send({
+        headers,
+        fields: [...source.fields, { id: 'created', meta: {} }],
+        samples: records.slice(0, sampleCount),
+        submissionSamples
+      });
     } catch (error) {
+      if (tempFile) {
+        try {
+          tempFile.destroy();
+        } catch (delError) {
+          // Silence failed temp file delete
+        }
+      }
+
       if (error instanceof Errors.BadRequest) {
-        return res.redirect(
-          `/data-viewer/source/${req.params.id}/import?error=${encodeURIComponent(error.message)}`
-        );
+        return res.status(500).json({ message: error.message });
       }
 
       next(error);
