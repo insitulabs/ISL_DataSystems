@@ -44,6 +44,25 @@
 <div class="px-2 mt-2">
   <div class="alert alert-secondary mb-0" role="alert">{{ view.note | urlize | nl2br | safe }}</div>
 </div>
+{% endif %} {% if theImport %}
+<div class="px-2 mt-2">
+  <div
+    class="alert alert-warning mb-0 d-flex align-items-center justify-content-between" role="alert">
+    <div>
+      <strong>Staged Import Data</strong>
+      <span>
+        - Finalize your data before importing your submissions.
+      </span>
+    </div>
+
+    {% if userCanEdit %}
+    <div>
+      <button id="btn-delete-import" class="btn btn-outline-secondary btn-sm">Discard Import</button>
+      <button id="btn-import-records" class="btn btn-primary btn-sm ms-1">Import Records</button>
+    </div>
+    {% endif %}
+  </div>
+</div>
 {% endif %}
 
 <header class="sticky-top bg-white border-white w-100 p-2" ref="header">
@@ -281,12 +300,8 @@
 
     <div ref="top-pagination" class="d-none d-md-block"></div>
 
-    {% if userCanEdit %} {% if theImport %}
-    <div class="ms-1">
-      <button id="btn-delete-import" class="btn btn-danger btn-sm">Delete</button>
-      <button id="btn-import-records" class="btn btn-primary btn-sm ms-1">Import Records</button>
-    </div>
-    {% endif %} {% endif %} {% if not theImport and not view and not isIFRAME %}
+
+    {% if not theImport and not view and not isIFRAME %}
     <div class="dropdown ms-1">
       <button
         class="btn btn-secondary btn-sm dropdown-toggle"
@@ -533,3 +548,4 @@
   </div>
 </div>
 {% endif %} {% endblock %}
+
