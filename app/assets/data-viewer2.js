@@ -77,7 +77,9 @@ Vue.createApp({
       anaKeys,
       anaOperationCommand,
       anaOperationField,
-      anaFieldSearch: ''
+      anaFieldSearch: '',
+      isNoteExpanded: true,
+      showNoteToggle: false
     };
   },
 
@@ -279,9 +281,18 @@ Vue.createApp({
   },
 
   mounted() {
+    let prefs = this.getFormPrefs();
     this.updatePaginationPlacement();
     document.querySelector('.dropdown.filters').addEventListener('shown.bs.dropdown', (event) => {
       this.$refs['filter-search'].select();
+    });
+
+    this.$refs.fieldTogglesBtn.addEventListener('shown.bs.dropdown', (event) => {
+      this.onShowFieldToggles(event);
+    });
+
+    this.$refs.fieldTogglesBtn.addEventListener('hide.bs.dropdown', (event) => {
+      this.onHideFieldToggles(event);
     });
 
     if (this.isAnalyzeMode && this.validAnaParams) {
@@ -301,6 +312,22 @@ Vue.createApp({
       }, 200);
     } else {
       this.isMounted = true;
+    }
+
+    // Setup note toggle if source/view has a note.
+    if (this.$refs.note) {
+      this.showNoteToggle = this.$refs.note.querySelectorAll('br').length > 0;
+      if (!this.showNoteToggle) {
+        this.showNoteToggle = this.$refs.note.textContent.trim().length > 150;
+      }
+
+      if (prefs.isNoteHidden) {
+        this.isNoteExpanded = false;
+      }
+    }
+
+    if (prefs.hiddenFields) {
+      this.updateExportLinks(prefs.hiddenFields);
     }
   },
 
@@ -417,8 +444,7 @@ Vue.createApp({
           $data.innerHTML = text;
           this.updatePaginationPlacement();
 
-          // TODO move this into vue
-          updateExportLinks(getFormPrefs().hiddenFields);
+          this.updateExportLinks(this.getFormPrefs().hiddenFields);
           this.onResize();
         })
         .catch((error) => {
@@ -536,6 +562,157 @@ Vue.createApp({
         this.$refs['ana-field-toggles'].click();
         this.anaSelectSearchFields();
       }, 0);
+    },
+
+    /**
+     * Show or hide the note.
+     */
+    toggleNote() {
+      this.isNoteExpanded = !this.isNoteExpanded;
+      this.$nextTick(this.onResize);
+      this.setFormPref('isNoteHidden', !this.isNoteExpanded);
+    },
+
+    /**
+     * Show field toggles dropdown event.
+     */
+    onShowFieldToggles() {
+      this.$refs.fieldTogglesSearch.select();
+    },
+
+    /**
+     * Hide field toggles dropdown event.
+     */
+    onHideFieldToggles() {
+      let hidden = Array.from(
+        this.$refs.fieldTogglesList.querySelectorAll('input[type=checkbox]:not(:checked)')
+      )
+        .map((el) => {
+          return el.value;
+        })
+        .sort();
+
+      this.hideFields(hidden);
+      this.$refs.fieldTogglesBtn.querySelector('.visible-count').innerText =
+        this.fields.length - hidden.length;
+      this.updateExportLinks(hidden);
+      this.setFormPref('hiddenFields', hidden);
+    },
+
+    /**
+     * On filter input for field toggles.
+     * @param {KeyboardEvent} event
+     */
+    onFieldTogglesSearch(event) {
+      let query = event.target.value.toLowerCase();
+      this.$refs.fieldTogglesList.querySelectorAll('.toggle').forEach((el) => {
+        if (
+          !query ||
+          el.dataset.name.toLowerCase().indexOf(query) >= 0 ||
+          el.dataset.id.toLowerCase().indexOf(query) >= 0
+        ) {
+          el.classList.remove('d-none');
+        } else {
+          el.classList.add('d-none');
+        }
+      });
+    },
+
+    /**
+     * Select "All" button on the field toggles.
+     */
+    onFieldTogglesAll() {
+      this.$refs.fieldTogglesList
+        .querySelectorAll('.toggle:not(.d-none) input[type=checkbox]')
+        .forEach((el) => {
+          el.checked = true;
+        });
+    },
+
+    /**
+     * Select "None" button on the field toggles.
+     */
+    onFieldTogglesNone() {
+      this.$refs.fieldTogglesList
+        .querySelectorAll('.toggle:not(.d-none) input[type=checkbox]')
+        .forEach((el) => {
+          el.checked = false;
+        });
+    },
+
+    /**
+     * Hide given fields
+     * @param {Array} hiddenFields The hidden fields
+     */
+    hideFields(hiddenFields) {
+      const head = document.getElementsByTagName('head')[0];
+      let styleTag = document.getElementById('field-visibility-styles');
+      if (styleTag) {
+        styleTag.parentNode.removeChild(styleTag);
+      }
+
+      if (hiddenFields && hiddenFields.length) {
+        let css = hiddenFields.reduce((str, field) => {
+          return (
+            str +
+            `
+            #data > table [data-field="${field}"] {
+              display: none;
+            }`
+          );
+        }, '');
+
+        styleTag = document.createElement('style');
+        styleTag.id = 'field-visibility-styles';
+        styleTag.textContent = css;
+        head.append(styleTag);
+      }
+    },
+
+    /**
+     * Update the export links to take into account hidden fields.
+     * @param {Array} hidden The list of hidden field IDs
+     */
+    updateExportLinks(hidden) {
+      document.querySelectorAll('.export-btn').forEach(($a) => {
+        let href = $a.href.replace(/&_h=[^&]+/i, '');
+        if (hidden && hidden.length) {
+          $a.href = href + '&_h=' + encodeURIComponent(hidden.join(','));
+        } else {
+          $a.href = href;
+        }
+      });
+    },
+
+    /**
+     * Get source/view preferences
+     * @return {object}
+     */
+    getFormPrefs() {
+      return window._prefs || {};
+    },
+
+    /**
+     * Set a preference for this source/view.
+     * @param {string} field
+     * @param {*} value
+     * @returns
+     */
+    setFormPref(field, value) {
+      let prefs = this.getFormPrefs();
+      prefs[field] = value;
+
+      if (this.ORIGIN_TYPE === 'import') {
+        // imports don't have a type so ignore.
+        return;
+      }
+
+      return $api(`/api/user/pref/${this.ORIGIN_TYPE}/${this.ORIGIN_ID}`, {
+        method: 'POST',
+        body: JSON.stringify(prefs)
+      }).catch((error) => {
+        alert(error && error.message ? error.message : error);
+      });
     }
   }
 }).mount('body > main');

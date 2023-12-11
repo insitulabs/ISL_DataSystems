@@ -731,121 +731,6 @@ if (ORIGIN_TYPE === 'import') {
   });
 }
 
-function hideFields(hiddenFields) {
-  const head = document.getElementsByTagName('head')[0];
-  let styleTag = document.getElementById('field-visibility-styles');
-  if (styleTag) {
-    styleTag.parentNode.removeChild(styleTag);
-  }
-
-  if (hiddenFields && hiddenFields.length) {
-    let css = hiddenFields.reduce((str, field) => {
-      return (
-        str +
-        `
-        #data > table [data-field="${field}"] {
-          display: none;
-        }`
-      );
-    }, '');
-
-    styleTag = document.createElement('style');
-    styleTag.id = 'field-visibility-styles';
-    styleTag.textContent = css;
-    head.append(styleTag);
-  }
-}
-
-// #######################################################
-// # VISIBLE COLUMNS
-// #######################################################
-
-const updateExportLinks = (hidden) => {
-  document.querySelectorAll('.export-btn').forEach(($a) => {
-    let href = $a.href.replace(/&_h=[^&]+/i, '');
-    if (hidden && hidden.length) {
-      $a.href = href + '&_h=' + encodeURIComponent(hidden.join(','));
-    } else {
-      $a.href = href;
-    }
-  });
-};
-
-function initFieldToggles(initHiddenFields) {
-  const $fieldTogglesBtn = document.getElementById('field-toggles');
-  const $fieldToggles = $fieldTogglesBtn.nextElementSibling;
-  const $fieldTogglesSearch = document.getElementById('field-toggles-search');
-  const allFieldsCount = parseInt($fieldTogglesBtn.querySelector('.all-count').innerText.trim());
-
-  // Search filter dropdown
-  $fieldTogglesBtn.addEventListener('shown.bs.dropdown', (event) => {
-    $fieldTogglesSearch.select();
-  });
-  $fieldTogglesSearch.addEventListener('keyup', (event) => {
-    let query = event.target.value.toLowerCase();
-    $fieldToggles.querySelectorAll('.toggle').forEach((el) => {
-      if (
-        !query ||
-        el.dataset.name.toLowerCase().indexOf(query) >= 0 ||
-        el.dataset.id.toLowerCase().indexOf(query) >= 0
-      ) {
-        el.classList.remove('d-none');
-      } else {
-        el.classList.add('d-none');
-      }
-    });
-  });
-
-  $fieldTogglesBtn.addEventListener('hide.bs.dropdown', () => {
-    let hidden = Array.from($fieldToggles.querySelectorAll('input[type=checkbox]:not(:checked)'))
-      .map((el) => {
-        return el.value;
-      })
-      .sort();
-
-    hideFields(hidden);
-    $fieldTogglesBtn.querySelector('.visible-count').innerText = allFieldsCount - hidden.length;
-    updateExportLinks(hidden);
-    setFormPref('hiddenFields', hidden);
-  });
-
-  $fieldToggles.querySelector('.btn.select-all').addEventListener('click', () => {
-    $fieldToggles.querySelectorAll('.toggle:not(.d-none) input[type=checkbox]').forEach((el) => {
-      el.checked = true;
-    });
-  });
-  $fieldToggles.querySelector('.btn.select-none').addEventListener('click', () => {
-    $fieldToggles.querySelectorAll('.toggle:not(.d-none) input[type=checkbox]').forEach((el) => {
-      el.checked = false;
-    });
-  });
-
-  if (initHiddenFields) {
-    updateExportLinks(initHiddenFields);
-  }
-}
-
-function getFormPrefs() {
-  return window._prefs || {};
-}
-
-function setFormPref(field, value) {
-  let prefs = getFormPrefs();
-  prefs[field] = value;
-
-  if (ORIGIN_TYPE === 'import') {
-    // imports don't have a type so ignore.
-    return;
-  }
-
-  return $api(`/api/user/pref/${ORIGIN_TYPE}/${ORIGIN_ID}`, {
-    method: 'POST',
-    body: JSON.stringify(prefs)
-  }).catch((error) => {
-    alert(error && error.message ? error.message : error);
-  });
-}
-
 // #######################################################
 // # Record Source Modal Fetching.
 // #######################################################
@@ -1184,8 +1069,6 @@ function onLoad() {
     focusOnDataTable();
   }
 
-  let prefs = getFormPrefs();
-  initFieldToggles(prefs.hiddenFields);
   document.getElementById('data-loader').classList.add('d-none');
 }
 

@@ -34,30 +34,45 @@
     Archived {{ "view" if view else "source"}}. The data is read-only.
   </div>
 </div>
-{% endif %} {% if source and source.note %}
-<div class="px-2 mt-2">
-  <div class="alert alert-secondary mb-0" role="alert">
-    {{ source.note | urlize | nl2br | safe }}
+{% endif %} {% set note = null %} {% if source and source.note %} {% set note = source.note %} {%
+elif view and view.note %} {% set note = view.note %} {% endif %} {% if note %}
+<div ref="note" class="px-2 mt-2 position-relative note">
+  <div
+    class="alert alert-secondary mb-0 p-2"
+    role="alert"
+    :class="{'truncate': !isNoteExpanded}"
+  >
+    {{ note | urlize | nl2br | safe }}
   </div>
-</div>
-{% endif %} {% if view and view.note %}
-<div class="px-2 mt-2">
-  <div class="alert alert-secondary mb-0" role="alert">{{ view.note | urlize | nl2br | safe }}</div>
+
+  <button
+    v-cloak
+    v-if="showNoteToggle"
+    @click="toggleNote"
+    type="button"
+    class="btn btn-primary btn-sm position-absolute"
+    title="Expand or collapse the note"
+  >
+    <i v-if="isNoteExpanded" class="bi bi-arrows-angle-contract"></i>
+    <i v-else class="bi bi-arrows-angle-expand"></i>
+  </button>
 </div>
 {% endif %} {% if theImport %}
 <div class="px-2 mt-2">
   <div
-    class="alert alert-warning mb-0 d-flex align-items-center justify-content-between" role="alert">
+    class="alert alert-warning mb-0 d-flex align-items-center justify-content-between"
+    role="alert"
+  >
     <div>
       <strong>Staged Import Data</strong>
-      <span>
-        - Finalize your data before importing your submissions.
-      </span>
+      <span> - Finalize your data before importing your submissions. </span>
     </div>
 
     {% if userCanEdit %}
     <div>
-      <button id="btn-delete-import" class="btn btn-outline-secondary btn-sm">Discard Import</button>
+      <button id="btn-delete-import" class="btn btn-outline-secondary btn-sm">
+        Discard Import
+      </button>
       <button id="btn-import-records" class="btn btn-primary btn-sm ms-1">Import Records</button>
     </div>
     {% endif %}
@@ -246,6 +261,7 @@
         <div class="flex-fill d-flex">
           <div class="dropdown me-2">
             <button
+              ref="fieldTogglesBtn"
               class="btn btn-secondary btn-sm dropdown-toggle"
               type="button"
               id="field-toggles"
@@ -257,9 +273,15 @@
               of
               <span class="all-count">{{ fields | length }}</span>
             </button>
-            <ul class="dropdown-menu dropdown-menu-dark" aria-labelledby="field-toggles">
+            <ul
+              ref="fieldTogglesList"
+              class="dropdown-menu dropdown-menu-dark"
+              aria-labelledby="field-toggles"
+            >
               <li class="px-2">
                 <input
+                  ref="fieldTogglesSearch"
+                  @keyup="onFieldTogglesSearch"
                   id="field-toggles-search"
                   type="text"
                   class="form-control"
@@ -269,11 +291,19 @@
               <li>
                 <div class="dropdown-item d-flex align-items-center">
                   <span class="me-2"> Select </span>
-                  <button type="button" class="btn btn-link btn-sm link-light select-all">
+                  <button
+                    @click="onFieldTogglesAll"
+                    type="button"
+                    class="btn btn-link btn-sm link-light select-all"
+                  >
                     All
                   </button>
                   /
-                  <button type="button" class="btn btn-link btn-sm link-light select-none">
+                  <button
+                    @click="onFieldTogglesNone"
+                    type="button"
+                    class="btn btn-link btn-sm link-light select-none"
+                  >
                     None
                   </button>
                 </div>
@@ -299,7 +329,6 @@
     </div>
 
     <div ref="top-pagination" class="d-none d-md-block"></div>
-
 
     {% if not theImport and not view and not isIFRAME %}
     <div class="dropdown ms-1">

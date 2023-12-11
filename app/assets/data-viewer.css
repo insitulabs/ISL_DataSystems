@@ -206,6 +206,24 @@
   min-height: 50vh;
 }
 
+.note > button {
+  right: 15px;
+  top: 5px;
+  opacity: 0.2;
+  transition: opacity 0.2s ease-in;
+}
+
+.note:hover > button {
+  opacity: 1;
+}
+
+.note .alert.truncate {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  overflow: hidden;
+}
+
 @media only screen and (max-width: 620px) {
   .pagination .page-item:not(.active):not(.first):not(.last):not(.previous):not(.next) {
     display: none;
