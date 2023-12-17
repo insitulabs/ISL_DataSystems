@@ -188,6 +188,11 @@ Vue.createApp({
         this.$refs.destination.focus();
       });
     }
+
+    // Init Bootstrap popovers (help tips)
+    document.querySelectorAll('[data-bs-toggle="popover"]').forEach((popoverTriggerEl) => {
+      return new bootstrap.Popover(popoverTriggerEl);
+    });
   },
 
   methods: {
