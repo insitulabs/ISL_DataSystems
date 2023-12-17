@@ -8,6 +8,8 @@ Vue.createApp({
       destinationFields: [],
       destinationSamples: [],
       destinationSampleIndex: 0,
+      destinationOverrideFields: {},
+      destinationOverrideValues: {},
       linkInSource: null,
       linkInDestination: null,
       loading: false,
@@ -19,7 +21,8 @@ Vue.createApp({
       error: window._sources.length === 0 ? 'Access denied. No editable sources.' : null,
       created: null,
       fieldSearch: '',
-      enableLinkBack: false
+      enableLinkBack: false,
+      duplicateCount: 1
     };
   },
 
@@ -29,11 +32,14 @@ Vue.createApp({
     },
 
     destinationSample() {
-      if (this.destinationSamples.length > this.destinationSampleIndex) {
-        return this.destinationSamples[this.destinationSampleIndex];
+      if (this.isDuplicate) {
+        return this.submissions[this.submissionIndex].data;
+      } else {
+        if (this.destinationSamples.length > this.destinationSampleIndex) {
+          return this.destinationSamples[this.destinationSampleIndex];
+        }
+        return {};
       }
-
-      return {};
     },
 
     availableDestinationFields() {
@@ -125,6 +131,14 @@ Vue.createApp({
 
       // create an array of pages to ng-repeat in the pager control
       return Array.from(Array(endPage + 1 - startPage).keys()).map((i) => startPage + i);
+    },
+
+    /**
+     * Are we duplicating records for the same source?
+     * @return {boolean}
+     */
+    isDuplicate() {
+      return this.source._id === this.destinationId;
     }
   },
 
@@ -166,9 +180,14 @@ Vue.createApp({
   },
 
   mounted() {
-    this.$nextTick(() => {
-      this.$refs.destination.focus();
-    });
+    if (window._destination) {
+      this.destinationId = window._destination._id;
+      this.destinationName = window._destination.name;
+    } else {
+      this.$nextTick(() => {
+        this.$refs.destination.focus();
+      });
+    }
   },
 
   methods: {
@@ -214,6 +233,8 @@ Vue.createApp({
             }
             this.linkInSource = linkInSource ? linkInSource : null;
             this.linkInDestination = linkInDestination ? linkInDestination : null;
+            this.destinationOverrideFields = {};
+            this.destinationOverrideValues = {};
           });
         })
         .catch((err) => {
@@ -256,13 +277,27 @@ Vue.createApp({
       }
 
       this.saving = true;
-      let toCopy = this.submissions.map((s) => {
-        let dto = {};
-        for (const [sourceField, destField] of Object.entries(this.mapping)) {
-          dto[destField] = s.data[sourceField];
-        }
+      let toCopy = [];
+      this.submissions.map((s) => {
+        for (let i = 0; i < this.duplicateCount; i++) {
+          let dto = {};
+          for (const [sourceField, destField] of Object.entries(this.mapping)) {
+            dto[destField] = s.data[sourceField];
+          }
 
-        return dto;
+          // Override any fields.
+          for (const [field, isOverride] of Object.entries(this.destinationOverrideFields)) {
+            if (isOverride) {
+              dto[field] = this.destinationOverrideValues[field];
+              // Ensure we save nulls not empty strings for blank values.
+              if (dto[field] === '') {
+                dto[field] = null;
+              }
+            }
+          }
+
+          toCopy.push(dto);
+        }
       });
 
       $api(`/api/source/${this.destinationId}/submission`, {
@@ -299,14 +334,27 @@ Vue.createApp({
           }
         })
         .then((links) => {
-          if (links && window?.parent) {
-            let updates = links.map((l) => {
-              return { id: l.ids[0], field: this.linkInSource, value: l.value, html: l.html };
-            });
-            window.parent.postMessage({
-              action: 'copy-to-updates',
-              updates
-            });
+          if (window?.parent) {
+            if (links) {
+              let updates = links.map((l) => {
+                return { id: l.ids[0], field: this.linkInSource, value: l.value, html: l.html };
+              });
+              window.parent.postMessage({
+                action: 'copy-to-updates',
+                updates
+              });
+            }
+
+            if (this.isDuplicate && this.created) {
+              window.parent.postMessage({
+                action: 'copy-to-duplicates',
+                created: this.created.map((s) => {
+                  return {
+                    _id: s._id
+                  };
+                })
+              });
+            }
           }
         })
         .catch((error) => {
@@ -341,6 +389,27 @@ Vue.createApp({
       }
 
       return true;
+    },
+
+    /**
+     * Change handler for overriding a destination field.
+     * @param {string} id The destination field ID.
+     * @param {Event} event The checkbox change event.
+     */
+    onOverride(id, event) {
+      if (event.target.checked) {
+        this.destinationOverrideFields[id] = true;
+        this.$nextTick(() => {
+          let refId = `override-${id}`;
+          if (this.$refs[refId]) {
+            let ref = Array.isArray(this.$refs[refId]) ? this.$refs[refId][0] : this.$refs[refId];
+            ref.select();
+          }
+        });
+      } else {
+        this.destinationOverrideFields[id] = false;
+        delete this.destinationOverrideValues[id];
+      }
     }
   }
 }).mount('#app');
