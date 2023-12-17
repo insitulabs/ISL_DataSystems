@@ -9,13 +9,14 @@
     flex: 0 0 2rem;
   }
   .w-override {
-    width: 75px;
+    width: 100px;
+    white-space: nowrap;
   }
 </style>
 {% endblock %}
 
 {% block content %}
-<div id="app" v-cloak class="my-2 container-xxl">
+<div id="app" v-cloak class="my-2 container-fluid">
   <div v-if="isDuplicate" class="row">
     <div class="col">
       <p>1. Select number of copies:</p>
@@ -285,7 +286,22 @@
           <tr>
             <th class="w-50">Field</th>
             <th>Data</th>
-            <th class="w-override">Override</th>
+            <th class="w-override">
+              Override
+              <a
+                tabindex="0"
+                class="btn btn-link btn-sm py-0"
+                role="button"
+                data-bs-toggle="popover"
+                data-bs-trigger="focus"
+                data-bs-content="
+                  Override the copied value with a fixed value for all copied submissions.
+                  <br><br>
+                  *Not available for sequence (auto-incrementing) fields.
+                  "
+                data-bs-html="true"
+                >?</a>
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -310,6 +326,7 @@
             </td>
             <td>
               <input
+                v-if="f?.meta?.type !== 'sequence'"
                 @change="onOverride(f.id, $event)"
                 type="checkbox"
                 class="form-check-input"
