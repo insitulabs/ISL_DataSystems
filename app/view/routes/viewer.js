@@ -1,6 +1,7 @@
 const CONFIG = require('../../config');
 const express = require('express');
 const path = require('path');
+const { ObjectId } = require('mongodb');
 const { formidable } = require('formidable');
 const { firstValues } = require('formidable/src/helpers/firstValues.js');
 const paginate = require('../paginate');
@@ -1830,7 +1831,7 @@ module.exports = function (opts) {
   });
 
   /**
-   * Render a source import page.
+   * Render a submission copy or duplicate page.
    */
   router.get('/source/:sourceId/copy-to', async (req, res, next) => {
     try {
@@ -1863,12 +1864,21 @@ module.exports = function (opts) {
         return currentUser.hasSourcePermission(s, CurrentUser.PERMISSIONS.WRITE);
       });
 
+      let destinationId =
+        req.query.destId && ObjectId.isValid(req.query.destId)
+          ? new ObjectId(req.query.destId)
+          : null;
+      let destination = destinationId
+        ? editableSources.find((s) => s._id.equals(destinationId))
+        : null;
+
       let model = {
         ...viewData,
         preventHeader: true,
         sources: editableSources,
         source,
         submissions,
+        destination,
         pageTitle: source.name + ' - Copy To',
         userCanLink: currentUser.hasSourcePermission(source, CurrentUser.PERMISSIONS.WRITE)
       };

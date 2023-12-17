@@ -79,7 +79,9 @@ Vue.createApp({
       anaOperationField,
       anaFieldSearch: '',
       isNoteExpanded: true,
-      showNoteToggle: false
+      showNoteToggle: false,
+      checkedSubmissions: [],
+      copyToModalTitle: ''
     };
   },
 
@@ -295,12 +297,13 @@ Vue.createApp({
       this.onHideFieldToggles(event);
     });
 
+    if (this.ORIGIN_TYPE === 'source') {
+      this.copyToModal = new bootstrap.Modal(this.$refs.copyToModal);
+    }
+
     if (this.isAnalyzeMode && this.validAnaParams) {
       this.analyze(this.anaQueryParams);
     }
-
-    window.addEventListener('resize', this.onResize);
-    this.onResize();
 
     // Fix bad chrome bug with back button and the bootstrap switch styles.
     if (/(\?|\&)deleted=1/.test(window.location.search)) {
@@ -329,6 +332,13 @@ Vue.createApp({
     if (prefs.hiddenFields) {
       this.updateExportLinks(prefs.hiddenFields);
     }
+
+    window.addEventListener('message', this.onIframeMessage);
+    window.addEventListener('resize', this.onResize);
+    this.$nextTick(() => {
+      // Add a tick so the note is the correct height before sizing.
+      this.onResize();
+    });
   },
 
   methods: {
@@ -345,6 +355,68 @@ Vue.createApp({
 
         let dataRect = this.$refs.data.getBoundingClientRect();
         this.$refs.data.style.height = window.innerHeight - dataRect.top + 'px';
+      }
+    },
+
+    /**
+     * Put user focus back on the data table.
+     * Focus on first row so keyboard works well with up/down.
+     */
+    focusOnDataTable() {
+      this.$refs.data.querySelector('> table tbody tr').focus();
+    },
+
+    /**
+     * React to messages sent from embedded iframes.
+     * @param {MessageEvent} event
+     */
+    onIframeMessage(event) {
+      if (event.origin !== window.location.origin || !event.data) {
+        return;
+      }
+
+      // Iframe load events
+      if (event.data?.action == 'load') {
+        let link = `<a href="/data-viewer/${event.data.value.type}/${event.data.value.id}"
+          target="_blank">
+          ${event.data.value.name}
+          <i class="bi bi-arrow-right-short align-middle"></i>
+        </a>`;
+
+        // Update the edit modal to show linked source and link
+        document
+          .getElementById('edit-modal')
+          .querySelector('.modal-dialog .modal-title').innerHTML = 'Select from ' + link;
+
+        // Update the lookup ref modal to show linked source and link
+        document
+          .getElementById('lookup-ref-modal')
+          .querySelector('.modal-dialog .modal-title').innerHTML = link;
+      } else if (event.data?.action === 'done-copy-to') {
+        this.copyToModal.hide();
+      } else if (event.data?.action === 'copy-to-updates') {
+        if (event.data.updates) {
+          event.data.updates.forEach((update) => {
+            let $td = this.$refs.data.querySelector(
+              `tr[data-id="${update.id}"] > td[data-field="${update.field}"]`
+            );
+            if ($td) {
+              $td.classList.add('editable', 'updated');
+              $td.dataset.value = update.value !== null ? update.value : '';
+              $td.innerHTML = update.html;
+            }
+          });
+        }
+      } else if (event.data?.action === 'copy-to-duplicates') {
+        // On duplicate records, fetch the current page of data, and try to highlight
+        // the new rows if they are on this page of data.
+        this.fetchFilters().then(() => {
+          event.data?.created.forEach((s) => {
+            this.$refs.data.querySelectorAll(`tr[data-id="${s._id}"] > td`).forEach(($td) => {
+              $td.classList.add('updated');
+            });
+          });
+        });
       }
     },
 
@@ -431,20 +503,21 @@ Vue.createApp({
 
     /**
      * Fetch and replace data with new filter.
+     * @return {Promise}
      */
     fetchFilters() {
       let params = this.queryParams;
       const url = '?' + params.toString();
-      $api(window.location.pathname + url + '&xhr=1')
+      return $api(window.location.pathname + url + '&xhr=1')
         .then((text) => {
           if (url !== window.location.search) {
             window.history.replaceState(null, '', url);
           }
-          let $data = document.getElementById('data');
-          $data.innerHTML = text;
+          this.$refs.data.innerHTML = text;
           this.updatePaginationPlacement();
 
           this.updateExportLinks(this.getFormPrefs().hiddenFields);
+          this.checkedSubmissions = [];
           this.onResize();
         })
         .catch((error) => {
@@ -474,6 +547,41 @@ Vue.createApp({
       let $addFilter = event.target.closest('.add-filter');
       if ($addFilter) {
         this.addFilter($addFilter.dataset.id, true);
+        return;
+      }
+
+      // Check all event handler
+      let $checkAll = document.getElementById('check-all');
+      if ($checkAll && (event.target === $checkAll || event.target.matches('th.checkbox'))) {
+        if (event.target.matches('th.checkbox')) {
+          $checkAll.checked = !$checkAll.checked;
+          $checkAll.indeterminate = false;
+        }
+
+        let checked = $checkAll.checked;
+        let indeterminate = $checkAll.indeterminate;
+        let checkAll = checked && !indeterminate;
+
+        let $checks = this.$refs.data.querySelectorAll('.submission-check');
+        $checks.forEach((el) => {
+          el.checked = checkAll;
+        });
+        this.onCheckedChange();
+        return;
+      }
+
+      // Row check event handler
+      if (event.target.closest('.submission-check')) {
+        this.onCheckedChange();
+        return;
+      }
+
+      // Checkbox TD helper.
+      if (event.target.classList.contains('for-submission-check')) {
+        let $checkbox = event.target.querySelector('.submission-check');
+        $checkbox.checked = !$checkbox.checked;
+        this.onCheckedChange();
+        return;
       }
     },
 
@@ -713,6 +821,91 @@ Vue.createApp({
       }).catch((error) => {
         alert(error && error.message ? error.message : error);
       });
+    },
+
+    /**
+     * Handle submission selection checkbox logic.
+     */
+    onCheckedChange() {
+      let $checkAll = document.getElementById('check-all');
+      let $data = this.$refs.data;
+      this.checkedSubmissions = [...$data.querySelectorAll('.submission-check:checked')].map(
+        ($check) => {
+          return $check.dataset.id;
+        }
+      );
+
+      if ($checkAll && $checkAll.checked) {
+        let total = $data.querySelectorAll('.submission-check').length;
+        $checkAll.indeterminate = total !== this.checkedSubmissions.length;
+      }
+    },
+
+    /**
+     * Copy To or Duplicate button handler. Will show the correct modal.
+     * @param {bolean} isDuplicate True if this is a duplication.
+     */
+    onCopyToBtn(isDuplicate = false) {
+      if (!this.checkedSubmissions.length) {
+        return;
+      }
+
+      if (this.checkedSubmissions.length > 50) {
+        alert(
+          `Copying more than 50 records at a time is not supported at this time. Try an export import instead.`
+        );
+        return;
+      }
+
+      this.copyToModalTitle = `${isDuplicate ? 'Duplicate' : 'Copy'} ${
+        this.checkedSubmissions.length
+      } ${this.checkedSubmissions.length > 1 ? 'submissions' : 'submission'}`;
+
+      let $iframe = document.createElement('iframe');
+      $iframe.classList.add('copy-to');
+      let params = new URLSearchParams();
+      if (isDuplicate) {
+        params.set('destId', this.ORIGIN_ID);
+      }
+
+      this.checkedSubmissions.forEach((id) => {
+        params.append('id', id);
+      });
+      $iframe.setAttribute(
+        'src',
+        `/data-viewer/source/${this.ORIGIN_ID}/copy-to?${params.toString()}`
+      );
+      this.$refs.copyToModal.querySelector('.modal-body').replaceChildren($iframe);
+      this.copyToModal.show();
+    },
+
+    /**
+     * Delete or archive button handler.
+     * @param {boolean} isRestore True if this is a restore.
+     */
+    onArchiveBtn(isRestore = false) {
+      let count = this.checkedSubmissions.length;
+      if (this.ORIGIN_TYPE === 'source' && !count) {
+        return;
+      }
+
+      let operation = isRestore ? 'restore' : 'delete';
+      let label = isRestore ? 'restore' : 'archive';
+      let noun = count > 1 ? 'submissions' : 'submission';
+      let prompt = `Are you sure you want to ${label} ${count} ${noun}?`;
+
+      if (confirm(prompt)) {
+        $api(`/api/${ORIGIN_TYPE}/${ORIGIN_ID}/submissions/${operation}`, {
+          method: 'POST',
+          body: JSON.stringify(this.checkedSubmissions)
+        })
+          .then(() => {
+            window.location.reload();
+          })
+          .catch((error) => {
+            alert(error && error.message ? error.message : error);
+          });
+      }
     }
   }
 }).mount('body > main');

@@ -505,90 +505,10 @@ if (IS_IFRAME) {
       } else if (event.data?.action == 'cancel') {
         editModal.modal.hide();
         focusOnDataTable();
-      } else if (event.data?.action == 'load') {
-        let link = `<a href="/data-viewer/${event.data.value.type}/${event.data.value.id}"
-          target="_blank">
-          ${event.data.value.name}
-          <i class="bi bi-arrow-right-short align-middle"></i>
-        </a>`;
-        editModal.$el.querySelector('.modal-dialog .modal-title').innerHTML = 'Select from ' + link;
       }
     },
     false
   );
-}
-
-// #######################################################
-// # CHECKBOX LOGIC
-// #######################################################
-let CHECKED_SUBMISSIONS = [];
-if (!IS_IFRAME) {
-  let $checkAll = document.getElementById('check-all');
-  const onCheckedChange = function () {
-    CHECKED_SUBMISSIONS = [...$data.querySelectorAll('.submission-check:checked')].map(($check) => {
-      return $check.dataset.id;
-    });
-
-    if ($checkAll && $checkAll.checked) {
-      let total = $data.querySelectorAll('.submission-check').length;
-      $checkAll.indeterminate = total !== CHECKED_SUBMISSIONS.length;
-    }
-
-    let $copyToBtn = document.getElementById('copy-to-btn');
-    if ($copyToBtn) {
-      if (CHECKED_SUBMISSIONS.length) {
-        $copyToBtn.removeAttribute('disabled');
-      } else {
-        $copyToBtn.setAttribute('disabled', 'disabled');
-      }
-    }
-
-    let $delSubmissionBtn = document.getElementById('delete-btn');
-    if ($delSubmissionBtn) {
-      if (CHECKED_SUBMISSIONS.length) {
-        $delSubmissionBtn.removeAttribute('disabled');
-      } else {
-        $delSubmissionBtn.setAttribute('disabled', 'disabled');
-      }
-    }
-  };
-
-  $data.addEventListener('click', (event) => {
-    let $checkAll = document.getElementById('check-all');
-
-    // Check all event handler
-    if ($checkAll && (event.target === $checkAll || event.target.matches('th.checkbox'))) {
-      if (event.target.matches('th.checkbox')) {
-        $checkAll.checked = !$checkAll.checked;
-        $checkAll.indeterminate = false;
-      }
-
-      let checked = $checkAll.checked;
-      let indeterminate = $checkAll.indeterminate;
-      let checkAll = checked && !indeterminate;
-
-      let $checks = $data.querySelectorAll('.submission-check');
-      $checks.forEach((el) => {
-        el.checked = checkAll;
-      });
-      onCheckedChange();
-      return;
-    }
-
-    // Row check event handler
-    if (event.target.closest('.submission-check')) {
-      onCheckedChange();
-      return;
-    }
-
-    // Checkbox TD helper.
-    if (event.target.classList.contains('for-submission-check')) {
-      let $checkbox = event.target.querySelector('.submission-check');
-      $checkbox.checked = !$checkbox.checked;
-      onCheckedChange();
-      return;
-    }
-  });
 }
 
 // #######################################################
@@ -882,110 +802,6 @@ window.onAttachmentPreviewError = function (img) {
 };
 
 // #######################################################
-// # COPY TO LOGIC (Source Only)
-// #######################################################
-
-if (ORIGIN_TYPE === 'source') {
-  let $copyToModal = document.getElementById('copy-to-modal');
-  const copyTo = {
-    $el: $copyToModal,
-    modal: new bootstrap.Modal($copyToModal)
-  };
-
-  copyTo.$el.addEventListener('shown.bs.modal', (event) => {
-    let $iframe = document.createElement('iframe');
-    $iframe.classList.add('copy-to');
-
-    if (!CHECKED_SUBMISSIONS.length) {
-      copyTo.modal.hide();
-      return;
-    }
-    if (CHECKED_SUBMISSIONS.length > 50) {
-      alert(
-        `Copying more than 50 records at a time is not supported at this time. Try an export import instead.`
-      );
-      copyTo.modal.hide();
-      return;
-    }
-
-    $iframe.setAttribute(
-      'src',
-      `/data-viewer/source/${ORIGIN_ID}/copy-to?id=${CHECKED_SUBMISSIONS.join('&id=')}`
-    );
-    copyTo.$el.querySelector('.modal-title .count').innerText =
-      CHECKED_SUBMISSIONS.length +
-      ' ' +
-      (CHECKED_SUBMISSIONS.length > 1 ? 'Submissions' : 'Submission');
-    copyTo.$el.querySelector('.modal-body').replaceChildren($iframe);
-  });
-
-  window.addEventListener('message', (event) => {
-    if (event.origin !== window.location.origin || !event.data) {
-      return;
-    }
-
-    if (event.data?.action == 'load') {
-      let link = `<a href="/data-viewer/${event.data.value.type}/${event.data.value.id}"
-      target="_blank">
-      ${event.data.value.name}
-      <i class="bi bi-arrow-right-short align-middle"></i>
-    </a>`;
-      editModal.$el.querySelector('.modal-dialog .modal-title').innerHTML = 'Select from ' + link;
-    } else if (event.data?.action === 'done-copy-to') {
-      copyTo.modal.hide();
-    } else if (event.data?.action === 'copy-to-updates') {
-      if (event.data.updates) {
-        event.data.updates.forEach((update) => {
-          let $td = $data.querySelector(
-            `tr[data-id="${update.id}"] > td[data-field="${update.field}"]`
-          );
-          if ($td) {
-            $td.classList.add('editable', 'updated');
-            $td.dataset.value = update.value !== null ? update.value : '';
-            $td.innerHTML = update.html;
-          }
-        });
-      }
-    }
-  });
-}
-
-// #######################################################
-// # DELETE SUBMISSION LOGIC
-// #######################################################
-
-if (ORIGIN_TYPE === 'source') {
-  document.addEventListener('click', (event) => {
-    let $deleteBtn = event.target.closest('#delete-btn');
-    if (!CHECKED_SUBMISSIONS.length) {
-      return;
-    }
-
-    if ($deleteBtn && CHECKED_SUBMISSIONS.length) {
-      let label = CHECKED_SUBMISSIONS.length > 1 ? 'submissions' : 'submission';
-      let operation = 'delete';
-      let prompt = `Are you sure you want to archive ${CHECKED_SUBMISSIONS.length} ${label}?`;
-      if ($deleteBtn.classList.contains('restore')) {
-        operation = 'restore';
-        prompt = `Are you sure you want to restore ${CHECKED_SUBMISSIONS.length} ${label}?`;
-      }
-      if (confirm(prompt)) {
-        $api(`/api/${ORIGIN_TYPE}/${ORIGIN_ID}/submissions/${operation}`, {
-          method: 'POST',
-          body: JSON.stringify(CHECKED_SUBMISSIONS)
-        })
-          .then(() => {
-            window.location.reload();
-          })
-          .catch((error) => {
-            alert(error && error.message ? error.message : error);
-          });
-      }
-    }
-  });
-}
-
-// #######################################################
 // # LINKED DATA PREVIEW LOGIC
 // #######################################################
 
@@ -1036,14 +852,7 @@ window.addEventListener('message', (event) => {
     return;
   }
 
-  if (event.data?.action == 'load') {
-    let link = `<a href="/data-viewer/${event.data.value.type}/${event.data.value.id}"
-      target="_blank">
-      ${event.data.value.name}
-      <i class="bi bi-arrow-right-short align-middle"></i>
-    </a>`;
-    $lookupRefModal.querySelector('.modal-dialog .modal-title').innerHTML = link;
-  } else if (event.data?.action == 'cancel') {
+  if (event.data?.action == 'cancel') {
     lookupRefModal.hide();
     focusOnDataTable();
   }
