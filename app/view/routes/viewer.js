@@ -125,7 +125,8 @@ const mapSubmissionsForUI = function (results = [], isEditable = false) {
 };
 
 const sendCSV = function (res, fileName, fields, submissions, next) {
-  res.set('Content-disposition', `attachment; filename="${fileName}.csv"`);
+  let encodedFileName = encodeURIComponent(fileName);
+  res.setHeader('Content-Disposition', "attachment;filename*=UTF-8''" + encodedFileName + '.csv');
   res.type('text/csv');
   writeToBuffer(submissions, {
     headers: fields.map((f) => {
