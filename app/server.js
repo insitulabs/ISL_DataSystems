@@ -128,7 +128,7 @@ const emailValidator = require('./lib/email-validator');
 
   // Setup appropriate asset libraries for the UI.
   app.use((req, res, next) => {
-    res.locals.libVue = CONFIG.IS_LOCAL_DEV_ENV ? 'vue.global.js' : 'vue.global.prod.min.js';
+    res.locals.libVue = CONFIG.IS_LOCAL_DEV_ENV ? 'vue.global.js' : 'vue.global.prod.js';
     next();
   });
 
