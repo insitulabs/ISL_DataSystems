@@ -28,7 +28,7 @@
 {% endif %}
 
 <table class="table sticky-header table-bordered">
-  <thead class="table-light">
+  <thead>
     <tr>
       <th class="checkbox">
         {% if not isIFRAME %}
@@ -45,7 +45,7 @@
             class="{% if column.sortable %} sortable text-nowrap {% endif %} {% if column.isSorted %} is-sorted {% endif %}">
           {% if column.sortable %}
             <a href="{{ column.url }}"
-                class="text-decoration-none {% if column.isSorted %} link-dark {{ column.isSorted }} {% else %} text-secondary {% endif %}">
+                class="text-decoration-none {% if column.isSorted %} link-body-emphasis {{ column.isSorted }} {% else %} text-secondary {% endif %}">
               {{ column.displayName | safe }}
               <i class="bi bi-sort-down"></i>
             </a>

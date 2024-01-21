@@ -20,7 +20,7 @@
       </div>
       <div class="modal-footer justify-content-between">
         <div>
-          <button type="button" class="btn btn-primary rotate-btn clockwise">
+          <button type="button" class="btn btn-primary rotate-btn clockwise me-1">
             <i class="bi bi-arrow-clockwise"></i>
             Rotate
           </button>
@@ -32,7 +32,7 @@
         <div>
           {% if attachment.editable %}
           <button
-            class="btn btn-danger delete-attachment"
+            class="btn btn-danger delete-attachment me-1"
             data-submission-id="{{ submission.id }}"
             data-submission-sub-index="{{ submission.subIndex }}"
             data-id="{{ attachment.id }}"

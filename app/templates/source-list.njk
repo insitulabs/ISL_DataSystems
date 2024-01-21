@@ -50,28 +50,28 @@
   </form>
   <div class="table-responsive-md">
     <table class="table sticky-header table-striped table-bordered mt-1">
-      <thead class="table-light">
+      <thead>
         <tr>
           <th scope="col" class="{{ 'is-sorted' if sort === "system" }}">
-            <a href="{{ sortLinks.system }}" class="text-decoration-none {{ order }} {{ "link-dark" if sort === "system" else "text-secondary" }}">
+            <a href="{{ sortLinks.system }}" class="text-decoration-none {{ order }} {{ "link-body-emphasis" if sort === "system" else "text-secondary" }}">
               System
               <i class="bi bi-sort-down"></i>
             </a>
           </th>
           <th scope="col" class="{{ 'is-sorted' if sort === "namespace" }}">
-            <a href="{{ sortLinks.namespace }}" class="text-decoration-none {{ order }} {{ "link-dark" if sort === "namespace" else "text-secondary" }}">
+            <a href="{{ sortLinks.namespace }}" class="text-decoration-none {{ order }} {{ "link-body-emphasis" if sort === "namespace" else "text-secondary" }}">
               Namespace
               <i class="bi bi-sort-down"></i>
             </a>
           </th>
           <th scope="col" class="{{ 'is-sorted' if sort === "name" }}">
-            <a href="{{ sortLinks.name }}" class="text-decoration-none {{ order }} {{ "link-dark" if sort === "name" else "text-secondary" }}">
+            <a href="{{ sortLinks.name }}" class="text-decoration-none {{ order }} {{ "link-body-emphasis" if sort === "name" else "text-secondary" }}">
               Name
               <i class="bi bi-sort-down"></i>
             </a>
           </th>
           <th scope="col" class="{{ 'is-sorted' if sort === "created" }}">
-            <a href="{{ sortLinks.created }}" class="text-decoration-none {{ order }} {{ "link-dark" if sort === "created" else "text-secondary" }}">
+            <a href="{{ sortLinks.created }}" class="text-decoration-none {{ order }} {{ "link-body-emphasis" if sort === "created" else "text-secondary" }}">
               Created
               <i class="bi bi-sort-down"></i>
             </a>

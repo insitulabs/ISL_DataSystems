@@ -41,13 +41,13 @@
       <thead>
         <tr>
           <th class="{{ 'is-sorted' if sort === "name" }}">
-            <a href="{{ sortLinks.name }}" class="text-decoration-none {{ order }} {{ "link-dark" if sort === "name" else "text-secondary" }}">
+            <a href="{{ sortLinks.name }}" class="text-decoration-none {{ order }} {{ "link-body-emphasis" if sort === "name" else "text-secondary" }}">
               Name
               <i class="bi bi-sort-down"></i>
             </a>
           </th>
           <th class="{{ 'is-sorted' if sort === "created" }}">
-            <a href="{{ sortLinks.created }}" class="text-decoration-none {{ order }} {{ "link-dark" if sort === "created" else "text-secondary" }}">
+            <a href="{{ sortLinks.created }}" class="text-decoration-none {{ order }} {{ "link-body-emphasis" if sort === "created" else "text-secondary" }}">
               Created
               <i class="bi bi-sort-down"></i>
             </a>

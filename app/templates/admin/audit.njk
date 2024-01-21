@@ -11,19 +11,19 @@
       <thead>
         <tr>
           <th scope="col" class="created {{ 'is-sorted' if sort === "created" }}">
-            <a href="{{ sortLinks.created }}" class="text-decoration-none {{ order }} {{ "link-dark" if sort === "created" else "text-secondary" }}">
+            <a href="{{ sortLinks.created }}" class="text-decoration-none {{ order }} {{ "link-body-emphasis" if sort === "created" else "text-secondary" }}">
               Created
               <i class="bi bi-sort-down"></i>
             </a>
           </th>
           <th scope="col" class="email {{ 'is-sorted' if sort === "email" }}">
-            <a href="{{ sortLinks.email }}" class="text-decoration-none {{ order }} {{ "link-dark" if sort === "email" else "text-secondary" }}">
+            <a href="{{ sortLinks.email }}" class="text-decoration-none {{ order }} {{ "link-body-emphasis" if sort === "email" else "text-secondary" }}">
               Actor
               <i class="bi bi-sort-down"></i>
             </a>
           </th>
           <th scope="col" class="type {{ 'is-sorted' if sort === "type" }}">
-            <a href="{{ sortLinks.type }}" class="text-decoration-none {{ order }} {{ "link-dark" if sort === "type" else "text-secondary" }}">
+            <a href="{{ sortLinks.type }}" class="text-decoration-none {{ order }} {{ "link-body-emphasis" if sort === "type" else "text-secondary" }}">
               Type
               <i class="bi bi-sort-down"></i>
             </a>

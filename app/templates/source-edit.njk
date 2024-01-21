@@ -165,7 +165,7 @@
     </div>
     -->
 
-    <div class="row sticky-top bg-white py-2 mt-4">
+    <div class="row sticky-top bg-body-secondary py-2 mt-4">
       <div class="col-10 d-flex align-items-center justify-content-between">
         <div class="input-group">
           <span class="input-group-text" id="basic-addon1">
@@ -195,13 +195,13 @@
         class="row mb-1"
       >
         <div class="col-10">
-          <div :class="{'bg-light': index % 2 === 0}">
+          <div :class="{'bg-body-tertiary': index % 2 === 0}">
             <div class="input-group">
               <div class="form-floating flex-fill">
                 <input
                   type="text"
                   class="form-control"
-                  :class="{'bg-light': index % 2 === 0, 'no-rounded-bottom-left': hasMetaOptions(field)}"
+                  :class="{'bg-body-tertiary': index % 2 === 0, 'no-rounded-bottom-left': hasMetaOptions(field)}"
                   :id="`field-${field.id}`"
                   :placeholder="field.id"
                   @input="updateFieldName(field.id, $event)"
@@ -214,7 +214,7 @@
               <div class="form-floating field-type">
                 <select
                   class="form-select"
-                  :class="{empty: !field.meta.type, 'bg-light': index % 2 === 0}"
+                  :class="{empty: !field.meta.type, 'bg-body-tertiary': index % 2 === 0}"
                   v-model="field.meta.type"
                 >
                   <option value=""></option>
@@ -260,7 +260,7 @@
           <div
             v-if="hasMetaOptions(field)"
             class="d-flex justify-content-end border border-top-0 p-2 rounded-bottom"
-            :class="{'bg-light': index % 2 === 0}"
+            :class="{'bg-body-tertiary': index % 2 === 0}"
           >
             <div v-if="field?.meta?.type === 'sequence'" class="input-group w-50">
               <div class="form-floating">
