@@ -42,7 +42,7 @@
   overflow-y: auto;
 }
 
-.dropdown-menu {
+main .dropdown-menu {
   max-height: 75vh;
   overflow-y: auto;
   /* 1 more than sticky top */
@@ -129,6 +129,11 @@
   /* TODO Look to bring back if people don't like updated cells persisting until page refresh. */
   /* animation: edit-fade 5s; */
   background-color: #fffd9c;
+}
+
+[data-bs-theme=dark] #data td.updated {
+  background-color: var(--bs-warning);
+  color: var(--bs-dark) !important;
 }
 
 #new-submission-modal .modal-body {
