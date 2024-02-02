@@ -766,6 +766,9 @@ Vue.createApp({
             `
             #data > table [data-field="${field}"] {
               display: none;
+            }
+            #data > table [data-field^="${field}["] {
+              display: none;
             }`
           );
         }, '');

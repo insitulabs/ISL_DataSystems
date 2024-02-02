@@ -321,6 +321,7 @@ editModal.$type.addEventListener('change', (event) => {
 
 if (IS_IFRAME) {
   const IFRAME_ACTION = window.frameElement.dataset.action || 'select';
+  $data.setAttribute('data-iframe-action', IFRAME_ACTION);
 
   document.addEventListener('keyup', (event) => {
     if (event.key === 'Escape') {

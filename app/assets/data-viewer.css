@@ -75,8 +75,8 @@ main .dropdown-menu {
 }
 
 #data[data-type='view'] table td.multi-active {
-  /* outline: 2px dotted #c78533; */
-  background: #fffb0050;
+  --bs-table-accent-bg: rgba(var(--bs-warning-rgb), .30);
+  --bs-table-bg: rgba(var(--bs-warning-rgb), .30);
 }
 
 #data td.editable:hover {
@@ -85,10 +85,10 @@ main .dropdown-menu {
   color: var(--bs-table-active-color);
 }
 
-#data[data-iframe='true'] tr:hover {
+#data[data-iframe-action='select'] tbody > tr:hover {
   cursor: pointer;
-  --bs-table-accent-bg: #fffb0050;
-  --bs-table-bg: #fffb0050;
+  --bs-table-accent-bg: rgba(var(--bs-warning-rgb), .30);
+  --bs-table-bg: rgba(var(--bs-warning-rgb), .30);
 }
 
 #data th.checkbox {
@@ -134,6 +134,9 @@ main .dropdown-menu {
 [data-bs-theme=dark] #data td.updated {
   background-color: var(--bs-warning);
   color: var(--bs-dark) !important;
+}
+[data-bs-theme=dark] #data td.updated a {
+  color: var(--bs-dark);
 }
 
 #new-submission-modal .modal-body {

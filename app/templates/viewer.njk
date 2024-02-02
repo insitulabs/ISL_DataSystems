@@ -9,6 +9,9 @@
     #data > table [data-field="{{ f }}"] {
       display: none;
     }
+    #data > table [data-field^="{{ f }}["] {
+      display: none;
+    }
   {% endfor %}
 </style>
 {% endif %}
@@ -331,12 +334,16 @@
               </li>
               {% for f in fields %}
               <li class="toggle" data-id="{{ f.id }}" data-name="{{ f.name }}">
-                <div class="dropdown-item">
+                <div class="dropdown-item p-0">
                   <div class="form-check">
-                    <input class="form-check-input" type="checkbox" value="{{ f.id }}"
-                    id="field-toggle-{{ f.id }}" {% if hiddenFieldsAsObj[f.id] !== true %} checked
-                    {% endif %}>
-                    <label class="form-check-label d-block" for="field-toggle-{{ f.id }}">
+                    <label class="form-check-label d-block py-0 px-3" for="field-toggle-{{ f.id }}">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        value="{{ f.id }}"
+                        id="field-toggle-{{ f.id }}"
+                        {% if hiddenFieldsAsObj[f.id] !== true %} checked {% endif %}
+                      >
                       {{ f.name }}
                     </label>
                   </div>
@@ -439,7 +446,14 @@
     </div>
     {% endif %}
   </div>
-  <div id="data" ref="data" @click="onDataElClick">
+  <div
+    id="data"
+    ref="data"
+    @click="onDataElClick"
+    data-type="{{ dataType }}"
+    data-id="{{ dataId }}"
+    data-name="{{ originName }}"
+  >
     <div
       id="data-loader"
       class="d-flex align-items-center justify-content-center position-fixed top-50 start-50 translate-middle"
@@ -471,7 +485,7 @@
               Group By
             </button>
             <ul class="dropdown-menu dropdown-menu-dark" aria-labelledby="ana-field-toggles">
-              <li class="px-2">
+              <li class="px-2 mb-2">
                 <input
                   type="text"
                   class="form-control"
@@ -481,16 +495,16 @@
                 />
               </li>
               <li v-for="f of anaVisibleSourceFields" :key="f.id">
-                <div class="dropdown-item">
+                <div class="dropdown-item p-0">
                   <div class="form-check">
-                    <input
-                      class="form-check-input"
-                      type="checkbox"
-                      :value="f.id"
-                      :id="'ana-key-toggle-' + f.id"
-                      v-model="anaKeys"
-                    />
-                    <label class="form-check-label d-block" :for="'ana-key-toggle-' + f.id">
+                    <label class="form-check-label d-block py-0 px-3" :for="'ana-key-toggle-' + f.id">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        :value="f.id"
+                        :id="'ana-key-toggle-' + f.id"
+                        v-model="anaKeys"
+                      />
                       ${ fieldName(f.id) }
                     </label>
                   </div>
