@@ -606,13 +606,14 @@ class View extends Base {
       let sortKey = this.getFieldKey(options.sort);
       sort[sortKey] = options.order === 'asc' ? 1 : -1;
 
+      // Include a unique value in our sort so Mongo doesn't screw up limit/skip operation.
+      sort._id = sort[sortKey];
+
       // When unwinding fields, make sure we respect the unwound order.
       if (unwindFields.size) {
         sort.subIndex = 1;
       }
 
-      // Include a unique value in our sort so Mongo doesn't screw up limit/skip operation.
-      sort._id = sort[sortKey];
       pipeline.push({
         $sort: sort
       });
