@@ -81,7 +81,9 @@ Vue.createApp({
       isNoteExpanded: true,
       showNoteToggle: false,
       checkedSubmissions: [],
-      copyToModalTitle: ''
+      copyToModalTitle: '',
+      isSavingNewSubmission: false,
+      newSubmission: {}
     };
   },
 
@@ -297,12 +299,25 @@ Vue.createApp({
       this.onHideFieldToggles(event);
     });
 
-    if (this.ORIGIN_TYPE === 'source') {
+    if (this.$refs.copyToModal) {
       this.copyToModal = new bootstrap.Modal(this.$refs.copyToModal);
     }
 
     if (this.isAnalyzeMode && this.validAnaParams) {
       this.analyze(this.anaQueryParams);
+    }
+
+    // #######################################################
+    // # NEW SUBMISSION LOGIC
+    // #######################################################
+    let $createModal = document.getElementById('new-submission-modal');
+    if ($createModal) {
+      $createModal.addEventListener('shown.bs.modal', (event) => {
+        let $firstInput = $createModal.querySelector('input.field-value');
+        if ($firstInput) {
+          $firstInput.focus();
+        }
+      });
     }
 
     // Fix bad chrome bug with back button and the bootstrap switch styles.
@@ -853,32 +868,41 @@ Vue.createApp({
         return;
       }
 
-      if (this.checkedSubmissions.length > 50) {
-        alert(
-          `Copying more than 50 records at a time is not supported at this time. Try an export import instead.`
-        );
-        return;
-      }
-
       this.copyToModalTitle = `${isDuplicate ? 'Duplicate' : 'Copy'} ${
         this.checkedSubmissions.length
       } ${this.checkedSubmissions.length > 1 ? 'submissions' : 'submission'}`;
 
       let $iframe = document.createElement('iframe');
       $iframe.classList.add('copy-to');
+      $iframe.setAttribute('name', 'copy-to-frame');
       let params = new URLSearchParams();
       if (isDuplicate) {
         params.set('destId', this.ORIGIN_ID);
       }
 
-      this.checkedSubmissions.forEach((id) => {
-        params.append('id', id);
-      });
-      $iframe.setAttribute(
-        'src',
-        `/data-viewer/source/${this.ORIGIN_ID}/copy-to?${params.toString()}`
-      );
       this.$refs.copyToModal.querySelector('.modal-body').replaceChildren($iframe);
+
+      // To avoid super long URLs for copying many entries, do a form POST of
+      // our list of submissions and direct the POST reponse to the iframe we created above.
+      let $copyForm = document.createElement('form');
+      $copyForm.style.display = 'none';
+      $copyForm.setAttribute('target', 'copy-to-frame');
+      $copyForm.setAttribute('method', 'POST');
+      $copyForm.setAttribute(
+        'action',
+        `/data-viewer/${this.ORIGIN_TYPE}/${this.ORIGIN_ID}/copy-to?${params.toString()}`
+      );
+      this.checkedSubmissions.forEach((id) => {
+        let $input = document.createElement('input');
+        $input.setAttribute('type', 'hidden');
+        $input.setAttribute('name', 'id');
+        $input.setAttribute('value', id);
+        $copyForm.appendChild($input);
+      });
+      document.body.appendChild($copyForm);
+      $copyForm.submit();
+      document.body.removeChild($copyForm);
+
       this.copyToModal.show();
     },
 
@@ -909,6 +933,38 @@ Vue.createApp({
             alert(error && error.message ? error.message : error);
           });
       }
+    },
+
+    /**
+     * Create a new submission from the modal data.
+     */
+    onNewSubmission() {
+      if (this.isSavingNewSubmission) {
+        return;
+      }
+
+      this.isSavingNewSubmission = true;
+      const submission = Object.keys(this.newSubmission).reduce((s, fieldId) => {
+        let value = this.newSubmission[fieldId]?.trim();
+        if (value) {
+          s[fieldId] = value;
+        }
+        return s;
+      }, {});
+
+      $api(`/api/source/${ORIGIN_ID}/submission`, {
+        method: 'POST',
+        body: JSON.stringify(submission)
+      })
+        .then(() => {
+          window.location.reload();
+        })
+        .catch((error) => {
+          alert(error && error.message ? error.message : error);
+        })
+        .finally(() => {
+          this.isSavingNewSubmission = false;
+        });
     }
   }
 }).mount('body > main');

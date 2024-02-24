@@ -26,6 +26,49 @@ class View extends Base {
   }
 
   /**
+   * Extract ID portion of view submission ID string.
+   * @param {String} idStr '65da0191fe898c4f53dec740[0]' or 65da0191fe898c4f53dec740'.
+   * @return {String}
+   */
+  static parseSubmissionId(idStr) {
+    let id = idStr,
+      subIndex = null,
+      match;
+    if (/\[\d+\]$/.test(id)) {
+      [match, id, subIndex] = id.match(/^([^\[]+)\[(\d+)\]$/);
+    }
+    return id;
+  }
+
+  /**
+   * Extract subIndex portion of view submission ID string or fieldId.
+   * @param {String} idStr '65da0191fe898c4f53dec740[0]' or blood[1]'.
+   * @return {Number|null}
+   */
+  static parseSubIndex(idStr) {
+    let id = idStr,
+      subIndex = null,
+      match;
+    if (/\[\d+\]$/.test(id)) {
+      [match, id, subIndex] = id.match(/^([^\[]+)\[(\d+)\]$/);
+      subIndex = parseInt(subIndex);
+      if (isNaN(subIndex)) {
+        throw new Errors.BadRequest('Invalid subIndex in ID: ' + idStr);
+      }
+    }
+    return subIndex;
+  }
+
+  /**
+   * Extract field id portion of view field ID string
+   * @param {String} idStr blood[1]'.
+   * @return {String}
+   */
+  static parseFieldId(idStr) {
+    return View.parseSubmissionId(idStr);
+  }
+
+  /**
    * Get a view by ID.
    * @param {String || ObjectId} id The ID of the view.
    * @return {Object} View
@@ -470,9 +513,13 @@ class View extends Base {
     $match.deleted = { $ne: true };
 
     // If we have an single ID filter, include it in match.
-    if (options.id && ObjectId.isValid(options.id)) {
-      $match._id = new ObjectId(options.id);
-      options.limit = -1;
+    if (options.id) {
+      if (ObjectId.isValid(options.id)) {
+        $match._id = new ObjectId(options.id);
+        options.limit = -1;
+      } else {
+        throw new Errors.BadRequest('Invalid ID filter param');
+      }
     }
 
     let pipeline = [

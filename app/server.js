@@ -39,6 +39,18 @@ const emailValidator = require('./lib/email-validator');
   const Audit = require('./db/audit').Audit;
   let appManager = new AppDB();
 
+  app.get('/status', noCacheMiddleware, (req, res) => {
+    res.send('Up and Up');
+  });
+
+  app.use('/assets', express.static(path.join(__dirname, 'assets')));
+
+  // Setup appropriate asset libraries for the UI.
+  app.use((req, res, next) => {
+    res.locals.libVue = CONFIG.IS_LOCAL_DEV_ENV ? 'vue.global.js' : 'vue.global.prod.js';
+    next();
+  });
+
   app.use(
     session({
       store: MongoStore.create({
@@ -119,18 +131,6 @@ const emailValidator = require('./lib/email-validator');
       }
     });
   };
-
-  app.get('/status', noCacheMiddleware, (req, res) => {
-    res.send('Up and Up');
-  });
-
-  app.use('/assets', express.static(path.join(__dirname, 'assets')));
-
-  // Setup appropriate asset libraries for the UI.
-  app.use((req, res, next) => {
-    res.locals.libVue = CONFIG.IS_LOCAL_DEV_ENV ? 'vue.global.js' : 'vue.global.prod.js';
-    next();
-  });
 
   /**
    * Extract workspace out of host domain.
@@ -396,7 +396,7 @@ const emailValidator = require('./lib/email-validator');
     if (!error.statusCode && !error.silent) {
       mailer.sendError(error, {
         url: req.originalUrl,
-        workspace: res.locals.workspace.name,
+        workspace: res.locals?.workspace?.name,
         user: res.locals.user ? res.locals.user.email : null
       });
     }

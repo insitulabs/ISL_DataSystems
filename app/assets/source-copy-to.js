@@ -14,7 +14,7 @@ Vue.createApp({
       linkInDestination: null,
       loading: false,
       mapping: {},
-      source: window._source,
+      origin: window._origin,
       submissions: window._submissions.slice(0),
       submissionIndex: 0,
       saving: false,
@@ -67,7 +67,7 @@ Vue.createApp({
 
     invalidLinkInSource() {
       if (this.linkInSource) {
-        return !this.source.fields.find((f) => f.id === this.linkInSource);
+        return !this.origin.fields.find((f) => f.id === this.linkInSource);
       }
     },
 
@@ -82,7 +82,7 @@ Vue.createApp({
         return false;
       }
 
-      if (!Object.keys(this.mapping).length) {
+      if (!Object.keys(this.mapping).filter(Boolean).length) {
         return false;
       }
 
@@ -138,7 +138,7 @@ Vue.createApp({
      * @return {boolean}
      */
     isDuplicate() {
-      return this.source._id === this.destinationId;
+      return this.origin._id === this.destinationId;
     }
   },
 
@@ -221,7 +221,7 @@ Vue.createApp({
 
           let linkInSource;
           let linkInDestination;
-          this.source.fields.forEach((f) => {
+          this.origin.fields.forEach((f) => {
             let df = this.destinationFields.find((df) => df.id === f.id);
             if (df && df?.meta?.type !== 'sequence') {
               this.mapping[f.id] = df.id;
@@ -283,11 +283,15 @@ Vue.createApp({
 
       this.saving = true;
       let toCopy = [];
+      let copiedItems = null;
       this.submissions.map((s) => {
         for (let i = 0; i < this.duplicateCount; i++) {
           let dto = {};
           for (const [sourceField, destField] of Object.entries(this.mapping)) {
-            dto[destField] = s.data[sourceField];
+            // Ensure we have valid data in our mapping
+            if (destField && sourceField) {
+              dto[destField] = s.data[sourceField];
+            }
           }
 
           // Override any fields.
@@ -310,7 +314,7 @@ Vue.createApp({
         body: JSON.stringify(toCopy)
       })
         .then((created) => {
-          this.created = created;
+          copiedItems = created;
 
           // If we are re-linking the copied submissions back to source:
           if (
@@ -327,7 +331,7 @@ Vue.createApp({
               formData.set('field', this.linkInSource);
               formData.set('value', value);
               formData.set('originType', 'source');
-              formData.set('originId', this.source._id);
+              formData.set('originId', this.origin._id);
 
               return $api('/data-viewer/api/edit/source', {
                 method: 'POST',
@@ -350,10 +354,10 @@ Vue.createApp({
               });
             }
 
-            if (this.isDuplicate && this.created) {
+            if (this.isDuplicate && copiedItems) {
               window.parent.postMessage({
                 action: 'copy-to-duplicates',
-                created: this.created.map((s) => {
+                created: copiedItems.map((s) => {
                   return {
                     _id: s._id
                   };
@@ -361,6 +365,8 @@ Vue.createApp({
               });
             }
           }
+
+          this.created = copiedItems;
         })
         .catch((error) => {
           console.error(error);
@@ -371,6 +377,9 @@ Vue.createApp({
         });
     },
 
+    /**
+     * Close/Done button event handler to single the parent frame to dismiss this window.
+     */
     done() {
       if (window && window.parent) {
         window.parent.postMessage({
@@ -379,6 +388,12 @@ Vue.createApp({
       }
     },
 
+    /**
+     * Should origin field be hidden because it's being filtered out.
+     * @param {String} id Field ID
+     * @param {String} name Field Name
+     * @return {Boolean} True if the field should be hidden.
+     */
     hideField(id, name) {
       let fieldSearch = this.fieldSearch.toLowerCase();
       if (!fieldSearch) {

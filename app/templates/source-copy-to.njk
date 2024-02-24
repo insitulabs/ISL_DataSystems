@@ -72,7 +72,7 @@
 
       <datalist id="destinations">
         {% for s in sources %}
-          {% if s._id.toString() !== source._id.toString() %}
+          {% if s._id.toString() !== origin._id.toString() %}
             <option value="{{ s._id }}">
               {{ s.name }}
             </option>
@@ -151,7 +151,7 @@
         />
       </div>
 
-      {% for f in source.fields %}
+      {% for f in origin.fields %}
       <div
         class="row"
         :class="{'d-none': hideField('{{ f.id }}', '{{ f.name }}')}"
@@ -201,12 +201,12 @@
             v-model="enableLinkBack"
           />
           <label class="form-check-label" for="enable-link-back">
-            Link new record(s) back to <b>{{ source.name}}</b>:
+            Link new record(s) back to <b>{{ origin.name }}</b>:
           </label>
         </div>
       </div>
     </div>
-    <div class="row">
+    <div v-if="!created && !isDuplicate" class="row">
       <div class="col">
         <div class="form-floating">
           <input
@@ -383,7 +383,7 @@
   </datalist>
 
   <datalist id="source-fields">
-    {% for f in source.fields %}
+    {% for f in origin.fields %}
     <option value="{{ f.id }}" {% if f.meta and f.meta.type === 'sequence' %} disabled {% endif %}>
       {{ f.name }}
       {% if f.meta and f.meta.type === 'sequence' %} (auto increment) {% endif %}
@@ -393,7 +393,7 @@
 </div>
 
 <script>
-  window._source = {{ source | dump | safe }};
+  window._origin = {{ origin | dump | safe }};
   window._sources = {{ sources | dump | safe }};
   window._submissions = {{ submissions | dump | safe }};
   window._destination = {{ destination | dump | safe }};

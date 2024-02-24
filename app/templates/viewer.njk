@@ -358,7 +358,7 @@
 
     <div ref="top-pagination" class="d-none d-md-block"></div>
 
-    {% if not theImport and not view and not isIFRAME %}
+    {% if not theImport and not isIFRAME %}
     <div class="dropdown ms-1">
       <button
         class="btn btn-secondary btn-sm dropdown-toggle"
@@ -383,6 +383,7 @@
         </li>
         {% endif %}
 
+        {% if not view %}
         <li>
           <button
             id="duplicate-btn"
@@ -395,6 +396,7 @@
             Duplicate
           </button>
         </li>
+        {% endif %}
 
         <li>
           <button
@@ -585,11 +587,23 @@
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="new-submission-modal-title">Create Submission</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        <h5
+          class="modal-title"
+          id="new-submission-modal-title"
+        >
+          Create Submission
+        </h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+          aria-label="Close"
+          :disabled="isSavingNewSubmission"
+        ></button>
       </div>
       <div class="modal-body">
-        {% for field in fields %} {% if field.editable %}
+        {% for field in fields %}
+        {% if field.editable %}
         <div class="row align-items-center py-1">
           <div class="col">
             <div class="form-floating flex-fill field">
@@ -601,31 +615,51 @@
                 disabled
                 value="{{ field.name if field.name !== field.id }}"
               />
-              <label for="new-submission-field-{{ field.id }}" class="text-secondary"
-                >{{ field.id }}</label
+              <label
+                for="new-submission-field-{{ field.id }}"
+                class="text-secondary"
               >
+                {{ field.id }}
+              </label>
             </div>
           </div>
           <div class="col">
-            <input type="text" name="{{ field.id }}" class="form-control field-value" {{ 'disabled'
-            if field.meta.type === 'sequence' }} {{ 'placeholder="[auto increment]"' | safe if
-            field.meta.type === 'sequence' }}/>
+            <input
+              type="text"
+              name="{{ field.id }}"
+              class="form-control field-value"
+              @keyup.enter="onNewSubmission"
+              v-model="newSubmission['{{ field.id }}']"
+              {{ 'disabled' if field.meta.type === 'sequence' }}
+              {{ 'placeholder="[auto increment]"' | safe if field.meta.type === 'sequence' }}
+            />
           </div>
         </div>
-        {% endif %} {% endfor %}
+        {% endif %}
+        {% endfor %}
       </div>
       <div class="modal-footer justify-content-end">
-        <div class="spinner-border text-primary spinner-border-sm d-none" role="status">
+        <div
+          v-if="isSavingNewSubmission"
+          class="spinner-border text-primary spinner-border-sm"
+          role="status"
+        >
           <span class="visually-hidden">Loading...</span>
         </div>
-        <button class="save btn btn-primary">Create</button>
+        <button
+          @click="onNewSubmission"
+          class="btn btn-primary"
+          :disabled="isSavingNewSubmission"
+        >
+          Create
+        </button>
       </div>
     </div>
   </div>
 </div>
 {% endif %}
 
-{% if not theImport and not view %}
+{% if not theImport %}
 <div
   class="modal fade"
   id="copy-to-modal"

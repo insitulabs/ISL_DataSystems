@@ -86,7 +86,13 @@
             disabled
           {% endif %}
           class="form-check-input submission-check"
-          data-id="{{ submission.id }}" />
+
+          {% if submission.subIndex === undefined or submission.subIndex === null %}
+          data-id="{{ submission.id }}"
+          {% else %}
+          data-id="{{ submission.id }}[{{ submission.subIndex }}]"
+          {% endif %}
+          />
       </td>
       {% for field in fields %}
         {% if field.id === '_id' %}

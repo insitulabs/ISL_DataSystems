@@ -999,6 +999,13 @@ class Source extends Base {
           delete rest[options.originIdKey];
         }
 
+        // Ensure no data keys are blank.
+        for (let key of Object.keys(rest)) {
+          if (!key) {
+            delete rest[key];
+          }
+        }
+
         let submission = {
           source: source.submissionKey,
           created: created,

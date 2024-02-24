@@ -771,8 +771,7 @@ module.exports = function (opts) {
         }
 
         let toUpdate = fields[0];
-
-        submission = await sourceManager.getSubmission(toUpdate.id);
+        submission = await sourceManager.getSubmission(View.parseSubmissionId(toUpdate.id));
         let submissionSource = view.sources.find((s) => {
           return s.source.submissionKey === submission.source;
         });
@@ -783,18 +782,12 @@ module.exports = function (opts) {
         source = await sourceManager.getSourceBySubmissionKey(submission.source);
 
         // Check if field is an unwound multi-field
-        field = toUpdate.field;
-        let subIndex = /(.+)\[(\d+)\]$/.exec(field);
-        if (subIndex) {
-          field = subIndex[1];
-          subIndex = parseInt(subIndex[2]);
-        }
-
+        field = View.parseFieldId(toUpdate.field);
         persistFn = async () => {
           return await viewManager.updateSubmission(
             view,
-            toUpdate.id,
-            subIndex,
+            submission._id,
+            View.parseSubIndex(toUpdate.field),
             field,
             uniqueFileName
           );
@@ -923,19 +916,19 @@ module.exports = function (opts) {
       let currentValue = body.fields.currentValue;
 
       for (let toUpdate of fields) {
-        let field = toUpdate.field;
-
         // Check if field is an unwound multi-field
-        let subIndex = /(.+)\[(\d+)\]$/.exec(field);
-        if (subIndex) {
-          field = subIndex[1];
-          subIndex = parseInt(subIndex[2]);
-        }
-
-        submission = await viewManager.updateSubmission(view, toUpdate.id, subIndex, field, value);
+        let field = View.parseFieldId(toUpdate.field);
+        let subIndex = View.parseSubIndex(toUpdate.field);
+        submission = await viewManager.updateSubmission(
+          view,
+          View.parseSubmissionId(toUpdate.id),
+          subIndex,
+          field,
+          value
+        );
 
         let sourceMapKey = field;
-        if (subIndex !== undefined && subIndex !== null) {
+        if (typeof subIndex === 'number') {
           sourceMapKey += `_${subIndex}`;
         }
 
@@ -1834,21 +1827,69 @@ module.exports = function (opts) {
   /**
    * Render a submission copy or duplicate page.
    */
-  router.get('/source/:sourceId/copy-to', async (req, res, next) => {
+  const copyToRoute = async (req, res, next) => {
     try {
       let currentUser = getCurrentUser(res);
       const sourceManager = new Source(currentUser);
+      const viewManager = new View(currentUser);
       const viewData = await getPageRenderData(req, res);
-      if (!req.query.id) {
-        throw new Errors.BadRequest('Missing target submissions');
+      const isView = req.params.type === 'view';
+
+      let ids = null;
+      if (req.method === 'POST') {
+        if (!req.body.id) {
+          throw new Errors.BadRequest('Missing target submissions');
+        }
+        ids = Array.isArray(req.body.id) ? req.body.id : [req.body.id];
+      } else {
+        if (!req.query.id) {
+          throw new Errors.BadRequest('Missing target submissions');
+        }
+        ids = Array.isArray(req.query.id) ? req.query.id : [req.query.id];
       }
-      const ids = Array.isArray(req.query.id) ? req.query.id : [req.query.id];
-      const source = await sourceManager.getSource(req.params.sourceId);
-      let submissions = await Promise.all(ids.map((id) => sourceManager.getSubmission(id)));
+
+      let origin = null;
+      let submissions = [];
+
+      if (isView) {
+        origin = await viewManager.getView(req.params.originId);
+        submissions = await Promise.all(
+          ids.map((id) => {
+            let subIndex = View.parseSubIndex(id);
+            return viewManager
+              .queryView(origin._id, origin.fields, origin.sources, {
+                id: View.parseSubmissionId(id),
+                view: origin
+              })
+              .then((queryResponse) => {
+                if (typeof subIndex === 'number') {
+                  if (queryResponse.results.length > subIndex) {
+                    return queryResponse.results[subIndex];
+                  }
+                } else if (queryResponse.results.length === 1) {
+                  return queryResponse.results[0];
+                }
+
+                throw new Errors.BadRequest('Submission not found: ' + id);
+              });
+          })
+        );
+      } else {
+        origin = await sourceManager.getSource(req.params.originId);
+        submissions = await Promise.all(ids.map((id) => sourceManager.getSubmission(id)));
+      }
+
       submissions = submissions
         .filter((s) => {
-          // Ensure ids belong to source.
-          return s.source === source.submissionKey;
+          if (isView) {
+            // Ensure ids belong to submission in one of the view's sources.
+            return origin.sources.some(
+              (viewSource) => s.source === viewSource.source.submissionKey
+            );
+          } else {
+            // Ensure ids belong to origin source.
+            return s.source === origin.submissionKey;
+          }
         })
         .map((s) => {
           return {
@@ -1860,7 +1901,7 @@ module.exports = function (opts) {
         throw new Errors.BadRequest('Missing target submissions');
       }
 
-      let sources = await sourceManager.listSources({ limit: -1 });
+      let sources = await sourceManager.listSources({ limit: -1, sort: 'name', order: 'asc' });
       let editableSources = sources.results.filter((s) => {
         return currentUser.hasSourcePermission(s, CurrentUser.PERMISSIONS.WRITE);
       });
@@ -1877,17 +1918,20 @@ module.exports = function (opts) {
         ...viewData,
         preventHeader: true,
         sources: editableSources,
-        source,
+        origin,
         submissions,
         destination,
-        pageTitle: source.name + ' - Copy To',
-        userCanLink: currentUser.hasSourcePermission(source, CurrentUser.PERMISSIONS.WRITE)
+        pageTitle: origin.name + ' - Copy To',
+        userCanLink:
+          !isView && currentUser.hasSourcePermission(origin, CurrentUser.PERMISSIONS.WRITE)
       };
       res.render('source-copy-to', model);
     } catch (err) {
       next(err);
     }
-  });
+  };
+  router.post('/:type/:originId/copy-to', copyToRoute);
+  router.get('/:type/:originId/copy-to', copyToRoute);
 
   return router;
 };

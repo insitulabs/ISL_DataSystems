@@ -97,13 +97,22 @@ const updateSubmission = function (target, field, value, currentValue, valueType
       });
     } else if (target.fields) {
       target.fields.forEach((f) => {
-        let tds = $data.querySelectorAll(`tr[data-id="${f.id}"] > td[data-field="${f.field}"]`);
+        let id = f.id,
+          subIndex,
+          match;
+        if (/\[\d+\]$/.test(f.id)) {
+          // Extract ID out of view exploded id string: 65da0191fe898c4f53dec740[0]
+          [match, id, subIndex] = id.match(/^([^\[]+)\[(\d+)\]$/);
+          subIndex = parseInt(subIndex);
+        }
+
+        let tds = $data.querySelectorAll(`tr[data-id="${id}"] > td[data-field="${f.field}"]`);
         tds.forEach(($td) => {
           $td.classList.add('editable');
           $td.classList.add('updated');
           $td.dataset.value = response.value !== null ? response.value : '';
-          if (response.htmls && response.htmls[`${f.id}-${f.field}`]) {
-            $td.innerHTML = response.htmls[`${f.id}-${f.field}`];
+          if (response.htmls && response.htmls[`${id}-${f.field}`]) {
+            $td.innerHTML = response.htmls[`${id}-${f.field}`];
           } else {
             $td.innerHTML = response.html;
           }
@@ -183,6 +192,7 @@ const saveEdit = function () {
 
   if (error) {
     editModal.$save.removeAttribute('disabled');
+    editModal.$el.querySelector('.btn-close').removeAttribute('disabled');
     if (inputType !== FIELD_TYPES.ATTACHMENT) {
       input.select();
     }
@@ -223,6 +233,7 @@ const saveEdit = function () {
     })
     .finally(() => {
       editModal.$save.removeAttribute('disabled');
+      editModal.$el.querySelector('.btn-close').removeAttribute('disabled');
       editModal.$save.previousElementSibling.classList.add('d-none');
     });
 };
@@ -693,51 +704,6 @@ $data.addEventListener('show.bs.modal', (event) => {
       });
   }
 });
-
-// #######################################################
-// # NEW SUBMISSION LOGIC
-// #######################################################
-
-let $createModal = document.getElementById('new-submission-modal');
-if ($createModal) {
-  $createModal.addEventListener('shown.bs.modal', (event) => {
-    let $firstInput = $createModal.querySelector('input.field-value');
-    if ($firstInput) {
-      $firstInput.focus();
-    }
-  });
-
-  $createModal.querySelector('.btn.save').addEventListener('click', (event) => {
-    let $save = event.target;
-    $save.setAttribute('disabled', 'disabled');
-    $save.previousElementSibling.classList.remove('d-none');
-    $createModal.querySelector('.btn-close').setAttribute('disabled', 'disabled');
-
-    let submission = {};
-    $createModal.querySelectorAll('.field-value').forEach(($input) => {
-      let value = $input.value.trim();
-      if (value) {
-        submission[$input.name] = value;
-      }
-    });
-
-    $api(`/api/source/${ORIGIN_ID}/submission`, {
-      method: 'POST',
-      body: JSON.stringify(submission)
-    })
-      .then(() => {
-        window.location.reload();
-      })
-      .catch((error) => {
-        alert(error && error.message ? error.message : error);
-      })
-      .finally(() => {
-        $save.removeAttribute('disabled');
-        $save.previousElementSibling.classList.add('d-none');
-        $createModal.querySelector('.btn-close').removeAttribute('disabled');
-      });
-  });
-}
 
 // #######################################################
 // # ATTACHMENT MODAL LOGIC
