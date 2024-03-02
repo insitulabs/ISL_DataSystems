@@ -1101,8 +1101,8 @@ class Source extends Base {
             let newId = id + '_1';
 
             records.forEach((r) => {
-              r[newId] = r[f];
-              delete r[f];
+              r[newId] = r[id];
+              delete r[id];
             });
 
             id = newId;
