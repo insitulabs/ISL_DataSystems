@@ -327,7 +327,11 @@ module.exports = function (opts) {
         return Source.flatRecordToSubmission(source, s);
       });
 
-      let ids = await sourceManager.insertSubmissions(source, submissions);
+      let ids = await sourceManager.insertSubmissions(source, submissions, {
+        // Allow linking back to copied submission original
+        originIdKey: '__originId'
+      });
+
       let created = await Promise.all(ids.map((id) => sourceManager.getSubmission(id)));
 
       created.forEach((submission) => {

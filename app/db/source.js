@@ -949,7 +949,8 @@ class Source extends Base {
    * @param {object} source
    * @param {array} submissions
    * @param {object} options Options to use on insert. Can include:
-   *   - originIdKey {string} To filter out existing submissions.
+   *   - externalIdKey {string} To filter out existing submissions from exsternal source (ODK).
+   *   - originIdKey {string} To associate with a copied item.
    *   - createdKey {string} To use as the create date.
    * @return {array} Array of new submission IDs.
    */
@@ -957,20 +958,20 @@ class Source extends Base {
     const col = this.collection(SUBMISSIONS);
 
     let toInsert = submissions;
-    if (options.originIdKey) {
-      let ids = submissions.map((s) => s[options.originIdKey]);
+    if (options.externalIdKey) {
+      let ids = submissions.map((s) => s[options.externalIdKey]);
 
       let exists = (
         await col
-          .find({ originId: { $in: ids } })
+          .find({ externalId: { $in: ids } })
           .map((s) => {
-            return s.originId;
+            return s.externalId;
           })
           .toArray()
       ).filter(Boolean);
 
       toInsert = submissions.filter((s) => {
-        return !exists.includes(s[options.originIdKey]);
+        return !exists.includes(s[options.externalIdKey]);
       });
     }
 
@@ -991,6 +992,12 @@ class Source extends Base {
           if (createDate instanceof Date && createDate.toString() !== 'Invalid Date') {
             created = createDate;
           }
+        }
+
+        let externalId = null;
+        if (options.externalIdKey && s[options.externalIdKey]) {
+          externalId = s[options.externalIdKey];
+          delete rest[options.externalIdKey];
         }
 
         let originId = null;
@@ -1015,6 +1022,10 @@ class Source extends Base {
           edits: [],
           originalData: rest
         };
+
+        if (externalId) {
+          submission.externalId = externalId;
+        }
 
         if (originId) {
           submission.originId = originId;
@@ -1414,7 +1425,9 @@ class Source extends Base {
     let toCreate = queryResponse.results.map((r) => {
       return r.data;
     });
-    let ids = await this.insertSubmissions(source, toCreate, { createdKey: 'created' });
+    let ids = await this.insertSubmissions(source, toCreate, {
+      createdKey: 'created'
+    });
     await this.deleteImport(theImport);
     return ids.length;
   }

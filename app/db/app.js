@@ -2,14 +2,16 @@ const Base = require('./base');
 const Errors = require('../lib/errors');
 const emailValidator = require('../lib/email-validator');
 const crypto = require('../lib/crypto');
+const { ObjectId } = require('mongodb');
+const { lstatSync } = require('node:fs');
+const { readdir } = require('node:fs').promises;
+const { join, basename, extname } = require('node:path');
 
 const APP_DB = 'app';
 const RESERVED_WORKSPACE_NAMES = ['admin', 'local', 'config', APP_DB];
 const WORKSPACES = 'workspaces';
 const USERS = 'users';
-
-const workspaceSchema = require('./workspace-migrations/20221215-01-initial');
-const { ObjectId } = require('mongodb');
+const MIGRATION_FOLDER = join(__dirname, 'workspace-migrations');
 
 class App extends Base {
   static APP_DB = APP_DB;
@@ -65,18 +67,15 @@ class App extends Base {
       dbName += '_' + existingByDbName.length;
     }
 
-    // TODO comeback to.
-    let schema = '20221215-01-initial';
     let now = new Date();
-    await this.collection(WORKSPACES).insertOne({
+    let response = await this.collection(WORKSPACES).insertOne({
       name: trimmed,
       dbName: dbName,
       created: now,
-      modified: now,
-      schema
+      modified: now
     });
 
-    await this.#createSchema(dbName, schema);
+    await this.applySchemaMigrations(response.insertedId);
   }
 
   async renameWorkspace(id, name) {
@@ -129,12 +128,67 @@ class App extends Base {
     return true;
   }
 
-  async #createSchema(workspace, schema) {
-    let mongoClient = await Base.client();
-    let db = mongoClient.db(workspace);
+  /**
+   * Apply workspace schema migrations for all or a single workspace.
+   * @param {ObjectId} workspaceId If not present, check all workspaces.
+   */
+  async applySchemaMigrations(workspaceId = null) {
+    let migrationFiles = (await readdir(MIGRATION_FOLDER))
+      .map((fileName) => {
+        return join(MIGRATION_FOLDER, fileName);
+      })
+      .filter((file) => {
+        // Must be a valid .js or .mjs file and start with a YYYYMMDD-01- name.
+        return (
+          lstatSync(file).isFile() &&
+          /\.m?js/i.test(extname(file)) &&
+          /^\d{8}-\d{2}-/.test(basename(file))
+        );
+      });
+    migrationFiles.sort();
 
-    // Redo with migrations.
-    await workspaceSchema(db);
+    let migrations = migrationFiles.map((file) => {
+      return {
+        name: basename(file, extname(file)),
+        fn: require(file)
+      };
+    });
+
+    let workspaces = await this.listWorkspaces();
+    if (workspaceId && ObjectId.isValid(workspaceId)) {
+      console.log(workspaceId);
+      workspaces = workspaces.filter((w) => w._id.equals(new ObjectId(workspaceId)));
+    }
+
+    for (let workspace of workspaces) {
+      console.log('Check migrations for: ' + workspace.name);
+      let runFrom = -1;
+      if (workspace.schema) {
+        runFrom = migrations.findIndex((m) => m.name === workspace.schema);
+        if (runFrom === -1) {
+          throw new Error(
+            `Schema mismatch for ${workspace.name}. Migration "${workspace.schema}" not found!`
+          );
+        }
+      }
+      runFrom++;
+
+      if (runFrom >= migrations.length) {
+        console.log('-- Migration not required');
+      } else {
+        let mongoClient = await Base.client();
+        let db = mongoClient.db(workspace.dbName);
+        for (let i = runFrom; i < migrations.length; i++) {
+          let migration = migrations[i];
+          console.log(`-- Migration required ${migration.name}`);
+          await migration.fn(db);
+          await this.collection(WORKSPACES).updateOne(
+            { _id: workspace._id },
+            { $set: { schema: migration.name, modified: new Date() } }
+          );
+        }
+      }
+    }
   }
 
   async enableWorkspaceSync(name, type, url, user, password, projects) {

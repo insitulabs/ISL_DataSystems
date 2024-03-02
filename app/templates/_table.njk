@@ -110,7 +110,12 @@
                 <div class="modal-header">
                   <h5 class="modal-title" id="title-{{ submission.id }}">
                     {{submission.sourceId}}:
-                    <a href="/data-viewer/submission/{{ submission.id }}" target="_blank">{{ submission.id }}</a>
+                    <a
+                      href="/data-viewer/submission/{{ submission.id }}"
+                      target="_blank"
+                    >
+                      {{ submission.id }}
+                    </a>
                   </h5>
                   <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
@@ -121,6 +126,16 @@
                   <pre class="source-json">{{submission.data | prettyJSON }}</pre>
                 </div>
                 <div class="modal-footer justify-content-between">
+                  <span>
+                    {% if submission.originId %}
+                    <a
+                      href="/data-viewer/submission/{{ submission.originId }}"
+                      target="_blank"
+                    >
+                      Created From<i class="bi bi-arrow-right-short ms-1 align-middle"></i>
+                    </a>
+                    {% endif %}
+                  </span>
                   <button class="btn btn-secondary" data-bs-dismiss="modal" aria-label="Close">Close</button>
                 </div>
               </div>

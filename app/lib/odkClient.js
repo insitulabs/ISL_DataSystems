@@ -88,7 +88,7 @@ class OdkClient {
   #normalizeSubmission(submission) {
     const SKIP_KEYS = ['__id', 'logo', '__system', 'meta'];
     let dto = {};
-    dto._originId = submission.__id.replace(/^uuid:/, '');
+    dto._externalId = submission.__id.replace(/^uuid:/, '');
     dto._created = new Date(submission.__system.submissionDate);
     dto._submitterName = submission.__system.submitterName;
     dto._submitterId = submission.__system.submitterId;

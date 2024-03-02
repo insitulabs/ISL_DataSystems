@@ -72,6 +72,8 @@ const mapSubmissionsForUI = function (results = [], isEditable = false) {
       created: result.created,
       subIndex: result.subIndex,
       sourceId: result.source,
+      // If we have an originId, present it to the UI so we can link to it.
+      originId: result.originId,
       data: result.data,
       flat: Source.flattenSubmission(result.data),
       isSourceField: (fieldId) => {

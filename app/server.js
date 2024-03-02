@@ -39,6 +39,9 @@ const emailValidator = require('./lib/email-validator');
   const Audit = require('./db/audit').Audit;
   let appManager = new AppDB();
 
+  console.log('Evaluate Workspace Migrations');
+  await appManager.applySchemaMigrations();
+
   app.get('/status', noCacheMiddleware, (req, res) => {
     res.send('Up and Up');
   });

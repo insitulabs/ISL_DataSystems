@@ -90,10 +90,14 @@ module.exports = async function (workspace, sourceManager, SOURCE_SYSTEM = 'ODK'
 
       let lastSync = source.lastSync;
       try {
-        if (!lastSync || (lastSync.lastSubmission && lastSync.lastSubmission < lastSubmission)) {
+        if (
+          !lastSync ||
+          lastSync.status === 'ERROR' ||
+          (lastSync.lastSubmission && lastSync.lastSubmission < lastSubmission)
+        ) {
           let submissions = await odkClient.getSubmissions(project.id, form.xmlFormId);
           const inserted = await sourceManager.insertSubmissions(source, submissions, {
-            originIdKey: '_originId',
+            externalIdKey: '_externalId',
             createdKey: '_created'
           });
 

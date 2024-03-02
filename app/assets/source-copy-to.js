@@ -287,6 +287,12 @@ Vue.createApp({
       this.submissions.map((s) => {
         for (let i = 0; i < this.duplicateCount; i++) {
           let dto = {};
+
+          // If we're not duplicating, apply an originId of where this was copied from.
+          if (!this.isDuplicate) {
+            dto.__originId = s._id;
+          }
+
           for (const [sourceField, destField] of Object.entries(this.mapping)) {
             // Ensure we have valid data in our mapping
             if (destField && sourceField) {
