@@ -358,7 +358,7 @@
 
     <div ref="top-pagination" class="d-none d-md-block"></div>
 
-    {% if not theImport and not isIFRAME %}
+    {% if not isIFRAME %}
     <div class="dropdown ms-1">
       <button
         class="btn btn-secondary btn-sm dropdown-toggle"
@@ -383,7 +383,7 @@
         </li>
         {% endif %}
 
-        {% if not view %}
+        {% if showDuplicateBtn %}
         <li>
           <button
             id="duplicate-btn"
@@ -398,6 +398,7 @@
         </li>
         {% endif %}
 
+        {% if not theImport %}
         <li>
           <button
             id="copy-to-btn"
@@ -410,6 +411,7 @@
             Copy To
           </button>
         </li>
+        {% endif %}
 
         {% if showArchiveBtn %}
         <li>
@@ -421,7 +423,7 @@
             @click="onArchiveBtn(false)"
           >
             <i class="bi bi-trash3-fill"></i>
-            Archive
+            {% if not theImport %}Archive{% else %}Delete{% endif %}
           </button>
         </li>
         {% endif %}

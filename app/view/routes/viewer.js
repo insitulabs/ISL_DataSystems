@@ -316,6 +316,7 @@ module.exports = function (opts) {
     let isDeleted = false;
     let showArchiveBtn = false;
     let showRestoreBtn = false;
+    let showDuplicateBtn = false;
     let allowDeletedQuery = false;
     let isDeletedQuery = false;
 
@@ -340,6 +341,7 @@ module.exports = function (opts) {
       originName = 'Import for ' + theImport.sourceName;
       userCanEdit = true;
       editLink = '/data-viewer/source/' + theImport.sourceId.toString() + '/edit';
+      showArchiveBtn = true;
     } else if (query.source) {
       source = query.source;
       fields = source.fields;
@@ -360,7 +362,9 @@ module.exports = function (opts) {
         showArchiveBtn = !isDeletedQuery;
         showRestoreBtn = isDeletedQuery;
         userCanEdit = !isDeletedQuery;
+        showDuplicateBtn = !isDeletedQuery;
       }
+
       userCanCreate = userCanEdit;
     } else {
       return next(new Errors.BadRequest());
@@ -451,7 +455,8 @@ module.exports = function (opts) {
       allowDeletedQuery,
       isDeletedQuery,
       showArchiveBtn,
-      showRestoreBtn
+      showRestoreBtn,
+      showDuplicateBtn
     };
 
     let template = isXHR ? '_table' : 'viewer';

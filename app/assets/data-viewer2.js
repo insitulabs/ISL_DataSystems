@@ -911,18 +911,30 @@ Vue.createApp({
      * @param {boolean} isRestore True if this is a restore.
      */
     onArchiveBtn(isRestore = false) {
-      let count = this.checkedSubmissions.length;
-      if (this.ORIGIN_TYPE === 'source' && !count) {
+      const count = this.checkedSubmissions.length;
+      const isSource = this.ORIGIN_TYPE === 'source';
+      const isImport = this.ORIGIN_TYPE === 'import';
+
+      if (!isSource && !isImport) {
+        return;
+      }
+
+      if (!count) {
         return;
       }
 
       let operation = isRestore ? 'restore' : 'delete';
-      let label = isRestore ? 'restore' : 'archive';
+      let label = isRestore ? 'restore' : isImport ? 'delete' : 'archive';
       let noun = count > 1 ? 'submissions' : 'submission';
       let prompt = `Are you sure you want to ${label} ${count} ${noun}?`;
 
       if (confirm(prompt)) {
-        $api(`/api/${ORIGIN_TYPE}/${ORIGIN_ID}/submissions/${operation}`, {
+        let url = `/api/${ORIGIN_TYPE}/${ORIGIN_ID}/submissions/${operation}`;
+        if (ORIGIN_TYPE === 'import') {
+          url = `/api/source/${ORIGIN_ID}/import/submissions/${operation}`;
+        }
+
+        $api(url, {
           method: 'POST',
           body: JSON.stringify(this.checkedSubmissions)
         })

@@ -396,7 +396,7 @@
   window._origin = {{ origin | dump | safe }};
   window._sources = {{ sources | dump | safe }};
   window._submissions = {{ submissions | dump | safe }};
-  window._destination = {{ destination | dump | safe }};
+  window._destination = {{ destination | dump | safe if destination else "null" }};
 </script>
 <script type="module" src="{{ '/assets/source-copy-to.js' | appendVersion }}"></script>
 {% endblock %}

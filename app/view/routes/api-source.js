@@ -89,6 +89,27 @@ module.exports = function (opts) {
     }
   });
 
+  // Delete source import submissions.
+  router.post('/:id/import/submissions/delete', async (req, res, next) => {
+    try {
+      let currentUser = getCurrentUser(res);
+      const sourceManager = new Source(getCurrentUser(res));
+
+      if (!req.body && !Array.isArray(req.body)) {
+        throw new Error.BadRequest('Invalid delete request');
+      }
+
+      // Auth validation done in deleteStagedSubmission
+      await Promise.all(req.body.map((id) => sourceManager.deleteStagedSubmission(id)));
+
+      // TODO do we need to audit record?
+
+      res.send({ success: true });
+    } catch (error) {
+      next(error);
+    }
+  });
+
   // Rename source import field
   router.put('/:id/import/:importId/rename', async (req, res, next) => {
     try {

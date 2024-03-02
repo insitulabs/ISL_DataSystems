@@ -1336,6 +1336,18 @@ class Source extends Base {
     return results.modifiedCount;
   }
 
+  /**
+   * Delete a single staged submission. Will ensure user has access edit source.
+   * @param {ObjectId || String} id
+   */
+  async deleteStagedSubmission(id) {
+    let submission = await this.getStagedSubmission(id);
+    // Fetching the import will validate it exists and ensure write permissions.
+    const theImport = await this.getImport(submission.import);
+    const stagedSubmissions = this.collection(SUBMISSIONS_STAGED);
+    stagedSubmissions.deleteOne({ _id: submission._id });
+  }
+
   async updateImportField(id, field, newField) {
     if (!field) {
       throw new Errors.BadRequest('Invalid field name');
