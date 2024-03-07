@@ -336,15 +336,32 @@
               <li class="toggle" data-id="{{ f.id }}" data-name="{{ f.name }}">
                 <div class="dropdown-item p-0">
                   <div class="form-check">
-                    <label class="form-check-label d-block py-0 px-3" for="field-toggle-{{ f.id }}">
-                      <input
-                        class="form-check-input"
-                        type="checkbox"
-                        value="{{ f.id }}"
-                        id="field-toggle-{{ f.id }}"
-                        {% if hiddenFieldsAsObj[f.id] !== true %} checked {% endif %}
-                      >
-                      {{ f.name }}
+                    <label
+                      class="form-check-label d-block py-0 px-3 d-flex justify-content-between"
+                      for="field-toggle-{{ f.id }}"
+                    >
+                      <span>
+                        <input
+                          class="form-check-input"
+                          type="checkbox"
+                          value="{{ f.id }}"
+                          id="field-toggle-{{ f.id }}"
+                          {% if hiddenFieldsAsObj[f.id] !== true %} checked {% endif %}
+                        >
+                        {{ f.name }}
+                      </span>
+
+                      {% if f.id === 'originId' %}
+                      <a
+                        tabindex="0"
+                        class="btn btn-link btn-sm p-0 text-light"
+                        role="button"
+                        data-bs-toggle="popover"
+                        data-bs-trigger="hover"
+                        data-bs-content="If the submission was copied from an another source/view,
+                          this will be the ID of the original submission"
+                      >?</a>
+                      {% endif %}
                     </label>
                   </div>
                 </div>

@@ -142,8 +142,13 @@
             </div>
           </div>
 
-          <button type="button" class="btn btn-secondary btn-sm"
-              data-bs-toggle="modal" data-bs-target="#record-{{ submission.id }}-{{ submissionIndex }}">
+          <button
+            type="button"
+            class="btn btn-secondary btn-sm"
+            data-bs-toggle="modal"
+            data-bs-target="#record-{{ submission.id }}-{{ submissionIndex }}"
+            title="{{ submission.id }}"
+          >
             {{ submission.id | shortenID }}
           </button>
         </td>
@@ -155,6 +160,18 @@
             >
               {{ submission.created | formatDate }}
             </time>
+          </td>
+        {% elif field.id === 'originId' %}
+          <td data-field="{{ field.id }}">
+            {% if submission.originId %}
+            <a
+              href="/data-viewer/submission/{{ submission.originId }}"
+              target="_blank"
+              title="{{ submission.originId }}"
+            >
+              {{ submission.originId | shortenID }}
+            </a>
+            {% endif %}
           </td>
         {% else %}
           {% set attachment = submission.isAttachment(submission.flat[field.id]) %}

@@ -27,7 +27,7 @@ class Source extends Base {
     this.user = user;
   }
 
-  static NON_EDITABLE_FIELDS = ['_id', 'created'];
+  static NON_EDITABLE_FIELDS = ['_id', 'created', 'imported', 'originId'];
 
   static submissionKey(system, namespace) {
     return `${system}__${namespace}`.toLowerCase();

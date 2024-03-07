@@ -67,7 +67,7 @@ class Base {
       return null;
     }
 
-    if (['_id', 'created', 'imported'].includes(field)) {
+    if (['_id', 'created', 'imported', 'originId'].includes(field)) {
       return field;
     }
 

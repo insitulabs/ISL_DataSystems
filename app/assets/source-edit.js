@@ -177,7 +177,8 @@ Vue.createApp({
             'sort',
             'offset',
             '_select',
-            '_h'
+            '_h',
+            'originid'
           ].includes(id)
         ) {
           id = null;

@@ -166,7 +166,7 @@ const extractFilters = function (req, fields, pageParams) {
         return false;
       }
 
-      return fieldNames.includes(key) || ['created', 'imported', '_id'].includes(key);
+      return fieldNames.includes(key) || ['created', 'imported', '_id', 'originId'].includes(key);
     })
     .forEach((key) => {
       let values = Array.isArray(req.query[key]) ? req.query[key] : [req.query[key]];
@@ -189,7 +189,14 @@ const mapFieldsForUI = function (fields, userCanEdit = false, sort, order, limit
     fields = [];
   }
 
-  fields.unshift({ id: '_id', name: 'ID' }, { id: 'created', name: 'created' });
+  fields.unshift(
+    { id: '_id', name: 'ID' },
+    { id: 'created', name: 'created' },
+    {
+      id: 'originId',
+      name: 'origin ID'
+    }
+  );
 
   return fields
     .map((f) => {
@@ -491,7 +498,12 @@ module.exports = function (opts) {
       const sourceManager = new Source(getCurrentUser(res));
       let submission = await sourceManager.getSubmission(req.params.id);
       let source = await sourceManager.getSourceBySubmissionKey(submission.source);
-      res.redirect(`/data-viewer/source/${source._id}?_id=${submission._id}`);
+
+      let url = `/data-viewer/source/${source._id}?_id=${submission._id}`;
+      for (let key of Object.keys(req.query).filter((key) => key !== '_id')) {
+        url += `&${key}=${encodeURIComponent(req.query[key])}`;
+      }
+      res.redirect(url);
     } catch (error) {
       next(error);
     }
@@ -582,7 +594,12 @@ module.exports = function (opts) {
         view ? view.name : source.name,
         csvFields,
         submissions.map((s) => {
-          return { _id: s.id.toString(), created: s.created.toUTCString(), ...s.flat };
+          return {
+            _id: s.id.toString(),
+            created: s.created.toUTCString(),
+            originId: s.originId,
+            ...s.flat
+          };
         }),
         next
       );

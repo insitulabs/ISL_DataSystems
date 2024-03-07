@@ -802,10 +802,11 @@ $data.addEventListener('click', (event) => {
     if ($a) {
       DBL_CLICK_TIMER = setTimeout(() => {
         let src = $a.getAttribute('href');
-        src += '&iframe=' + encodeURIComponent($td.dataset.field) + '&_select=false';
+        let queryParams = src.indexOf('?') === -1 ? '?_select=false' : '&_select=false';
+        queryParams += '&iframe=' + encodeURIComponent($td.dataset.field);
         let $iframe = document.createElement('iframe');
         $iframe.classList.add('lookup');
-        $iframe.setAttribute('src', src);
+        $iframe.setAttribute('src', src + queryParams);
         $iframe.dataset.action = 'lookup';
         $lookupRefModal.querySelector('.lookup-container').replaceChildren($iframe);
         lookupRefModal.show();
