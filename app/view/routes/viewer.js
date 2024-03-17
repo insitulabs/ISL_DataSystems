@@ -215,7 +215,7 @@ const mapFieldsForUI = function (fields, pageParams, options = {}) {
 
   // Sources can have an originId from copied data.
   if (originType === 'source') {
-    fields.unshift({
+    fields.splice(2, 0, {
       id: 'originId',
       name: 'origin ID',
       default: false
