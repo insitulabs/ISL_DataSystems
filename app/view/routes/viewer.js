@@ -184,19 +184,43 @@ const extractFilters = function (req, fields, pageParams) {
   return filters;
 };
 
-const mapFieldsForUI = function (fields, userCanEdit = false, sort, order, limit, pageParams) {
+/**
+ * Create UI friendly version of fields array.
+ * @param {Array} fields
+ * @param {URLSearchParams*} pageParams
+ * @param {{
+ *  userCanEdit: Boolean,
+ *  sort: String,
+ *  order: String,
+ *  limit: Number,
+ *  originType: String
+ * }} options
+ * @return {Array}
+ */
+const mapFieldsForUI = function (fields, pageParams, options = {}) {
+  let userCanEdit = options.userCanEdit || false;
+  let sort = options.sort;
+  let order = options.order;
+  let limit = options.limit;
+  let originType = options.originType || 'source';
+
   if (!fields || !fields.length) {
     fields = [];
   }
 
   fields.unshift(
-    { id: '_id', name: 'ID' },
-    { id: 'created', name: 'created' },
-    {
-      id: 'originId',
-      name: 'origin ID'
-    }
+    { id: '_id', name: 'ID', default: true },
+    { id: 'created', name: 'created', default: true }
   );
+
+  // Sources can have an originId from copied data.
+  if (originType === 'source') {
+    fields.unshift({
+      id: 'originId',
+      name: 'origin ID',
+      default: false
+    });
+  }
 
   return fields
     .map((f) => {
@@ -215,7 +239,8 @@ const mapFieldsForUI = function (fields, userCanEdit = false, sort, order, limit
         displayName: (f.name || f.id).replace(/\./g, '.<br>'),
         sortable: true,
         editable: userCanEdit && !Source.NON_EDITABLE_FIELDS.includes(f.id),
-        meta: f.meta
+        meta: f.meta,
+        default: f.default || false
       };
 
       if (sort === f.id) {
@@ -388,7 +413,13 @@ module.exports = function (opts) {
     // Parse column filters and set on pageParams
     let filters = extractFilters(req, fields, pageParams);
 
-    fields = mapFieldsForUI(fields, userCanEdit, sort, order, limit, pageParams);
+    fields = mapFieldsForUI(fields, pageParams, {
+      userCanEdit,
+      sort,
+      order,
+      limit,
+      originType: dataType
+    });
 
     let queryResponse = [];
     if (view) {
@@ -427,12 +458,18 @@ module.exports = function (opts) {
     let pagination = paginate(queryResponse.totalResults, currentPage, limit, 10);
 
     let prefs = currentUser.getPrefs(dataType, dataId) || {};
-    let hiddenFields = prefs.hiddenFields || [];
-    // Ensure hidden fields still exist.
-    hiddenFields = hiddenFields.filter((id) => {
-      return fields.find((f) => f.id == id);
-    });
-    prefs.hiddenFields = hiddenFields;
+    let hiddenFields = [];
+    if (Array.isArray(prefs.hiddenFields)) {
+      hiddenFields = prefs.hiddenFields;
+      // Ensure hidden fields still exist.
+      hiddenFields = hiddenFields.filter((id) => {
+        return fields.find((f) => f.id == id);
+      });
+      prefs.hiddenFields = hiddenFields;
+    } else {
+      // If no fields are hidden by user preference, default to source field visibility.
+      hiddenFields = fields.filter((f) => !f.default).map((f) => f.id);
+    }
 
     // TODO we don't need this if nunjucks can find in array
     let hiddenFieldsAsObj = hiddenFields.reduce((obj, f) => {
@@ -539,7 +576,12 @@ module.exports = function (opts) {
         fields = source.fields;
       }
 
-      fields = mapFieldsForUI(fields, false, sort, order);
+      fields = mapFieldsForUI(fields, null, {
+        userCanEdit: false,
+        sort,
+        order,
+        originType: type
+      });
 
       // Parse column filters
       let filters = extractFilters(req, fields);
@@ -1298,7 +1340,13 @@ module.exports = function (opts) {
         });
       }
 
-      let fields = mapFieldsForUI(req.body.fields, userCanEdit, sort, order, limit, pageParams);
+      let fields = mapFieldsForUI(req.body.fields, pageParams, {
+        userCanEdit,
+        sort,
+        order,
+        limit,
+        originType: 'view'
+      });
 
       // Parse column filters
       let filters = extractFilters(req, fields, pageParams);

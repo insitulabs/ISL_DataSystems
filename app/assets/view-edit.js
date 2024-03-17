@@ -110,6 +110,19 @@ Vue.createApp({
           return !this.persistedFields.find((persisted) => persisted.id === f.id);
         })
         .map((f) => f.id);
+    },
+
+    /**
+     * The defualt visible fields as a map.
+     * @return {Object}
+     */
+    defaultFields() {
+      return this.fields
+        .filter((f) => f.default)
+        .reduce((fields, f) => {
+          fields[f.id] = true;
+          return fields;
+        }, {});
     }
   },
 
@@ -230,13 +243,28 @@ Vue.createApp({
       if (value) {
         let lowered = value.toLowerCase();
         if (!this.fields.some((f) => lowered === f.name.toLowerCase())) {
-          this.fields.push({ name: value });
+          this.fields.push({ name: value, default: true });
           $event.target.value = '';
           $event.target.classList.remove('is-invalid');
           return;
         }
       }
       $event.target.classList.add('is-invalid');
+    },
+
+    /**
+     * Toggle if this field is visible by default.
+     * @param {string} fieldId The field ID.
+     */
+    toggleDefaultField(fieldId) {
+      let field = this.fields.find((f) => fieldId === f.id);
+      if (field) {
+        if (field.default === true) {
+          field.default = false;
+        } else {
+          field.default = true;
+        }
+      }
     },
 
     getSource(id) {

@@ -448,6 +448,11 @@ class Source extends Base {
 
     source.fields.forEach((f) => {
       f.meta = f.meta || {};
+
+      // Initialize default visibility setting for fields that were created before the feature.
+      if (typeof f.default === 'undefined') {
+        f.default = true;
+      }
     });
 
     return source;

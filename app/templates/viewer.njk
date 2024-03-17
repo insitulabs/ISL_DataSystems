@@ -146,7 +146,7 @@
                   ref="filter-search"
                   type="text"
                   class="form-control"
-                  placeholder="Filter Field Name..."
+                  placeholder="Field name..."
                 />
               </li>
               <li
@@ -309,26 +309,35 @@
                   id="field-toggles-search"
                   type="text"
                   class="form-control"
-                  placeholder="Filter Field Name..."
+                  placeholder="Field name..."
                 />
               </li>
               <li>
-                <div class="dropdown-item d-flex align-items-center">
-                  <span class="me-2"> Select </span>
+                <div class="px-3 py-1 d-flex align-items-center justify-content-between">
+                  <div class="d-flex align-items-center">
+                    <span class="me-2"> Select </span>
+                    <button
+                      @click="onFieldTogglesAll"
+                      type="button"
+                      class="btn btn-link btn-sm link-light select-all"
+                    >
+                      All
+                    </button>
+                    /
+                    <button
+                      @click="onFieldTogglesNone"
+                      type="button"
+                      class="btn btn-link btn-sm link-light select-none"
+                    >
+                      None
+                    </button>
+                  </div>
                   <button
-                    @click="onFieldTogglesAll"
+                    @click="resetFields"
                     type="button"
-                    class="btn btn-link btn-sm link-light select-all"
+                    class="btn btn-link btn-sm link-light"
                   >
-                    All
-                  </button>
-                  /
-                  <button
-                    @click="onFieldTogglesNone"
-                    type="button"
-                    class="btn btn-link btn-sm link-light select-none"
-                  >
-                    None
+                    Reset
                   </button>
                 </div>
               </li>
@@ -510,7 +519,7 @@
                 <input
                   type="text"
                   class="form-control"
-                  placeholder="Filter Field Name..."
+                  placeholder="Field name..."
                   v-model.trim="anaFieldSearch"
                   ref="anaFieldSearch"
                 />

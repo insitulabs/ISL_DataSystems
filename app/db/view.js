@@ -99,6 +99,13 @@ class View extends Base {
     }
     view.sourceFields = sourceFields;
 
+    view.fields.forEach((f) => {
+      // Initialize default visibility setting for fields that were created before the feature.
+      if (typeof f.default === 'undefined') {
+        f.default = true;
+      }
+    });
+
     // this.debug(view);
 
     return view;

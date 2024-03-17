@@ -719,6 +719,19 @@ Vue.createApp({
       this.$refs.fieldTogglesBtn.querySelector('.visible-count').innerText =
         this.fields.length - hidden.length;
       this.updateExportLinks(hidden);
+
+      // If we're resetting the fields back to their defaults, clear saved preference.
+      let defaultHiddenFields = this.fields
+        .filter((f) => !f.default)
+        .map((f) => f.id)
+        .sort();
+
+      if (defaultHiddenFields.length === hidden.length) {
+        if (hidden.every((id) => defaultHiddenFields.includes(id))) {
+          hidden = null;
+        }
+      }
+
       this.setFormPref('hiddenFields', hidden);
     },
 
@@ -793,6 +806,16 @@ Vue.createApp({
         styleTag.textContent = css;
         head.append(styleTag);
       }
+    },
+
+    /**
+     * Reset field visibility to source defaults.
+     */
+    resetFields() {
+      let visibleFields = this.fields.filter((f) => f.default).map((f) => f.id);
+      this.$refs.fieldTogglesList.querySelectorAll('input[type=checkbox]').forEach((el) => {
+        el.checked = visibleFields.includes(el.value);
+      });
     },
 
     /**

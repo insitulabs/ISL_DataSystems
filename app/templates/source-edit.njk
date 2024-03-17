@@ -192,6 +192,19 @@
               </div>
 
               <button
+                type="button"
+                class="btn"
+                :class="{'btn-outline-primary': defaultFields[field.id], 'btn-outline-secondary': !defaultFields[field.id]}"
+                @click="toggleDefaultField(field.id)"
+                title="Indicate if the field is visible by default"
+              >
+                <i
+                  class="bi"
+                  :class="{'bi-eye-fill': defaultFields[field.id], 'bi-eye-slash': !defaultFields[field.id]}"
+                ></i>
+              </button>
+
+              <button
                 class="btn btn-outline-secondary btn-sm"
                 @click="moveField(index, 1)"
                 :disabled="index === fields.length - 1 || filteringFields || isDeleted"
