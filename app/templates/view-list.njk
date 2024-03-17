@@ -83,8 +83,20 @@
           <td>
             <a
               href="/data-viewer/view/{{ view._id }}/edit"
+              class="btn btn-link btn-sm"
+              role="button"
               title="Edit view"
-              ><i class="bi bi-pencil-square"></i></a>
+              >
+                <i class="bi bi-pencil-square"></i>
+            </a>
+            <a
+              href="/data-viewer/view/new?origin={{ view._id }}"
+              class="btn btn-link btn-sm"
+              role="button"
+              title="Duplicate view"
+              >
+                <i class="bi bi-copy"></i>
+            </a>
           </td>
           {% endif %}
         </tr>

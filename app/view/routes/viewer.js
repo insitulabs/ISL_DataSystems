@@ -1176,18 +1176,33 @@ module.exports = function (opts) {
       getCurrentUser(res).validate(CurrentUser.PERMISSIONS.VIEW_CREATE);
 
       const sourceManager = new Source(getCurrentUser(res));
+      const viewManager = new View(getCurrentUser(res));
       const viewData = await getPageRenderData(req, res);
 
       // TODO Revisit with pagination?
       let sources = await sourceManager.listSources({ limit: -1 });
 
+      let toCreate = {
+        name: '',
+        fields: [],
+        sources: []
+      };
+
+      if (req.query.origin && ObjectId.isValid(req.query.origin)) {
+        let duplicate = await viewManager.getView(req.query.origin);
+        if (duplicate) {
+          toCreate.fields = duplicate.fields;
+          toCreate.sources = duplicate.sources;
+          // TODO revisit cloning with permissions
+        }
+
+        // Ensure view sources have up-to-date names
+        toCreate = viewManager.sanitizeStaleData(toCreate, sources);
+      }
+
       let model = {
         ...viewData,
-        view: {
-          name: '',
-          fields: [],
-          sources: []
-        },
+        view: toCreate,
         sources,
         pageTitle: 'New View'
       };
@@ -1233,21 +1248,7 @@ module.exports = function (opts) {
       let sources = await sourceManager.listSources({ limit: -1 });
 
       // Ensure view sources have up-to-date names
-      if (view.sources) {
-        view.sources.forEach((viewSource) => {
-          // Compare string to ObjectId, so use double ==
-          let matchingSource = sources.results.find((s) => s._id == viewSource.source._id);
-          if (matchingSource) {
-            viewSource.source.name = matchingSource.name;
-            // Initially we did not set system on view source, This can be removed once
-            // views are re-saved and this data is cleaned up.
-            viewSource.source.system = matchingSource.system;
-          } else {
-            // Deleted source, indicate in UI.
-            viewSource.source.deleted = true;
-          }
-        });
-      }
+      view = viewManager.sanitizeStaleData(view, sources);
 
       let model = {
         ...viewData,
@@ -1440,14 +1441,27 @@ module.exports = function (opts) {
       const sourceManager = new Source(getCurrentUser(res));
       let sources = await sourceManager.listSources({ limit: -1, sort: 'name', order: 'asc' });
 
+      let toCreate = {
+        name: '',
+        system: 'ISL',
+        namespace: '',
+        note: null,
+        fields: []
+      };
+
+      if (req.query.origin && ObjectId.isValid(req.query.origin)) {
+        let duplicateId = new ObjectId(req.query.origin);
+        let duplicate = sources.results.find((s) => s._id.equals(duplicateId));
+        if (duplicate) {
+          toCreate.note = duplicate.note;
+          toCreate.fields = duplicate.fields;
+          // TODO revisit cloning with permissions
+        }
+      }
+
       let model = {
         ...viewData,
-        source: {
-          name: '',
-          system: 'ISL',
-          namespace: '',
-          fields: []
-        },
+        source: toCreate,
         sources,
         sequenceFields: [],
         pageTitle: 'New Source'

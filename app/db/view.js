@@ -897,6 +897,33 @@ class View extends Base {
       }
     }
   }
+
+  /**
+   * Ensure the view sources have up-to-date names and aren't deleted.
+   * @param {object} view The view to clean up. Must have a sources array.
+   * @param {Array} sources The full list of sources.
+   * @return {object} The same view cleaned up.
+   */
+  sanitizeStaleData(view, sources) {
+    // Ensure view sources have up-to-date names
+    if (view && view.sources) {
+      view.sources.forEach((viewSource) => {
+        // Compare string to ObjectId, so use double ==
+        let matchingSource = sources.results.find((s) => s._id == viewSource.source._id);
+        if (matchingSource) {
+          viewSource.source.name = matchingSource.name;
+          // Initially we did not set system on view source, This can be removed once
+          // views are re-saved and this data is cleaned up.
+          viewSource.source.system = matchingSource.system;
+        } else {
+          // Deleted source, indicate in UI.
+          viewSource.source.deleted = true;
+        }
+      });
+    }
+
+    return view;
+  }
 }
 
 module.exports = View;

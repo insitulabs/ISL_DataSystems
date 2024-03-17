@@ -114,6 +114,12 @@ Vue.createApp({
   },
 
   mounted() {
+    if (this.isNew && this.$refs.name) {
+      this.$nextTick(() => {
+        this.$refs.name.focus();
+      });
+    }
+
     let $sourceFieldsModal = document.getElementById('source-fields-modal');
     this.sourceFieldsModal = new bootstrap.Modal($sourceFieldsModal, {
       // keyboard: false

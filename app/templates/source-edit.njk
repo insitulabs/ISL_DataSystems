@@ -2,12 +2,12 @@
 
 {% block styles %}
 <style>
-  .fields input[type='text']:focus::placeholder {
-    opacity: 0;
-  }
-
   .fields .form-floating > label {
     opacity: 0.7;
+  }
+
+  [data-bs-theme=dark] .fields .form-floating > label {
+    color: var(--bs-light) !important;
   }
 
   .sample {
@@ -15,52 +15,13 @@
     line-height: 1.25;
   }
 
-  .field-type.empty {
-    color: #9aa2ae;
+  .no-rounded-bottom-left {
+    border-bottom-left-radius: 0 !important;
   }
 
-/*
-  .fields .row {
-  border: 1px solid #ccc;
+  .no-rounded-bottom-right {
+    border-bottom-right-radius: 0 !important;
   }
-  */
-
-  /*
-  .fields .row:nth-child(odd) > div {
-    background-color: red
-  }
-  */
-
-  .field-type {
-    max-width: 200px;
-  }
-
-/*
-  .form-floating>.form-control,
-.form-floating>.form-control-plaintext {
-  padding: 0rem 0.75rem !important;
-}
-
-.form-floating>.form-control,
-.form-floating>.form-control-plaintext,
-.form-floating>.form-select {
-  height: calc(2.5rem + 2px) !important;
-  line-height: 1 !important;
-}
-
-.form-floating>label {
-  padding: 0.5rem 0.75rem !important;
-}
-*/
-
-.no-rounded-bottom-left {
-  border-bottom-left-radius: 0 !important;
-}
-
-.no-rounded-bottom-right {
-  border-bottom-right-radius: 0 !important;
-}
-
 </style>
 {% endblock %}
 
@@ -137,6 +98,7 @@
         class="form-control"
         placeholder="Source name..."
         required
+        ref="name"
       />
     </div>
 
@@ -180,10 +142,10 @@
           />
         </div>
       </div>
-      <div class="col-2 d-flex align-items-center justify-content-between">
+      <div class="col-2 d-md-flex align-items-center justify-content-between">
         <template v-if="!isNew">
           <span>Sample Data</span>
-          <button v-if="hasMoreSamples" class="btn btn-link btn-sm" @click="nextSample">
+          <button v-if="hasMoreSamples" class="btn btn-outline-primary btn-sm" @click="nextSample">
             Shuffle
           </button>
         </template>
@@ -192,16 +154,16 @@
     <div class="fields">
       <div v-for="(field, index) in visibleFields"
         :key="field.id"
-        class="row mb-1"
+        class="row py-2 bg-body-tertiary"
       >
         <div class="col-10">
-          <div :class="{'bg-body-tertiary': index % 2 === 0}">
+          <div :class="{'bg-body': index % 2 === 0, 'bg-primary-subtle3': index % 2 !== 0}">
             <div class="input-group">
               <div class="form-floating flex-fill">
                 <input
                   type="text"
                   class="form-control"
-                  :class="{'bg-body-tertiary': index % 2 === 0, 'no-rounded-bottom-left': hasMetaOptions(field)}"
+                  :class="{'bg-body': index % 2 === 0, 'bg-body-tertiary': index % 2 !== 0, 'no-rounded-bottom-left': hasMetaOptions(field)}"
                   :id="`field-${field.id}`"
                   :placeholder="field.id"
                   @input="updateFieldName(field.id, $event)"
@@ -214,7 +176,7 @@
               <div class="form-floating field-type">
                 <select
                   class="form-select"
-                  :class="{empty: !field.meta.type, 'bg-body-tertiary': index % 2 === 0}"
+                  :class="{empty: !field.meta.type, 'bg-body': index % 2 === 0, 'bg-body-tertiary': index % 2 !== 0}"
                   v-model="field.meta.type"
                 >
                   <option value=""></option>
@@ -260,13 +222,14 @@
           <div
             v-if="hasMetaOptions(field)"
             class="d-flex justify-content-end border border-top-0 p-2 rounded-bottom"
-            :class="{'bg-body-tertiary': index % 2 === 0}"
+            :class="{'bg-body': index % 2 === 0, 'bg-body-tertiary': index % 2 !== 0}"
           >
             <div v-if="field?.meta?.type === 'sequence'" class="input-group w-50">
               <div class="form-floating">
                 <input
                   v-model="sequenceFields[field.id]"
                   class="form-control"
+                  :class="{'bg-body': index % 2 === 0, 'bg-body-tertiary': index % 2 !== 0}"
                   :id="'sequence-next-' + field.id"
                   inputmode="decimal"
                   type="number"
@@ -284,6 +247,7 @@
                   v-model="field.meta.originId"
                   list="lookup-origins"
                   class="form-control"
+                  :class="{'bg-body': index % 2 === 0, 'bg-body-tertiary': index % 2 !== 0}"
                   :id="'lookup-table-' + field.id"
                   @change="cleanFieldTypes"
                 />
@@ -296,6 +260,7 @@
                   v-model="field.meta.originField"
                   :list="`lookup-fields-${field.meta.originId}`"
                   class="form-control"
+                  :class="{'bg-body': index % 2 === 0, 'bg-body-tertiary': index % 2 !== 0}"
                   :id="'lookup-field-' + field.id"
                 />
                 <label :for="'lookup-field-' + field.id">Field</label>
@@ -307,7 +272,7 @@
           <input type="text" disabled :value="sample[field.id]" class="form-control sample" />
         </div>
       </div>
-      <div class="row">
+      <div class="row bg-body-tertiary py-2">
         <div class="col-10">
           <div class="input-group">
             <input

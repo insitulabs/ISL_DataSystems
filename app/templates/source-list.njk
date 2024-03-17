@@ -98,12 +98,28 @@
           <td>
             <a
               href="/data-viewer/source/{{ source._id }}/edit"
+              class="btn btn-link btn-sm"
+              role="button"
               title="Edit source"
-              ><i class="bi bi-pencil-square"></i></a>
+              >
+                <i class="bi bi-pencil-square"></i>
+            </a>
+            <a
+              href="/data-viewer/source/new?origin={{ source._id }}"
+              class="btn btn-link btn-sm"
+              role="button"
+              title="Duplicate source"
+              >
+                <i class="bi bi-copy"></i>
+            </a>
             <a
               href="/data-viewer/source/{{ source._id }}/import"
-              class="ms-2 {{ 'btn btn-link disabled p-0' if source.deleted }}"
-              title="Import data"><i class="bi bi-cloud-upload"></i></a>
+              role="button"
+              class="btn btn-link btn-sm {{ 'btn btn-link disabled p-0' if source.deleted }}"
+              title="Import data"
+            >
+              <i class="bi bi-cloud-upload"></i>
+            </a>
           </td>
           {% endif %}
         </tr>

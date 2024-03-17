@@ -145,6 +145,14 @@ Vue.createApp({
     }
   },
 
+  mounted() {
+    if (this.isNew && this.$refs.name) {
+      this.$nextTick(() => {
+        this.$refs.name.focus();
+      });
+    }
+  },
+
   methods: {
     addField() {
       let $input = this.$refs.addField;
