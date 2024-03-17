@@ -73,8 +73,11 @@ module.exports = class Uploader {
 
     try {
       let s3Body = typeof file === 'string' ? fs.createReadStream(file) : file;
+
+      let encodedFileName = encodeURIComponent(label || fileName);
+      let contentDisposition = "attachment;filename*=UTF-8''" + encodedFileName;
       await s3.upload(s3Key, s3Body, {
-        ContentDisposition: `attachment; filename=${label || fileName}`
+        ContentDisposition: contentDisposition
       });
 
       let transcodes = null;

@@ -76,7 +76,9 @@ module.exports = class S3 {
     };
 
     if (fileName) {
-      options.ResponseContentDisposition = `attachment; filename=${fileName}`;
+      let encodedFileName = encodeURIComponent(fileName);
+      let contentDisposition = "attachment;filename*=UTF-8''" + encodedFileName;
+      options.ResponseContentDisposition = contentDisposition;
     }
 
     return getSignedUrl(s3Client, new GetObjectCommand(options), { expiresIn: expires });
