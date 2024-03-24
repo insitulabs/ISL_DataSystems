@@ -501,7 +501,7 @@ Vue.createApp({
     },
 
     /**
-     * Add filter values via paste if user is pasting multiple comma or tab seperated values.
+     * Add filter values via paste for comma, tab, or new-line seperated values.
      * @param {string} filterId
      * @param {ClipboardEvent} event
      */
@@ -512,6 +512,8 @@ Vue.createApp({
         let del = ',';
         if (paste.includes('\t')) {
           del = '\t';
+        } else if (paste.includes('\n')) {
+          del = '\n';
         }
 
         let values = paste
