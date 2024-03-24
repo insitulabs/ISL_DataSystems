@@ -243,7 +243,19 @@ Vue.createApp({
 
     currentFilters: {
       deep: true,
-      handler: function () {
+      handler: function (filters, previousFilters) {
+        let count = Object.values(filters).reduce((sum, arr) => {
+          return sum + arr.length;
+        }, 0);
+        let prevCount = Object.values(previousFilters).reduce((sum, arr) => {
+          return sum + arr.length;
+        }, 0);
+
+        if (count === prevCount) {
+          // If we're not actually searching for something new, no need to do the query.
+          return;
+        }
+
         this.baseParams.offset = 0;
         this.anaBaseParams.offset = 0;
         this.fetchFilters();
@@ -454,7 +466,12 @@ Vue.createApp({
      * @param {boolean} andFocus
      */
     addFilter(filterId, andFocus = false) {
-      this.currentFilters[filterId] = this.currentFilters[filterId] || [];
+      // Poor man's deep clone and re-assignment
+      // to make sure Vue gets distinct current vs previous in currentFilters deep watch handler.
+      let filters = JSON.parse(JSON.stringify(this.currentFilters));
+      filters[filterId] = filters[filterId] || [];
+      this.currentFilters = filters;
+
       if (andFocus) {
         this.$nextTick(() => {
           this.selectFilterInput(filterId);
@@ -471,10 +488,46 @@ Vue.createApp({
       let v = value ? value.trim() : '';
       if (v) {
         this.addFilter(filterId);
-        this.currentFilters[filterId].push(v);
+
+        // Poor man's deep clone and re-assignment
+        // to make sure Vue gets distinct current vs previous in currentFilters deep watch handler.
+        let filters = JSON.parse(JSON.stringify(this.currentFilters));
+        filters[filterId].push(v);
+        this.currentFilters = filters;
         this.$nextTick(() => {
           this.selectFilterInput(filterId);
         });
+      }
+    },
+
+    /**
+     * Add filter values via paste if user is pasting multiple comma or tab seperated values.
+     * @param {string} filterId
+     * @param {ClipboardEvent} event
+     */
+    pasteFilterValue(filterId, event) {
+      let paste = (event.clipboardData || window.clipboardData).getData('text');
+
+      if (paste) {
+        let del = ',';
+        if (paste.includes('\t')) {
+          del = '\t';
+        }
+
+        let values = paste
+          .split(del)
+          .map((v) => v?.trim())
+          .filter(Boolean);
+
+        if (values.length > 1) {
+          event.preventDefault();
+          values.forEach((v) => {
+            this.addFilterValue(filterId, v);
+          });
+          this.$nextTick(() => {
+            this.selectFilterInput(filterId);
+          });
+        }
       }
     },
 
@@ -502,7 +555,11 @@ Vue.createApp({
      * @param {number} index
      */
     removeFilter(filterId, index) {
-      let values = this.currentFilters[filterId];
+      // Poor man's deep clone and re-assignment
+      // to make sure Vue gets distinct current vs previous in currentFilters deep watch handler.
+      let filters = JSON.parse(JSON.stringify(this.currentFilters));
+
+      let values = filters[filterId];
       if (values) {
         if (typeof index === 'number') {
           values.splice(index, 1);
@@ -510,6 +567,7 @@ Vue.createApp({
           values.splice(values.length - 1, 1);
         }
       }
+      this.currentFilters = filters;
 
       this.$nextTick(() => {
         this.selectFilterInput(filterId, false);

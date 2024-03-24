@@ -233,6 +233,7 @@
             type="text"
             @keyup.enter="addFilterValue(filter, $event.target.value)"
             @keydown.backspace="($event) => { if (!$event.target.value) { removeFilter(filter); }}"
+            @paste="pasteFilterValue(filter, $event)"
             :placeholder="!values.length ? 'value' : 'or...'"
             class="filter-input form-control"
             :ref="'filterInput-' + filter"
