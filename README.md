@@ -22,12 +22,11 @@ The In Situ Laboratory Data System is a combination of tools to capture, organiz
 
 
 1. ODK input forms are designed to allow researchers to collect data in a standardized way.
-1. The forms are loaded onto mobile devices (phone, tablet) using ODK Collect (Andriod) or GIC Collect (Os) and data is captured offline.
-1. When the mobile device acquire an internet connection, the data is uploaded to an [ODK Central](https://github.com/getodk/central) server.
-1. Within minutes the data is extracted from the [ODK Central](https://github.com/getodk/central) server and stored in a [MongoDB](https://www.mongodb.com) database. MongoDB allows for storing arbitrary documents, removing the complexity of fixed data typing or normalizing of raw data in the initial collection stage.
-   * Note: The usage of [ODK Central](https://github.com/getodk/central) is not required.
-   The data system is designed to be data source agnostic.
-1. Our custom data viewer tool allows researchers to:
+2. The forms are loaded onto mobile devices (phones, tablets) using ODK Collect (Andriod) or GIC Collect (Os) and data is captured offline.
+3. When the mobile devices acquire an internet connection, the data is uploaded to an [ODK Central](https://github.com/getodk/central) server.
+4. Within seconds the data is copied from the [ODK Central](https://github.com/getodk/central) server to a [MongoDB](https://www.mongodb.com) database. MongoDB is an extremely flexible type of database for managing arbitrary documents and data values. It has been chosen for the ability to remove complexity of fixed data typing and normalizing of raw data in the initial data collection stages.
+   * Note: The usage of [ODK Central](https://github.com/getodk/central) is not required. This system is designed to be data source agnostic.
+5. The data viewer tool allows researchers to:
     * Manage access to the data.
        * Users are granted secure access to the system without the need to manage a password.
     * Review source data collections with basic filter and sorting options.
