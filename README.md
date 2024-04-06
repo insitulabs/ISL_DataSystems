@@ -102,13 +102,17 @@ _For more examples, please refer to the [Documentation](https://example.com)_
 - [x] Inline data editing
 - [x] Source filtering and visible column selection
 - [x] Source column renaming
-- [x] Custom views to aggregate source data
-- [x] Data typing and modification, including auto-increment fields
+- [x] Customizable VIEWS to rearrange and aggregate data accross multiple SOURCES
+- [x] Data typing and modification, auto-increment and look-up fields
 - [x] Record transpose or explode of record field
-- [x] CSV Import
 - [x] Source and record archiving
-- [x] Source look-up and copy-to features
+- [x] SOURCE and VIEW copy-to features
+- [x] forward and backward SOURCE look-up features
 - [x] Data isolation through workspaces
+- [x] Light/dark/auto themes
+- [x] Secure access without password requirements (requires access to a secure email)
+- [x] Customizable DEFAULT displays
+- [x] SOURCE, VIEW, record duplication (including value overide feature)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -117,6 +121,7 @@ _For more examples, please refer to the [Documentation](https://example.com)_
 - [ ] bulk append column data to records
 - [ ] Separate creator and editor user roles
 - [ ] Data Viewer tutorial and help page
+- [ ] Muli-langauge compatibility
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
