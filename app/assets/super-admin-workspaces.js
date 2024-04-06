@@ -55,7 +55,15 @@ Vue.createApp({
         delete avail[lang];
       });
 
-      return avail;
+      // Sort languages by english name.
+      return Object.keys(avail)
+        .sort((a, b) => {
+          return avail[a].name.toLowerCase().localeCompare(avail[b].name.toLowerCase());
+        })
+        .reduce((sorted, lang) => {
+          sorted[lang] = avail[lang];
+          return sorted;
+        }, {});
     }
   },
 

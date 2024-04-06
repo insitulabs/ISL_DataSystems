@@ -588,7 +588,7 @@ export const langs = {
     nativeName: 'Sesotho'
   },
   es: {
-    name: 'Spanish; Castilian',
+    name: 'Spanish',
     nativeName: 'español, castellano'
   },
   su: {
