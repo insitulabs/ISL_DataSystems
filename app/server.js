@@ -11,6 +11,7 @@ const crypto = require('./lib/crypto');
 const Errors = require('./lib/errors');
 const CurrentUser = require('./lib/current-user');
 const MongoStore = require('connect-mongo');
+const langUtil = require('./lib/langUtil');
 
 const jobSyncOdkSubmissions = require('./jobs/odk-sync-submissions');
 const jobSyncOdkAttachments = require('./jobs/odk-sync-attachments');
@@ -159,6 +160,29 @@ const emailValidator = require('./lib/email-validator');
       .then((workspace) => {
         if (workspace) {
           res.locals.workspace = workspace;
+          res.locals.languages = langUtil.loadLanguages(workspace.languages);
+          if (workspace?.languages?.length) {
+            // See if user has picked a language, first from cookie, then by browser pref.
+            let language = null;
+            let cookieMatch = /lang=(\w{2})/.exec(req.headers.cookie);
+            if (cookieMatch) {
+              language = cookieMatch[1];
+            } else {
+              language = req.acceptsLanguages(workspace.languages);
+            }
+
+            // If we have a supported language, and it's not the primary, use it.
+            // Do not bother with the primary lang as it could have performance impacts
+            // simply to look for it and not find it.
+            if (
+              language &&
+              language !== CONFIG.PRIMARY_LANG &&
+              workspace.languages.includes(language)
+            ) {
+              res.locals.language = language;
+            }
+          }
+
           next();
         } else {
           return next(new Errors.NotFound('Invalid workspace'));

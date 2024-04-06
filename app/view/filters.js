@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const path = require('path');
 const fs = require('fs');
 const CONFIG = require('../config');
+const langUtil = require('../lib/langUtil');
 
 // const currencyFormatter = new Intl.NumberFormat('en-US', {
 //   minimumFractionDigits: 2
@@ -144,6 +145,14 @@ module.exports = function (nunjucks) {
       return keys.join(', ');
     }
     return '';
+  });
+
+  nunjucks.addFilter('altLang', (source, key, language) => {
+    return langUtil.altLang(source, key, language);
+  });
+
+  nunjucks.addFilter('altLangFieldName', (field, language) => {
+    return langUtil.altLangFieldName(field, language);
   });
 };
 

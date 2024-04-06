@@ -28,13 +28,20 @@
   </div>
 
   <div class="d-flex mt-2">
-    <input type="text" value="{{ source.name }}" class="form-control" disabled />
+    <input
+      type="text"
+      value="{{ source | altLang('name', language) }}"
+      class="form-control"
+      disabled
+     />
   </div>
 
   <div class="d-flex mt-2">
-    <textarea class="form-control" placeholder="Source note..." disabled>
-{{ source.note }}</textarea
-    >
+    <textarea
+      class="form-control"
+      placeholder="Source note..."
+      disabled
+    >{{ source | altLang('note', language) }}</textarea>
   </div>
 
   {% if imports.length %}
@@ -136,7 +143,7 @@
 
           <datalist id="all-fields">
             <option v-for="f in remainingFields" :value="f.id" :key="f.id">
-              ${f.name}
+              ${fieldName(f)}
               <template v-if="f.meta && f.meta.type === 'sequence'">(auto increment)</template>
             </option>
           </datalist>
@@ -164,7 +171,7 @@
             <tbody>
               <tr v-for="f of fields" :key="f">
                 <td class="mw-0" :class="{'bg-warning': mappedFieldIds.includes(f.id) }">
-                  <div class="text-truncate" :title="f.name || f.id">${ f.name || f.id }</div>
+                  <div class="text-truncate" :title="fieldName(f)">${ fieldName(f) }</div>
                 </td>
                 <td class="mw-0">
                   <div class="text-truncate" :title="submissionSample[f] || ''">
@@ -189,6 +196,7 @@
 
 <script>
   window._error = '{{ error }}';
+  window._language = '{{ language }}';
 </script>
 <script type="module" src="{{ '/assets/source-import.js' | appendVersion }}"></script>
 {% endblock %}

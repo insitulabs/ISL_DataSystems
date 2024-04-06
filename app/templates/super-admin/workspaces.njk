@@ -41,18 +41,25 @@
       <thead>
         <tr>
           <th class="{{ 'is-sorted' if sort === "name" }}">
-            <a href="{{ sortLinks.name }}" class="text-decoration-none {{ order }} {{ "link-body-emphasis" if sort === "name" else "text-secondary" }}">
+            <a
+              href="{{ sortLinks.name }}"
+              class="text-decoration-none {{ order }} {{ "link-body-emphasis" if sort === "name" else "text-secondary" }}"
+            >
               Name
               <i class="bi bi-sort-down"></i>
             </a>
           </th>
           <th class="{{ 'is-sorted' if sort === "created" }}">
-            <a href="{{ sortLinks.created }}" class="text-decoration-none {{ order }} {{ "link-body-emphasis" if sort === "created" else "text-secondary" }}">
+            <a
+              href="{{ sortLinks.created }}"
+              class="text-decoration-none {{ order }} {{ "link-body-emphasis" if sort === "created" else "text-secondary" }}"
+            >
               Created
               <i class="bi bi-sort-down"></i>
             </a>
           </th>
           <th scope="col">URL</th>
+          <th scope="col">Additional Langs</th>
           <th scope="col">ODK Sync</th>
           <th scope="col"></th>
         </tr>
@@ -67,6 +74,7 @@
         <tr
           data-id="{{ workspace._id }}"
           data-name="{{ workspace.name }}"
+          data-languages="{{ workspace.languages }}"
         >
           <td class="name align-middle">{{ workspace.name }}</td>
           <td class="created align-middle">
@@ -82,6 +90,11 @@
               :href="getWorkspaceUrl('{{ workspace.name }}')">
                 ${ getWorkspaceUrl('{{ workspace.name }}') }
             </a>
+          </td>
+          <td class="align-middle">
+            {% for lang in workspace.languages %}
+              <span class="badge bg-light text-dark me-1">{{ lang }}</span>
+            {% endfor %}
           </td>
           <td class="align-middle">
             {% if workspace.sync and workspace.sync.enabled %}
@@ -144,6 +157,51 @@
                   v-model.trim="editingWorkspace.name"
                 />
                 <label for="edit-workspace-name">Name</label>
+              </div>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col">
+              <h6>Manage Additional Language</h6>
+              <ul class="list-group mb-3">
+                <li
+                  v-for="lang of selectedLanguages"
+                  :key="lang.id"
+                  class="list-group-item d-flex align-items-center justify-content-between"
+                >
+                  <span>
+                    ${lang.name}
+                    <em v-if="lang.name !== lang.nativeName">(${lang.nativeName})</em>
+                  </span>
+                  <button
+                    v-if="!lang.isPrimary"
+                    class="btn btn-outline-danger btn-sm"
+                    @click="deleteLanguage(lang.id)"
+                    title="Delete language"
+                  >
+                    <i class="bi bi-trash"></i>
+                  </button>
+                </li>
+              </ul>
+              <div class="input-group">
+                <select class="form-control" v-model="newLanguage">
+                  <option disabled selected :value="null">Select Language</option>
+                  <option
+                    v-for="(lang, id) in availableLanguages"
+                    :key="id"
+                    :value="id"
+                  >
+                    ${lang.name} (${lang.nativeName})
+                  </option>
+                </select>
+                <button
+                  class="btn btn-outline-secondary"
+                  type="button"
+                  @click="addLanguage"
+                >
+                  Add
+                </button>
               </div>
             </div>
           </div>

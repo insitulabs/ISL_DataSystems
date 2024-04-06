@@ -18,6 +18,7 @@ const { getCurrentUser } = require('../../lib/route-helpers');
 const { v4: uuidv4 } = require('uuid');
 const { noCacheMiddleware } = require('../../lib/route-helpers');
 const { parseSpreadsheet } = require('../../lib/spreadsheet');
+const langUtil = require('../../lib/langUtil');
 
 // Default page size.
 const DEFAULT_LIMIT = 50;
@@ -193,7 +194,8 @@ const extractFilters = function (req, fields, pageParams) {
  *  sort: String,
  *  order: String,
  *  limit: Number,
- *  originType: String
+ *  originType: String,
+ *  language: String
  * }} options
  * @return {Array}
  */
@@ -203,6 +205,7 @@ const mapFieldsForUI = function (fields, pageParams, options = {}) {
   let order = options.order;
   let limit = options.limit;
   let originType = options.originType || 'source';
+  let language = options.language;
 
   if (!fields || !fields.length) {
     fields = [];
@@ -235,8 +238,7 @@ const mapFieldsForUI = function (fields, pageParams, options = {}) {
     .map((f) => {
       let filedForUI = {
         id: f.id,
-        name: f.name || f.id,
-        displayName: (f.name || f.id).replace(/\./g, '.<br>'),
+        name: langUtil.altLangFieldName(f, language),
         sortable: true,
         editable: userCanEdit && !Source.NON_EDITABLE_FIELDS.includes(f.id),
         meta: f.meta,
@@ -311,6 +313,7 @@ module.exports = function (opts) {
     const viewManager = new View(currentUser);
     const viewData = await getPageRenderData(req, res);
     const { pagePath, isXHR, isIFRAME } = viewData;
+    const language = res.locals.language;
 
     let offset = 0;
     if (req.query.offset) {
@@ -359,7 +362,7 @@ module.exports = function (opts) {
       fields = query.view.fields;
       dataType = 'view';
       dataId = view._id;
-      originName = view.name;
+      originName = langUtil.altLang(view, 'name', language);
       userCanEdit =
         !view.deleted && currentUser.hasViewPermission(view, CurrentUser.PERMISSIONS.WRITE);
       csvLink = '/data-viewer/csv/view/' + query.view._id.toString();
@@ -381,7 +384,7 @@ module.exports = function (opts) {
       fields = source.fields;
       dataType = 'source';
       dataId = source._id;
-      originName = source.name;
+      originName = langUtil.altLang(source, 'name', language);
       csvLink = '/data-viewer/csv/source/' + query.source._id.toString();
       editLink = '/data-viewer/source/' + source._id.toString() + '/edit';
       isDeleted = source.deleted;
@@ -418,7 +421,8 @@ module.exports = function (opts) {
       sort,
       order,
       limit,
-      originType: dataType
+      originType: dataType,
+      language
     });
 
     let queryResponse = [];
@@ -554,6 +558,8 @@ module.exports = function (opts) {
       const sourceManager = new Source(getCurrentUser(res));
       const viewManager = new View(getCurrentUser(res));
       const auditManager = new Audit(getCurrentUser(res));
+      const language = res.locals.language;
+
       let type = req.params.type;
       if (type !== 'source' && type !== 'view') {
         throw new Errors.BadRequest();
@@ -580,7 +586,8 @@ module.exports = function (opts) {
         userCanEdit: false,
         sort,
         order,
-        originType: type
+        originType: type,
+        language
       });
 
       // Parse column filters
@@ -631,9 +638,10 @@ module.exports = function (opts) {
 
       auditManager.logExport(auditRecord);
 
+      let name = langUtil.altLang(view ? view : source, 'name', language);
       return sendCSV(
         res,
-        view ? view.name : source.name,
+        name,
         csvFields,
         submissions.map((s) => {
           return {
@@ -1125,6 +1133,7 @@ module.exports = function (opts) {
       const viewData = await getPageRenderData(req, res);
       const { pagePath } = viewData;
       const pageParams = new URLSearchParams();
+      const language = res.locals.language;
 
       let offset = 0;
       if (req.query.offset) {
@@ -1185,7 +1194,8 @@ module.exports = function (opts) {
         sort,
         order,
         name: nameQuery,
-        deleted: deleted
+        deleted,
+        language
       });
 
       let currentPage = Math.floor(offset / limit) + 1;
@@ -1235,6 +1245,12 @@ module.exports = function (opts) {
         if (duplicate) {
           toCreate.fields = duplicate.fields;
           toCreate.sources = duplicate.sources;
+          toCreate.note = duplicate.note;
+          toCreate.altLang = {};
+          Object.keys(duplicate.altLang || {}).forEach((lang) => {
+            let { name, ...rest } = duplicate.altLang[lang];
+            toCreate.altLang[lang] = rest;
+          });
           // TODO revisit cloning with permissions
         }
 
@@ -1317,6 +1333,7 @@ module.exports = function (opts) {
       const { pagePath } = viewData;
       const userCanEdit = false;
       const pageParams = new URLSearchParams();
+      const language = res.locals.language;
 
       let offset = 0;
       if (req.query.offset) {
@@ -1345,7 +1362,8 @@ module.exports = function (opts) {
         sort,
         order,
         limit,
-        originType: 'view'
+        originType: 'view',
+        language
       });
 
       // Parse column filters
@@ -1392,6 +1410,7 @@ module.exports = function (opts) {
       const viewData = await getPageRenderData(req, res);
       const { pagePath } = viewData;
       const pageParams = new URLSearchParams();
+      const language = res.locals.language;
 
       let offset = 0;
       if (req.query.offset) {
@@ -1452,7 +1471,8 @@ module.exports = function (opts) {
         sort,
         order,
         name: nameQuery,
-        deleted: deleted
+        deleted,
+        language
       });
 
       let currentPage = Math.floor(offset / limit) + 1;
@@ -1502,6 +1522,13 @@ module.exports = function (opts) {
         let duplicate = sources.results.find((s) => s._id.equals(duplicateId));
         if (duplicate) {
           toCreate.note = duplicate.note;
+
+          toCreate.altLang = {};
+          Object.keys(duplicate.altLang || {}).forEach((lang) => {
+            let { name, ...rest } = duplicate.altLang[lang];
+            toCreate.altLang[lang] = rest;
+          });
+
           toCreate.fields = duplicate.fields;
           // TODO revisit cloning with permissions
         }
@@ -1550,6 +1577,7 @@ module.exports = function (opts) {
       let currentUser = getCurrentUser(res);
       const sourceManager = new Source(currentUser);
       const viewManager = new View(currentUser);
+      const language = res.locals.language;
 
       const viewData = await getPageRenderData(req, res);
       const { pagePath } = viewData;
@@ -1676,14 +1704,12 @@ module.exports = function (opts) {
             }
 
             let field = originFields.find((f) => f.id === fieldId);
-            let fieldName = field ? field.name || field.id : fieldId;
-
+            let fieldName = field ? langUtil.altLangFieldName(field, language) : fieldId;
             fields.push({
               id: fieldId,
               // The escaped fieldId needed for reduction and where the data lives.
               normalizedFieldId,
               name: fieldName,
-              displayName: fieldName.replace(/\./g, '.<br>'),
               sortable: true,
               filterable: !!field,
               url: '?' + sortParams.toString(),
@@ -1918,6 +1944,7 @@ module.exports = function (opts) {
       let currentUser = getCurrentUser(res);
       const sourceManager = new Source(currentUser);
       const viewManager = new View(currentUser);
+      const language = res.locals.language;
       const viewData = await getPageRenderData(req, res);
       const isView = req.params.type === 'view';
 
@@ -1988,9 +2015,19 @@ module.exports = function (opts) {
       }
 
       let sources = await sourceManager.listSources({ limit: -1, sort: 'name', order: 'asc' });
-      let editableSources = sources.results.filter((s) => {
-        return currentUser.hasSourcePermission(s, CurrentUser.PERMISSIONS.WRITE);
-      });
+      let editableSources = sources.results
+        .filter((s) => {
+          return currentUser.hasSourcePermission(s, CurrentUser.PERMISSIONS.WRITE);
+        })
+        .map((s) => {
+          // Translate names
+          s.name = langUtil.altLang(s, 'name', language);
+          s.fields.forEach((field) => {
+            field.name = langUtil.altLangFieldName(field, language);
+          });
+
+          return s;
+        });
 
       let destinationId =
         req.query.destId && ObjectId.isValid(req.query.destId)
@@ -1999,6 +2036,11 @@ module.exports = function (opts) {
       let destination = destinationId
         ? editableSources.find((s) => s._id.equals(destinationId))
         : null;
+
+      // Translate field names
+      origin.fields.forEach((field) => {
+        field.name = langUtil.altLangFieldName(field, language);
+      });
 
       let model = {
         ...viewData,

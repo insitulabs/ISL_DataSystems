@@ -453,6 +453,10 @@ class Source extends Base {
       if (typeof f.default === 'undefined') {
         f.default = true;
       }
+
+      if (typeof f.altLang === 'undefined') {
+        f.altLang = {};
+      }
     });
 
     return source;
@@ -504,7 +508,7 @@ class Source extends Base {
 
   /**
    * List sources.
-   * @param {Object} options Query params (sort, order, limit (-1 for all), offset, deleted: true)
+   * @param {Object} options Query params (sort, order, limit (-1 for all), offset, deleted: true, language)
    * @return {Object} Query result object with, results, totalResults, offset.
    */
   async listSources(options = {}) {
@@ -521,14 +525,34 @@ class Source extends Base {
       $match.$or = [{ _id: { $in: this.user.sourceIds() } }, { 'permissions.read': true }];
     }
 
+    if (Object.keys($match).length) {
+      pipeline.push({ $match: $match });
+    }
+
+    // If we have a name query
     if (options.name && typeof options.name === 'string') {
       // Escape for regex.
       let nameQuery = options.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      $match.name = { $regex: new RegExp(nameQuery, 'i') };
-    }
 
-    if (Object.keys($match).length) {
-      pipeline.push({ $match: $match });
+      let $nameMatch = {};
+      // If a language was provided, query both primary name and alt lang name.
+      if (options.language) {
+        $nameMatch.$or = [
+          {
+            name: { $regex: new RegExp(nameQuery, 'i') }
+          }
+        ];
+
+        let langQuery = {};
+        langQuery[`altLang.${options.language}.name`] = { $regex: new RegExp(nameQuery, 'i') };
+        $nameMatch.$or.push(langQuery);
+      } else {
+        $nameMatch = {
+          name: { $regex: new RegExp(nameQuery, 'i') }
+        };
+      }
+
+      pipeline.push({ $match: $nameMatch });
     }
 
     let sources = this.collection(SOURCES);
@@ -540,7 +564,12 @@ class Source extends Base {
     // TODO If we need case insensitive sort, look at collation or normalizing a string to then sort on
     if (options.sort) {
       let sort = {};
-      sort[options.sort] = options.order === 'asc' ? 1 : -1;
+      if (options.sort === 'name' && options.language) {
+        sort[`altLang.${options.language}.name`] = options.order === 'asc' ? 1 : -1;
+        sort['name'] = options.order === 'asc' ? 1 : -1;
+      } else {
+        sort[options.sort] = options.order === 'asc' ? 1 : -1;
+      }
       // Include a unique value in our sort so Mongo doesn't screw up limit/skip operation.
       sort._id = sort[options.sort];
       pipeline.push({
@@ -587,6 +616,7 @@ class Source extends Base {
       namespace: source.namespace,
       submissionKey: Source.submissionKey(source.system, source.namespace),
       note: source.note,
+      altLang: source.altLang || {},
       fields: source.fields,
       created: source.created || now,
       modified: now
@@ -664,6 +694,7 @@ class Source extends Base {
       // namespace: source.namespace,
       note: source.note,
       fields: source.fields,
+      altLang: source.altLang || {},
       modified: now
     };
 

@@ -133,12 +133,13 @@ module.exports = function (opts) {
     try {
       let id = req.body.id;
       let name = req.body.name;
+      let languages = req.body.languages;
       let appManager = new App();
 
       if (id) {
-        await appManager.renameWorkspace(id, name);
+        await appManager.updateWorkspace(id, name, languages);
       } else {
-        await appManager.createWorkspace(name);
+        await appManager.createWorkspace(name, languages);
       }
 
       res.send({});

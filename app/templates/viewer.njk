@@ -25,6 +25,7 @@
   window._ORIGIN_ID = "{{ dataId }}";
   window._ORIGIN_NAME = "{{ originName }}";
   window._IS_IFRAME_FIELD = "{{ isIFRAME }}";
+  window._LANGUAGE = "{{ language }}";
 </script>
 <script src="{{'/assets/data-viewer2.js' | appendVersion }}"></script>
 <script src="{{'/assets/data-viewer.js' | appendVersion }}"></script>
@@ -53,9 +54,9 @@
 
 {% set note = null %}
 {% if source and source.note %}
-  {% set note = source.note %}
+  {% set note = source | altLang('note', language) %}
 {% elif view and view.note %}
-  {% set note = view.note %}
+  {% set note = view | altLang('note', language) %}
 {% endif %}
 
 {% if note %}
@@ -155,7 +156,7 @@
                 class="add-filter"
                 @click="addFilter(f.id, true)"
               >
-                <span class="dropdown-item btn">${ f.name || f.id }</span>
+                <span class="dropdown-item btn">${ f.name }</span>
               </li>
             </ul>
           </span>

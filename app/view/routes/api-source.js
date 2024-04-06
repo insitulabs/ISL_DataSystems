@@ -5,6 +5,7 @@ const Error = require('../../lib/errors');
 const { getCurrentUser } = require('../../lib/route-helpers');
 const CurrentUser = require('../../lib/current-user');
 const Audit = require('../../db/audit').Audit;
+const langUtil = require('../../lib/langUtil');
 
 module.exports = function (opts) {
   const router = express.Router();
@@ -48,7 +49,8 @@ module.exports = function (opts) {
   });
 
   /**
-   * Get sample of source submissions
+   * Get source fields.
+   * @deprecated
    */
   router.get('/:id/fields', async (req, res, next) => {
     try {
@@ -62,12 +64,18 @@ module.exports = function (opts) {
   });
 
   /**
-   * Get sample of source submissions
+   * Get sample of source submissions.
    */
   router.get('/:id/fields-with-sample', async (req, res, next) => {
     try {
       const sourceManager = new Source(getCurrentUser(res));
+      const language = res.locals.language;
       let source = await sourceManager.getSource(req.params.id);
+
+      // Translate field names
+      source.fields.forEach((field) => {
+        field.name = langUtil.altLangFieldName(field, language);
+      });
 
       let limit = req.query.limit || 20;
       limit = Math.max(1, Math.min(limit, 100));

@@ -46,7 +46,7 @@
           {% if column.sortable %}
             <a href="{{ column.url }}"
                 class="text-decoration-none {% if column.isSorted %} link-body-emphasis {{ column.isSorted }} {% else %} text-secondary {% endif %}">
-              {{ column.displayName | safe }}
+              {{ column.name | replace(".", "<br />") | safe }}
               <i class="bi bi-sort-down"></i>
             </a>
             <button
@@ -61,7 +61,9 @@
               </button>
             {% endif %}
           {% else %}
-            <span class="text-secondary">{{ column.displayName }}</span>
+            <span class="text-secondary">
+              {{ column.name | replace(".", "<br />") | safe }}
+            </span>
           {% endif %}
         </th>
       {% endfor %}
