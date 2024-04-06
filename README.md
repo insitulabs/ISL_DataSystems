@@ -14,7 +14,8 @@
 <!-- ABOUT THE PROJECT -->
 ## About
 
-[![Data System Screen Shot](https://insitulabs.org/static-assets/data-viewer-screenshot.jpg?v=1)](https://insitulabs.org/static-assets/data-viewer-screenshot.jpg)
+[![Data System Screen Shot](https://insitulabs.org/static-assets/data-viewer-screenshot.jpg?v=1)](https://insitulabs.org/wp-content/uploads/2024/04/islapp_feature_image.jpg
+)
 
 The In Situ Laboratory Data System is a combination of tools to capture, organize, clean, and synchornize data for a variety of downstream applications. The following describes the flow of data:
 
