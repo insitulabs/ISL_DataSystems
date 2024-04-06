@@ -91,7 +91,9 @@
           <td>{{ source.system }}</td>
           <td>{{ source.namespace }}</td>
           <td>
-            <a href="/data-viewer/source/{{ source._id }}">{{ source.name }}</a>
+            <a href="/data-viewer/source/{{ source._id }}">
+              {{ source | altLang('name', language) }}
+            </a>
           </td>
           <td><time title="{{ source.created }}">{{ source.created | formatDate }}</time></td>
           {% if isAdmin %}

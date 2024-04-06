@@ -34,6 +34,11 @@ class App extends Base {
     return await this.collection(WORKSPACES).find({}).sort(sort).toArray();
   }
 
+  /**
+   * Get workspace by name.
+   * @param {String} name
+   * @return {Object} The workspace or null
+   */
   async getWorkspace(name) {
     if (!name) {
       throw new Errors.BadRequest('Invalid workspace name.');
@@ -42,9 +47,31 @@ class App extends Base {
     return await this.collection(WORKSPACES).findOne({ name: name });
   }
 
-  async createWorkspace(name) {
+  /**
+   * Get workspace by database ID.
+   * @param {String || ObjectId} id
+   * @return {Object} The workspace or null
+   */
+  async getWorkspaceById(id) {
+    if (!id || !ObjectId.isValid(id)) {
+      throw new Errors.BadRequest('ID is required.');
+    }
+
+    return await this.collection(WORKSPACES).findOne({ _id: new ObjectId(id) });
+  }
+
+  /**
+   * Create a new workspace.
+   * @param {String} name The workspace name.
+   * @param {Array[String]} languages Additional language codes.
+   */
+  async createWorkspace(name, languages = []) {
     if (!name) {
       throw new Errors.BadRequest('Invalid workspace name.');
+    }
+
+    if (!languages || !Array.isArray(languages)) {
+      throw new Errors.BadRequest('Invalid workspace languages.');
     }
 
     let trimmed = name
@@ -70,6 +97,7 @@ class App extends Base {
     let now = new Date();
     let response = await this.collection(WORKSPACES).insertOne({
       name: trimmed,
+      languages,
       dbName: dbName,
       created: now,
       modified: now
@@ -78,13 +106,28 @@ class App extends Base {
     await this.applySchemaMigrations(response.insertedId);
   }
 
-  async renameWorkspace(id, name) {
+  /**
+   * Update the workspace.
+   * @param {ObjectId || String} id The workspace ID.
+   * @param {String} name The name of workspace.
+   * @param {Array[String]} languages The language codes.
+   */
+  async updateWorkspace(id, name, languages) {
     if (!id || !ObjectId.isValid(id)) {
       throw new Errors.BadRequest('ID is required.');
     }
 
     if (!name) {
       throw new Errors.BadRequest('Invalid workspace name.');
+    }
+
+    if (!languages || !Array.isArray(languages)) {
+      throw new Errors.BadRequest('Invalid workspace languages.');
+    }
+
+    let workspace = await this.getWorkspaceById(id);
+    if (!workspace) {
+      throw new Errors.BadRequest('Workspace not found.');
     }
 
     let trimmed = name
@@ -96,14 +139,14 @@ class App extends Base {
       throw new Errors.BadRequest('Invalid workspace name.');
     }
 
-    let existing = await this.getWorkspace(trimmed);
-    if (existing && !existing._id.equals(new ObjectId(id))) {
+    let sameName = await this.getWorkspace(trimmed);
+    if (sameName && !sameName._id.equals(workspace._id)) {
       throw new Errors.BadRequest(`Workspace ${trimmed} already exists`);
     }
 
     await this.collection(WORKSPACES).updateOne(
-      { _id: new ObjectId(id) },
-      { $set: { name: trimmed, modified: new Date() } }
+      { _id: workspace._id },
+      { $set: { name: trimmed, languages, modified: new Date() } }
     );
   }
 

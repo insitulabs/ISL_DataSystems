@@ -65,6 +65,7 @@ Vue.createApp({
     return {
       ORIGIN_TYPE: window._ORIGIN_TYPE,
       ORIGIN_ID: window._ORIGIN_ID,
+      language: window._LANGUAGE || null,
       error: null,
       fields,
       viewMode,
@@ -455,7 +456,7 @@ Vue.createApp({
     fieldName(filterId) {
       let filter = this.fields.find((f) => f.id === filterId);
       if (filter) {
-        return filter.name || filter.id;
+        return filter.name;
       }
       return filterId;
     },

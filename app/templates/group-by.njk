@@ -14,12 +14,16 @@
           href="{{ column.url }}"
           class="text-decoration-none {% if column.isSorted %} link-body-emphasis {{ column.isSorted }} {% else %} text-secondary {% endif %}"
         >
-          {{ column.displayName | safe }}
+          {{ column.name | replace(".", "<br />") | safe }}
           <i class="bi bi-sort-down"></i>
         </a>
         {% else %}
-        <span class="text-secondary">{{ column.displayName }}</span>
-        {% endif %} {% if column.filterable %}
+        <span class="text-secondary">
+          {{ column.name | replace(".", "<br />") | safe }}
+        </span>
+        {% endif %}
+
+        {% if column.filterable %}
         <button class="btn p-0 add-filter" data-id="{{ column.id }}" title="Filter field">
           <i class="bi bi-funnel"></i>
         </button>

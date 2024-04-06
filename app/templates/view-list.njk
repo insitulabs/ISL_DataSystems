@@ -76,7 +76,9 @@
         {% for view in results %}
         <tr>
           <td>
-            <a href="/data-viewer/view/{{ view._id }}">{{ view.name }}</a>
+            <a href="/data-viewer/view/{{ view._id }}">
+              {{ view | altLang('name', language) }}
+            </a>
           </td>
           <td><time title="{{ view.created }}">{{ view.created | formatDate }}</time></td>
           {% if isAdmin %}

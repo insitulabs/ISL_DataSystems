@@ -57,14 +57,28 @@
   <div v-if="error" class="alert alert-danger" role="alert">${error}</div>
 
   <section v-show="tab === 'edit'">
+    <ul v-if="availableLanguages.length > 1" class="nav nav-tabs mt-4">
+      <li v-for="l of availableLanguages" :key="l.id" class="nav-item">
+        <button
+          class="nav-link"
+          :class="{active: language === l.id}"
+          type="button"
+          @click="selectLanguage(l.id)"
+        >
+          ${l.name}
+        </button>
+      </li>
+    </ul>
+
     <input type="hidden" :value="id" disabled class="form-control" />
 
     <div class="d-flex">
       <input
         type="text"
-        v-model.trim="name"
+        @input="updateVal('name', $event)"
+        :value="getVal('name')"
         class="form-control"
-        placeholder="View name..."
+        :placeholder="isPrimaryLanguage ? 'View name...' : (name ? name : 'View name...')"
         required
         :disabled="isDeleted"
         ref="name"
@@ -73,9 +87,10 @@
 
     <div class="d-flex mt-2">
       <textarea
-        v-model.trim="note"
+        @input="updateVal('note', $event)"
+        :value="getVal('note')"
         class="form-control"
-        placeholder="View note..."
+        :placeholder="isPrimaryLanguage ? 'View note...' : (note ? note : 'View note...')"
         :disabled="isDeleted"></textarea>
     </div>
 
@@ -103,7 +118,7 @@
             <input
               type="text"
               class="form-control"
-              :value="field.name"
+              :value="getViewFieldName(field)"
               placeholder="View field name"
               disabled
             />
@@ -158,10 +173,14 @@
             <input
               type="text"
               class="form-control mb-1"
+              :class="{'is-invalid': !isPrimaryLanguage}"
               placeholder="Field name..."
               @keyup.enter="addField"
-              :disabled="isDeleted"
+              :disabled="isDeleted || !isPrimaryLanguage"
             />
+            <div class="invalid-feedback">
+              Change to primary language to add fields and manage sources.
+            </div>
           </div>
         </div>
       </div>
@@ -172,7 +191,7 @@
           <button
             class="btn btn-link"
             @click="showNewSourceModal"
-            :disabled="isDeleted"
+            :disabled="isDeleted || !isPrimaryLanguage"
           >+ Add Source</button>
         </div>
         <div v-if="!sources.length" class="align-middle text-secondary pt-2">
@@ -221,7 +240,7 @@
                     v-model.trim="s.rename[sourceField]"
                     placeholder="View field name"
                     list="viewFieldsDataSource"
-                    :disabled="isDeleted"
+                    :disabled="isDeleted || !isPrimaryLanguage"
                   />
                 </div>
 
@@ -229,7 +248,7 @@
                   <button
                     class="btn btn-sm btn-link"
                     @click="selectSourceFields(s.source._id)"
-                    :disabled="isDeleted"
+                    :disabled="isDeleted || !isPrimaryLanguage"
                   >
                     Select Source Fields
                   </button>
@@ -237,7 +256,7 @@
                   <button
                     class="btn btn-sm btn-link text-danger"
                     @click="deleteSource(s.source._id)"
-                    :disabled="isDeleted"
+                    :disabled="isDeleted || !isPrimaryLanguage"
                   >
                     Delete Source
                   </button>
@@ -417,7 +436,7 @@
       <div class="modal-dialog modal-sm">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title" id="edit-field-modal-title">Edit Field</h5>
+            <h5 class="modal-title" id="edit-field-modal-title">Edit Field Name</h5>
             <button
               type="button"
               class="btn-close"
@@ -439,7 +458,7 @@
               <span class="visually-hidden">Loading...</span>
             </div>
             <button class="save btn btn-primary" @click="updateField">Update</button>
-          </div>
+          </div
         </div>
       </div>
     </div>
@@ -524,6 +543,7 @@
 <script>
   window._view = {{ view | dump | safe }};
   window._allSources = {{ sources | dump | safe }};
+  window._languages = {{ languages | dump | safe }};
 </script>
 <script type="module" src="{{ '/assets/view-edit.js' | appendVersion }}"></script>
 {% endblock %}

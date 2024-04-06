@@ -104,6 +104,10 @@ class View extends Base {
       if (typeof f.default === 'undefined') {
         f.default = true;
       }
+
+      if (typeof f.altLang === 'undefined') {
+        f.altLang = {};
+      }
     });
 
     // this.debug(view);
@@ -113,7 +117,7 @@ class View extends Base {
 
   /**
    * List views.
-   * @param {Object} options Query params (sort, order, limit (-1 for all), offset, deleted: true)
+   * @param {Object} options Query params (sort, order, limit (-1 for all), offset, deleted: true, language)
    * @return {Object} Query result object with, results, totalResults, offset.
    */
   async listViews(options = {}) {
@@ -129,14 +133,34 @@ class View extends Base {
       $match.$or = [{ _id: { $in: this.user.viewIds() } }, { 'permissions.read': true }];
     }
 
+    if (Object.keys($match).length) {
+      pipeline.push({ $match: $match });
+    }
+
+    // If we have a name query
     if (options.name && typeof options.name === 'string') {
       // Escape for regex.
       let nameQuery = options.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      $match.name = { $regex: new RegExp(nameQuery, 'i') };
-    }
 
-    if (Object.keys($match).length) {
-      pipeline.push({ $match: $match });
+      let $nameMatch = {};
+      // If a language was provided, query both primary name and alt lang name.
+      if (options.language) {
+        $nameMatch.$or = [
+          {
+            name: { $regex: new RegExp(nameQuery, 'i') }
+          }
+        ];
+
+        let langQuery = {};
+        langQuery[`altLang.${options.language}.name`] = { $regex: new RegExp(nameQuery, 'i') };
+        $nameMatch.$or.push(langQuery);
+      } else {
+        $nameMatch = {
+          name: { $regex: new RegExp(nameQuery, 'i') }
+        };
+      }
+
+      pipeline.push({ $match: $nameMatch });
     }
 
     let views = this.collection(VIEWS);
@@ -148,7 +172,12 @@ class View extends Base {
     // TODO If we need case insensitive sort, look at collation or normalizing a string to then sort on
     if (options.sort) {
       let sort = {};
-      sort[options.sort] = options.order === 'asc' ? 1 : -1;
+      if (options.sort === 'name' && options.language) {
+        sort[`altLang.${options.language}.name`] = options.order === 'asc' ? 1 : -1;
+        sort['name'] = options.order === 'asc' ? 1 : -1;
+      } else {
+        sort[options.sort] = options.order === 'asc' ? 1 : -1;
+      }
       // Include a unique value in our sort so Mongo doesn't screw up limit/skip operation.
       sort._id = sort[options.sort];
       pipeline.push({
@@ -205,6 +234,7 @@ class View extends Base {
     let toPersist = {
       name: view.name,
       note: view.note,
+      altLang: view.altLang || {},
       fields: view.fields,
       sources: sources,
       created: now,
@@ -261,6 +291,7 @@ class View extends Base {
     let toPersist = {
       name: view.name,
       note: view.note,
+      altLang: view.altLang || {},
       fields: view.fields,
       sources: sources,
       modified: now

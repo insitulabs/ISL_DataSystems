@@ -39,6 +39,8 @@ const DEFAULT_WORKSPACE = process.env.DEFAULT_WORKSPACE;
 const MISSING_WORKSPACE_REDIRECT =
   process.env.MISSING_WORKSPACE_REDIRECT || 'https://insitulabs.org';
 
+const PRIMARY_LANG = 'en';
+
 module.exports = {
   PORT,
   ENVIRONMENT,
@@ -61,6 +63,7 @@ module.exports = {
   JOBS_ENABLED,
   JOBS_USER,
   DEFAULT_WORKSPACE,
-  MISSING_WORKSPACE_REDIRECT
+  MISSING_WORKSPACE_REDIRECT,
+  PRIMARY_LANG
 };
 

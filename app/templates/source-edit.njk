@@ -73,42 +73,61 @@
   <div v-if="error" class="alert alert-danger" role="alert">${error}</div>
 
   <section v-if="tab === 'edit'">
-    <div class="d-flex mt-2">
-      <input
-        type="text"
-        disabled
-        v-model.trim="system"
-        class="form-control"
-        placeholder="Source system..."
-      />
-      <input
-        type="text"
-        disabled
-        v-model.trim="namespace"
-        class="form-control ms-1"
-        placeholder="Source namespace..."
-      />
-    </div>
+    <ul v-if="availableLanguages.length > 1" class="nav nav-tabs mt-4">
+      <li v-for="l of availableLanguages" :key="l.id" class="nav-item">
+        <button
+          class="nav-link"
+          :class="{active: language === l.id}"
+          type="button"
+          @click="selectLanguage(l.id)"
+        >
+          ${l.name}
+        </button>
+      </li>
+    </ul>
 
-    <div class="d-flex mt-2">
-      <input
-        type="text"
-        :disabled="isDeleted"
-        v-model.trim="name"
-        class="form-control"
-        placeholder="Source name..."
-        required
-        ref="name"
-      />
-    </div>
+    <div class="row">
+      <div class="col">
+        <div class="d-flex mt-2">
+          <input
+            type="text"
+            disabled
+            v-model.trim="system"
+            class="form-control"
+            placeholder="Source system..."
+          />
+          <input
+            type="text"
+            disabled
+            v-model.trim="namespace"
+            class="form-control ms-1"
+            placeholder="Source namespace..."
+          />
+        </div>
 
-    <div class="d-flex mt-2">
-      <textarea
-        v-model.trim="note"
-        :disabled="isDeleted"
-        class="form-control"
-        placeholder="Source note..."
-      ></textarea>
+        <div class="d-flex mt-2">
+          <input
+            type="text"
+            :disabled="isDeleted"
+            @input="updateVal('name', $event)"
+            :value="getVal('name')"
+            class="form-control"
+            :placeholder="isPrimaryLanguage ? 'Source name...' : (name ? name : 'Source name...')"
+            required
+            ref="name"
+          />
+        </div>
+
+        <div class="d-flex mt-2">
+          <textarea
+            @input="updateVal('note', $event)"
+            :value="getVal('note')"
+            :disabled="isDeleted"
+            class="form-control"
+            :placeholder="isPrimaryLanguage ? 'Source note...' : (note ? note : 'Source note...')"
+          ></textarea>
+        </div>
+      </div>
     </div>
 
     <!--
@@ -166,8 +185,8 @@
                   :class="{'bg-body': index % 2 === 0, 'bg-body-tertiary': index % 2 !== 0, 'no-rounded-bottom-left': hasMetaOptions(field)}"
                   :id="`field-${field.id}`"
                   :placeholder="field.id"
-                  @input="updateFieldName(field.id, $event)"
-                  :value="field.name"
+                  @blur="updateFieldName(field.id, $event)"
+                  :value="getFieldName(field.id)"
                   :disabled="isDeleted"
                 />
                 <label :for="`field-${field.id}`" class="text-secondary">${field.id}</label>
@@ -287,18 +306,24 @@
       </div>
       <div class="row bg-body-tertiary py-2">
         <div class="col-10">
-          <div class="input-group">
+          <div class="input-group" :class="{'is-invalid': !isPrimaryLanguage}">
             <input
               type="text"
-              :disabled="isDeleted"
+              :disabled="isDeleted || !isPrimaryLanguage"
               class="form-control"
               placeholder="Add field..."
               @keyup.enter="addField"
               ref="addField"
             />
-          <button class="btn btn-outline-secondary" @click="addField">
+          <button
+            class="btn btn-outline-secondary"
+            :disabled="!isPrimaryLanguage"
+            @click="addField">
             <i class="bi bi-plus-circle"></i>
           </button>
+        </div>
+        <div class="invalid-feedback">
+          Change to primary language to add fields.
         </div>
       </div>
     </div>
@@ -457,6 +482,7 @@
 </div>
 
 <script>
+  window._languages = {{ languages | dump | safe }};
   window._source = {{ source | dump | safe }};
   window._allSources = {{ sources | dump | safe }};
   window._sequenceFields = {{ sequenceFields | dump | safe }};

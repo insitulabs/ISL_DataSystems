@@ -1,3 +1,4 @@
+const PRIMARY_LANG = 'en';
 let beforeUnloadListener = null;
 
 Vue.createApp({
@@ -6,6 +7,7 @@ Vue.createApp({
     // TODO revisit... caching, back button issues?
     let data = window._source;
     let samples = window._samples;
+    let languages = window._languages;
 
     // TODO maybe query for this some day to avoid large datasets of sources
     let allSources = window._allSources.results;
@@ -27,6 +29,9 @@ Vue.createApp({
       namespace: data.namespace,
       name: data.name,
       note: data.note,
+      altLang: data.altLang || {},
+      languages: languages || [],
+      language: PRIMARY_LANG,
       fields: data.fields.slice(),
       persistedFields: data.fields.slice(),
       sequenceFields,
@@ -55,6 +60,9 @@ Vue.createApp({
     isDeleted() {
       return this.deleted === true;
     },
+    isPrimaryLanguage() {
+      return this.language === PRIMARY_LANG;
+    },
     sample() {
       if (this.samples && this.samples.length) {
         return this.samples[this.sampleIndex];
@@ -71,9 +79,15 @@ Vue.createApp({
           if (f.id.toLowerCase().includes(search)) {
             return true;
           }
-          if (f.name) {
-            return f.name.toLowerCase().includes(search);
+
+          let name = f.name;
+          if (!this.isPrimaryLanguage && f.altLang[this.language]) {
+            name = f.altLang[this.language];
           }
+          if (name) {
+            return name.toLowerCase().includes(search);
+          }
+
           return false;
         });
       } else {
@@ -113,6 +127,14 @@ Vue.createApp({
           fields[f.id] = true;
           return fields;
         }, {});
+    },
+
+    /**
+     * The available languages as an array.
+     * @return {Array}
+     */
+    availableLanguages() {
+      return [{ id: PRIMARY_LANG, name: 'English', isPrimary: true }].concat(this.languages);
     }
   },
 
@@ -167,6 +189,65 @@ Vue.createApp({
   },
 
   methods: {
+    /**
+     * Change the language we're editing.
+     * @param {String} lang Langauge code.
+     */
+    selectLanguage(lang) {
+      this.language = lang;
+    },
+
+    /**
+     * Update a source attribute in the current language.
+     * @param {String} key The attribute to update.
+     * @param {InputEvent} $event The form field input event.
+     */
+    updateVal(key, $event) {
+      let value = $event.target.value.trim();
+      if (this.isPrimaryLanguage) {
+        this[key] = value;
+      } else {
+        if (!this.altLang[this.language]) {
+          this.altLang[this.language] = {};
+        }
+        this.altLang[this.language][key] = value;
+      }
+    },
+
+    /**
+     * Get a source attribute in the current language.
+     * @param {String} key The attribute to update.
+     * @return {String} The attribute.
+     */
+    getVal(key) {
+      if (this.isPrimaryLanguage) {
+        return this[key];
+      } else {
+        let altLang = this.altLang[this.language] || {};
+        return altLang[key] || '';
+      }
+    },
+
+    /**
+     * Get the name of the field in the apropriate language.
+     * @param {String} id The field ID.
+     * @return {String}
+     */
+    getFieldName(id) {
+      let field = this.fields.find((f) => f.id === id);
+      if (field) {
+        let name = field.name;
+
+        if (!this.isPrimaryLanguage && field.altLang[this.language]) {
+          return field.altLang[this.language];
+        }
+
+        return name;
+      }
+
+      return '';
+    },
+
     addField() {
       let $input = this.$refs.addField;
       let value = $input.value.trim();
@@ -206,7 +287,7 @@ Vue.createApp({
         }
 
         if (id && !this.fields.some((f) => id === f.id.toLowerCase())) {
-          this.fields.push({ id: id, name: value, default: true, meta: {} });
+          this.fields.push({ id: id, name: value, default: true, meta: {}, altLang: {} });
           $input.value = '';
           $input.classList.remove('is-invalid');
           this.fieldSearch = '';
@@ -216,11 +297,20 @@ Vue.createApp({
       $input.classList.add('is-invalid');
     },
 
+    /**
+     * Update the name of the field in the current language.
+     * @param {String} id
+     * @param {UIEvent} $event
+     */
     updateFieldName(id, $event) {
       let name = $event.target.value.trim();
       let field = this.fields.find((f) => f.id === id);
       if (field) {
-        field.name = name;
+        if (this.isPrimaryLanguage) {
+          field.name = name;
+        } else {
+          field.altLang[this.language] = name;
+        }
       }
     },
 
@@ -259,6 +349,7 @@ Vue.createApp({
         namespace: this.namespace,
         name: this.name.trim(),
         note: this.note ? this.note.trim() : null,
+        altLang: this.altLang,
         fields: this.fields,
         sequenceFields: this.sequenceFields
       };
@@ -287,6 +378,7 @@ Vue.createApp({
         .catch((err) => {
           console.error(err);
           this.error = err.message ? err.message : 'Error encountered during save.';
+          window.scrollTo(0, 0);
         })
         .finally(() => {
           this.saving = false;

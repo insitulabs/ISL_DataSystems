@@ -10,7 +10,8 @@ Vue.createApp({
       sampleIndex: 0,
       submissionSamples: [],
       submissionSampleIndex: 0,
-      error: typeof window._error === 'string' ? window._error : null
+      error: typeof window._error === 'string' ? window._error : null,
+      language: window._language || null
     };
   },
 
@@ -106,12 +107,33 @@ Vue.createApp({
       return header.replace(/\s/g, '_');
     },
 
+    /**
+     * Get the name for a field in the correct language.
+     * @param {String || Object} id This can be the raw field or the id of a field.
+     * @return {String}
+     */
     fieldName(id) {
-      let f = this.fields.find((f) => f.id === id);
-      if (f) {
-        return f.name || f.id;
+      let name = '';
+      let field = id;
+      if (typeof field === 'string') {
+        field = this.fields.find((f) => f.id === id);
       }
-      return '';
+
+      if (field) {
+        if (this.language && field.altLang && field.altLang[this.language]) {
+          name = field.altLang[this.language];
+        }
+
+        if (!name && field.name) {
+          name = field.name;
+        }
+
+        if (!name) {
+          name = field.id;
+        }
+      }
+
+      return name;
     },
 
     /**
