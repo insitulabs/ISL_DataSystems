@@ -154,6 +154,7 @@ Distributed under the MIT License. See [LICENSE.txt](LICENSE.txt)
 <!-- ACKNOWLEDGMENTS -->
 ## Acknowledgments
 
+* [Field Projects International](https://fieldprojects.org)
 * [Gordon and Betty Moore Foundation](https://www.moore.org/)
 * [US Forest Service](https://www.fs.usda.gov/)
 
