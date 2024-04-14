@@ -33,7 +33,11 @@ program
       throw new Error('Invalid super admin: ' + email);
     }
     const sourceManager = new Source(new CurrentUser(admin, workspace, true), workspace);
-    await sync(workspace, sourceManager);
+    try {
+      await sync(workspace, sourceManager);
+    } catch (error) {
+      console.error(error);
+    }
 
     App.close();
   });
@@ -54,7 +58,11 @@ program
       throw new Error('Invalid super admin: ' + email);
     }
     const sourceManager = new Source(new CurrentUser(admin, workspace, true), workspace);
-    await syncAttachments(workspace, sourceManager);
+    try {
+      await syncAttachments(workspace, sourceManager);
+    } catch (error) {
+      console.error(error);
+    }
 
     App.close();
   });

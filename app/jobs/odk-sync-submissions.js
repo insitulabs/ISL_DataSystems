@@ -122,6 +122,7 @@ module.exports = async function (workspace, sourceManager, SOURCE_SYSTEM = 'ODK'
           status: 'ERROR',
           error: error && error.message ? error.message : error
         });
+        throw error;
       }
     }
   }

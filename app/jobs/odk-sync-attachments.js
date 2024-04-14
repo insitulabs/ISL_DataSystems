@@ -39,7 +39,7 @@ module.exports = async function (workspace, sourceManager) {
       submission._attachmentsPresent &&
       (!submission.attachments || submission.attachments.length < submission._attachmentsPresent)
     ) {
-      let files = await odkClient.listSubmissionAttachments(project, form, submission.originId);
+      let files = await odkClient.listSubmissionAttachments(project, form, submission.externalId);
 
       let attachments = [];
       for (let file of files) {
@@ -49,7 +49,7 @@ module.exports = async function (workspace, sourceManager) {
           let odkAttachment = await odkClient.getAttachment(
             project,
             form,
-            submission.originId,
+            submission.externalId,
             file.name
           );
           if (!odkAttachment) {
@@ -80,6 +80,7 @@ module.exports = async function (workspace, sourceManager) {
   let sources = (await sourceManager.listSources({ limit: -1 })).results;
   sources = sources.filter((s) => s.system === 'ODK');
 
+  let syncErrors = [];
   for (let source of sources) {
     try {
       let [project, form] = source.namespace.split('-');
@@ -103,10 +104,11 @@ module.exports = async function (workspace, sourceManager) {
             synced.push(submission._id.toString());
           }
         } catch (error) {
+          syncErrors.push(error);
           debug(
             `Failed to sync attachments for ${submission._id} ` +
               `[Project: ${project}] [Form: ${form}] ` +
-              `[Submission: ${submission.originId}]`,
+              `[Submission: ${submission.externalId}]`,
             error.stack
           );
         }
@@ -114,10 +116,16 @@ module.exports = async function (workspace, sourceManager) {
 
       debug('Updated', synced.length);
     } catch (error) {
+      syncErrors.push(error);
       debug(`Failed to sync source ${source.name}`, error.stack);
     }
   }
 
   debug('odk-sync-attachments END', new Date());
+
+  if (syncErrors.length) {
+    // if we have any errors, throw the first one so it gets notified to admins.
+    throw syncErrors[0];
+  }
 };
 
