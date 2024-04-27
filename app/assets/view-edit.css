@@ -11,6 +11,8 @@
 }
 
 #source-fields-modal .modal-body .fields > .row:nth-of-type(odd) {
+  --bs-table-striped-bg: rgba(var(--bs-emphasis-color-rgb), 0.05);
+  --bs-table-striped-color: var(--bs-emphasis-color);
   background-color: var(--bs-table-striped-bg);
   color: var(--bs-table-striped-color);
 }
