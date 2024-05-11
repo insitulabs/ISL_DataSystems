@@ -850,7 +850,20 @@ class View extends Base {
         submissionField = submissionField[subIndex];
       }
 
-      await sourceManager.updateSubmission(submission._id, submissionField, value, currentValue);
+      let delta = {};
+      delta[submissionField] = value;
+      let previousDelta = null;
+      if (currentValue !== undefined) {
+        previousDelta = {};
+        previousDelta[submissionField] = currentValue;
+      }
+
+      await sourceManager.updateSubmission(submission._id, delta, {
+        // TODO allow bulk undo by providing audit
+        // auditId,
+        submission,
+        previousDelta
+      });
     } else {
       // Custom Field
       await sourceManager.updateSubmissionViewData(

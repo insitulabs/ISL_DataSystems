@@ -187,7 +187,7 @@ module.exports = function (opts) {
       if (!source._id.equals(theImport.sourceId)) {
         throw new Error.BadRequest('Mismatch import to source');
       }
-      let count = await sourceManager.commitImport(theImport);
+      let { auditId, count } = await sourceManager.commitImport(theImport);
 
       const auditManager = new Audit(getCurrentUser(res));
       let auditRecord = {
@@ -200,7 +200,7 @@ module.exports = function (opts) {
         count,
         import: theImport
       };
-      auditManager.logImportCommit(auditRecord);
+      auditManager.logImportCommit(auditRecord, auditId);
 
       res.json({});
     } catch (error) {

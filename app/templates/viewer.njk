@@ -34,7 +34,8 @@
 {% if pageTitle %}
 {% block pageTitle %}
 <span class="badge bg-primary">
-  {{ pageTitle }} {% if editLink %}
+  <a href="{{ link }}" class="link-light link-opacity-100 text-decoration-none">{{ pageTitle }}</a>
+  {% if editLink %}
   <a href="{{ editLink }}" title="Edit source" class="text-white ms-1">
     <i class="bi bi-pencil-square"></i>
   </a>
@@ -89,8 +90,13 @@
     role="alert"
   >
     <div>
+      {% if theImport.isBulkEdit %}
+      <strong>Bulk Edit Matching Records</strong>
+      <span> - Finalize your data before importing.</span>
+      {% else %}
       <strong>Staged Import Data</strong>
-      <span> - Finalize your data before importing your submissions. </span>
+      <span> - Finalize your data before importing your submissions.</span>
+      {% endif %}
     </div>
 
     {% if userCanEdit %}
@@ -397,20 +403,6 @@
         Actions
       </button>
       <ul class="dropdown-menu">
-        {% if userCanCreate %}
-        <li>
-          <button
-            type="button"
-            class="dropdown-item"
-            data-bs-toggle="modal"
-            data-bs-target="#new-submission-modal"
-          >
-            <i class="bi bi-file-earmark-plus-fill"></i>
-            Create
-          </button>
-        </li>
-        {% endif %}
-
         {% if showDuplicateBtn %}
         <li>
           <button
@@ -467,6 +459,30 @@
             <i class="bi bi-recycle"></i>
             Restore
           </button>
+        </li>
+        {% endif %}
+
+        {% if userCanCreate %}
+        <li><hr class="dropdown-divider"></li>
+        <li>
+          <button
+            type="button"
+            class="dropdown-item"
+            data-bs-toggle="modal"
+            data-bs-target="#new-submission-modal"
+          >
+            <i class="bi bi-file-earmark-plus-fill"></i>
+            Create
+          </button>
+        </li>
+        <li>
+          <a
+            class="dropdown-item"
+            href="{{link}}/import"
+          >
+            <i class="bi bi-cloud-upload"></i>
+            Import / Bulk Edit
+          </a>
         </li>
         {% endif %}
       </ul>

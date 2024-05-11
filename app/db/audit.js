@@ -1,4 +1,5 @@
 const Base = require('./base');
+const { ObjectId } = require('mongodb');
 const Errors = require('../lib/errors');
 const CurrentUser = require('../lib/current-user');
 
@@ -126,6 +127,25 @@ class Audit extends Base {
   }
 
   /**
+   * Get audit event.
+   * @param {ObjectId} id
+   * @return {Object} The event record.
+   */
+  async getEvent(id) {
+    if (!id || !ObjectId.isValid(id)) {
+      throw new Errors.BadRequest('Invalid event ID param');
+    }
+
+    let events = this.collection(AUDIT_EVENTS);
+    let event = await events.findOne({ _id: new ObjectId(id) });
+    if (!event) {
+      throw new Errors.BadRequest('Event not found: ' + id);
+    }
+
+    return event;
+  }
+
+  /**
    * Log user page view activity.
    * We roll this up to the most recent hour.
    * @param {string} page The path of the page the user is on.
@@ -229,15 +249,21 @@ class Audit extends Base {
 
   /**
    * Log a source import.
-   * @param {object} data The data to log with this import.
+   * @param {Object} data The data to log with this import.
+   * @param {ObjectId} auditId A audit identifier used to commit the import actions.
    */
-  async logImportCommit(data) {
+  async logImportCommit(data, auditId) {
     if (this.user.preventAudit) {
       return;
     }
 
     let events = this.collection(AUDIT_EVENTS);
     let record = this.#userEvent(AuditEvent.ImportCommit, data);
+
+    if (auditId) {
+      record._id = auditId;
+    }
+
     return events.insertOne(record).catch(this.#onError);
   }
 
@@ -285,15 +311,21 @@ class Audit extends Base {
 
   /**
    * Log a submission edit via a source or view.
-   * @param {object} data  The data to log with this edit.
+   * @param {object} data The data to log with this edit.
+   * @param {ObjectId} auditId A audit identifier used to commit the import actions.
    */
-  async logSubmissionEdit(data) {
+  async logSubmissionEdit(data, auditId) {
     if (this.user.preventAudit) {
       return;
     }
 
     let events = this.collection(AUDIT_EVENTS);
     let record = this.#userEvent(AuditEvent.SubmissionEdit, data);
+
+    if (auditId) {
+      record._id = auditId;
+    }
+
     return events.insertOne(record).catch(this.#onError);
   }
 

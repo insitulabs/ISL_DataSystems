@@ -19,6 +19,9 @@ const { v4: uuidv4 } = require('uuid');
 const { noCacheMiddleware } = require('../../lib/route-helpers');
 const { parseSpreadsheet } = require('../../lib/spreadsheet');
 const langUtil = require('../../lib/langUtil');
+const _ = require('lodash');
+
+const util = require('node:util');
 
 // Default page size.
 const DEFAULT_LIMIT = 50;
@@ -349,7 +352,7 @@ module.exports = function (opts) {
     let csvLink = null;
     let dataId = null;
     let dataType = null;
-    let editLink = null;
+    let link = null;
     let isDeleted = false;
     let showArchiveBtn = false;
     let showRestoreBtn = false;
@@ -366,7 +369,7 @@ module.exports = function (opts) {
       userCanEdit =
         !view.deleted && currentUser.hasViewPermission(view, CurrentUser.PERMISSIONS.WRITE);
       csvLink = '/data-viewer/csv/view/' + query.view._id.toString();
-      editLink = '/data-viewer/view/' + view._id.toString() + '/edit';
+      link = '/data-viewer/view/' + view._id.toString();
       isDeleted = view.deleted;
     } else if (query.import) {
       source = query.source;
@@ -377,7 +380,7 @@ module.exports = function (opts) {
       dataId = theImport._id;
       originName = 'Import for ' + theImport.sourceName;
       userCanEdit = true;
-      editLink = '/data-viewer/source/' + theImport.sourceId.toString() + '/edit';
+      link = '/data-viewer/source/' + theImport.sourceId.toString();
       showArchiveBtn = true;
     } else if (query.source) {
       source = query.source;
@@ -386,7 +389,7 @@ module.exports = function (opts) {
       dataId = source._id;
       originName = langUtil.altLang(source, 'name', language);
       csvLink = '/data-viewer/csv/source/' + query.source._id.toString();
-      editLink = '/data-viewer/source/' + source._id.toString() + '/edit';
+      link = '/data-viewer/source/' + source._id.toString();
       isDeleted = source.deleted;
 
       allowDeletedQuery = true;
@@ -410,7 +413,6 @@ module.exports = function (opts) {
     if (isIFRAME) {
       userCanEdit = false;
       csvLink = null;
-      editLink = null;
     }
 
     // Parse column filters and set on pageParams
@@ -445,6 +447,18 @@ module.exports = function (opts) {
         filters,
         id: idFilter
       });
+
+      if (theImport.isBulkEdit) {
+        queryResponse.results = queryResponse.results.filter((r) => {
+          if (r.existing) {
+            // Overlay new data on top of existing.
+            r.data = _.merge(r.existing.data, r.data);
+            return true;
+          } else {
+            return false;
+          }
+        });
+      }
     } else if (source) {
       queryResponse = await sourceManager.getSubmissions(source, {
         sort,
@@ -463,16 +477,33 @@ module.exports = function (opts) {
 
     let prefs = currentUser.getPrefs(dataType, dataId) || {};
     let hiddenFields = [];
-    if (Array.isArray(prefs.hiddenFields)) {
-      hiddenFields = prefs.hiddenFields;
-      // Ensure hidden fields still exist.
-      hiddenFields = hiddenFields.filter((id) => {
-        return fields.find((f) => f.id == id);
-      });
-      prefs.hiddenFields = hiddenFields;
+
+    // Sources/Views get field preferences, imports show all fields.
+    if (theImport) {
+      if (theImport.mappedFields) {
+        hiddenFields = fields
+          .filter((f) => {
+            // Always show id and created on bulk edit.
+            if (f.id === '_id' || f.id === 'created') {
+              return false;
+            }
+
+            return !theImport.mappedFields.includes(f.id);
+          })
+          .map((f) => f.id);
+      }
     } else {
-      // If no fields are hidden by user preference, default to source field visibility.
-      hiddenFields = fields.filter((f) => !f.default).map((f) => f.id);
+      if (Array.isArray(prefs.hiddenFields)) {
+        hiddenFields = prefs.hiddenFields;
+        // Ensure hidden fields still exist.
+        hiddenFields = hiddenFields.filter((id) => {
+          return fields.find((f) => f.id == id);
+        });
+        prefs.hiddenFields = hiddenFields;
+      } else {
+        // If no fields are hidden by user preference, default to source field visibility.
+        hiddenFields = fields.filter((f) => !f.default).map((f) => f.id);
+      }
     }
 
     // TODO we don't need this if nunjucks can find in array
@@ -500,7 +531,8 @@ module.exports = function (opts) {
       dataId,
       pageTitle: originName,
       originName,
-      editLink: currentUser.admin ? editLink : null,
+      link,
+      editLink: currentUser.admin ? link + '/edit' : null,
       isDeleted,
       allowDeletedQuery,
       isDeletedQuery,
@@ -717,6 +749,8 @@ module.exports = function (opts) {
       let source = await sourceManager.getSource(originId);
       getCurrentUser(res).validateSourcePermission(source, CurrentUser.PERMISSIONS.WRITE);
 
+      let auditId = new ObjectId();
+
       let value = body.fields.value;
       // Make sure empty strings are turned into null db values.
       if (value === '') {
@@ -730,6 +764,15 @@ module.exports = function (opts) {
         value = parseFloat(value);
       }
 
+      let delta = {};
+      delta[field] = value;
+
+      let previousDelta = null;
+      if (currentValue) {
+        previousDelta = {};
+        previousDelta[field] = currentValue;
+      }
+
       let html = value ? value : '';
       if (ids.length === 1) {
         // Validate submission belongs to source.
@@ -737,9 +780,20 @@ module.exports = function (opts) {
         if (submission.source !== source.submissionKey) {
           throw new Errors.BadRequest('Invalid submission for source');
         }
-        submission = await sourceManager.updateSubmission(ids[0], field, value, currentValue);
+        submission = await sourceManager.updateSubmission(ids[0], delta, {
+          auditId,
+          submission,
+          previousDelta
+        });
       } else {
-        await sourceManager.updateBulkSubmissions(source, ids, field, value);
+        // TODO validate submissions belong to source?
+        await Promise.all(
+          ids.map((id) => {
+            return sourceManager.updateSubmission(id, delta, {
+              auditId
+            });
+          })
+        );
       }
 
       // For lookup fields, create link to lookup.
@@ -764,7 +818,7 @@ module.exports = function (opts) {
         field,
         value: value
       };
-      auditManager.logSubmissionEdit(auditRecord);
+      auditManager.logSubmissionEdit(auditRecord, auditId);
 
       res.json({
         ids: ids,
@@ -825,7 +879,17 @@ module.exports = function (opts) {
         currentUser.validateSourcePermission(source, CurrentUser.PERMISSIONS.WRITE);
 
         persistFn = async () => {
-          return await sourceManager.updateSubmission(id, field, uniqueFileName, currentValue);
+          let delta = {};
+          delta[field] = uniqueFileName;
+          let previousDelta = null;
+          if (currentValue !== undefined) {
+            previousDelta = {};
+            previousDelta[field] = currentValue;
+          }
+          return await sourceManager.updateSubmission(id, delta, {
+            submission,
+            previousDelta
+          });
         };
       } else if (originType === 'view') {
         view = await viewManager.getView(originId);
@@ -1858,7 +1922,9 @@ module.exports = function (opts) {
             return s;
           }, {});
         });
-        let newImport = await sourceManager.createImport(source, records, newFields);
+        let newImport = await sourceManager.createImport(source, records, {
+          fields: newFields
+        });
         auditRecord.import = newImport;
         auditManager.logImportCreate(auditRecord);
         return res.send({ redirect: `/data-viewer/source/${source._id}/import/${newImport._id}` });
@@ -1872,16 +1938,53 @@ module.exports = function (opts) {
           throw new Errors.BadRequest('Invalid header mapping');
         }
 
+        let isBulkEdit = !!body.fields.idHeading;
+        let mappedSourceFields = Object.values(mapping).filter((f) => {
+          if (isBulkEdit && f === body.fields.idHeading) {
+            return false;
+          }
+
+          if ((isBulkEdit && f === 'created') || f === 'origin ID') {
+            return false;
+          }
+
+          return true;
+        });
+
+        let missingSourceFields = source.fields.filter((f) => {
+          return !mappedSourceFields.includes(f.id);
+        });
+
         records = records.map((r) => {
           let submission = Object.keys(mapping).reduce((s, header) => {
             s[mapping[header]] = r[header];
             return s;
           }, {});
 
-          return Source.flatRecordToSubmission(source, submission);
+          if (isBulkEdit) {
+            // This is a bulk edit, so set the origin ID.
+            submission._id = r[body.fields.idHeading];
+            delete submission[body.fields.idHeading];
+          }
+
+          let stagedSubmission = Source.flatRecordToSubmission(source, submission);
+
+          if (isBulkEdit) {
+            // Unset fields we didn't provide in the upload.
+            // This way we can cleanly merge a bulk edit with existing fields.
+            missingSourceFields.forEach((f) => {
+              _.unset(stagedSubmission, f.id);
+            });
+          }
+
+          return stagedSubmission;
         });
 
-        let newImport = await sourceManager.createImport(source, records);
+        let newImport = await sourceManager.createImport(source, records, {
+          isBulkEdit,
+          mappedFields: mappedSourceFields
+        });
+
         auditRecord.import = newImport;
         auditManager.logImportCreate(auditRecord);
         return res.send({

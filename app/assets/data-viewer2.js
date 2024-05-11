@@ -312,6 +312,13 @@ Vue.createApp({
       this.onHideFieldToggles(event);
     });
 
+    // Listen for submission details modal open.
+    this.$refs.data.addEventListener('show.bs.modal', (event) => {
+      if (event.target.matches('.modal.record-details')) {
+        this.renderSubmissionDetailsModal(event.target);
+      }
+    });
+
     if (this.$refs.copyToModal) {
       this.copyToModal = new bootstrap.Modal(this.$refs.copyToModal);
     }
@@ -1060,6 +1067,101 @@ Vue.createApp({
         })
         .finally(() => {
           this.isSavingNewSubmission = false;
+        });
+    },
+
+    /**
+     * Fetch submission and render details modal tabs.
+     * @param {Element} domTarget The submission details modal.
+     */
+    renderSubmissionDetailsModal(domTarget) {
+      domTarget.classList.add('loading');
+      let url = null;
+      if (ORIGIN_TYPE == 'import') {
+        let [match, sourceId, importId] = /\/source\/([^\/]+)\/import\/([^\/]+)/i.exec(
+          window.location.pathname
+        );
+        url = `/api/source/${sourceId}/submission/${domTarget.dataset.id}?staged=true`;
+      } else {
+        url = `/api/${ORIGIN_TYPE}/${ORIGIN_ID}/submission/${domTarget.dataset.id}`;
+      }
+
+      return $api(url, {
+        method: 'GET'
+      })
+        .then((response) => {
+          let record = null;
+          if (ORIGIN_TYPE === 'view') {
+            if (response.results?.length) {
+              let index = parseInt(domTarget.dataset.index);
+              record = response.results[isNaN(index) ? 0 : index];
+            }
+          } else {
+            record = response;
+          }
+          domTarget.querySelector('.source-json').innerText = JSON.stringify(
+            record.data,
+            undefined,
+            2
+          );
+
+          let events = record._edits || [];
+
+          // TODO revisit this for showing view data history
+          events = events.filter((e) => {
+            return !e.viewData;
+          });
+
+          let history = '';
+          for (let i = events.length - 1; i >= 0; i--) {
+            let event = events[i];
+            let modified = event.modified;
+            let time = `
+              <time
+              datetime="${modified}"
+              title="${modified}"
+            >
+              ${modified}
+            </time>
+          `;
+            let user = `<div class="ms-2 user">${event.modifiedBy.name}</div>`;
+
+            let update = event.update;
+            if (!update) {
+              update = {};
+              update[event.field] = event.value;
+            }
+            update =
+              '<pre class="update w-50 m-0 text-success">' +
+              JSON.stringify(update, undefined, 2) +
+              '</pre>';
+
+            let previous = event.previous || {};
+            previous =
+              '<pre class="previous w-50 m-0 text-danger">' +
+              JSON.stringify(previous, undefined, 2) +
+              '</pre>';
+
+            let clazz = i % 2 === 0 ? 'bg-body-secondary' : '';
+            let str = `<div class="p-2 d-flex flex-wrap ${clazz}">
+              ${time}
+              ${user}
+              <div class="diff w-100 d-flex justify-content-between">
+                ${previous} ${update}
+              </div>
+              </div>`;
+
+            history += str;
+          }
+          domTarget.querySelector('.tab-pane.history').innerHTML = history;
+        })
+        .catch((error) => {
+          domTarget.querySelector('.tab-pane .source-json').innerText = error.message
+            ? error.message
+            : error;
+        })
+        .finally(() => {
+          domTarget.classList.remove('loading');
         });
     }
   }

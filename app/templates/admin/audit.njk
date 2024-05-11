@@ -31,6 +31,9 @@
           <th class="text-secondary">
             Context
           </th>
+          <th class="text-secondary">
+            Action
+          </th>
         </tr>
       </thead>
       <tbody>
@@ -76,22 +79,24 @@
 
             {% elseif result.type === 'import-commit' %}
               {{ result.data.source.name }}
-              <span class="badge bg-primary">
+              <span class="badge text-bg-primary">
               {{ result.data.type }}
               </span>
-              <span class="badge bg-success">
+              <span class="badge text-bg-success">
                 {{ result.data.count | formatNumber }} {{ "record" if result.data.count === 1 else "records" }}
               </span>
-
+              {% if result.data.import.isBulkEdit %}
+              <span class="badge text-bg-warning">bulk edit</span>
+              {% endif %}
             {% elseif result.type === 'import-create' %}
               {{ result.data.source.name }}
-              <span class="badge bg-primary">
+              <span class="badge text-bg-primary">
               {{ result.data.type }}
               </span>
 
             {% elseif result.type === 'import-delete' %}
               {{ result.data.source.name }}
-              <span class="badge bg-primary">
+              <span class="badge text-bg-primary">
               {{ result.data.type }}
               </span>
 
@@ -101,7 +106,7 @@
 
             {% elseif result.type === 'submission-create' %}
               {{ result.data.source.name }}
-              <span class="badge bg-primary">
+              <span class="badge text-bg-primary">
               {{ result.data.type }}
               </span>
 
@@ -112,30 +117,30 @@
               {{ result.data.source.name }}
               {% endif %}
 
-              <span class="badge bg-primary">
+              <span class="badge text-bg-primary">
               {{ result.data.type }}
               </span>
-              <span class="badge bg-success">
+              <span class="badge text-bg-success">
               {{ result.data.count | formatNumber }} {{ "record" if result.data.count === 1 else "records" }}
               </span>
 
             {% elseif result.type === 'submission-delete' %}
               {{ result.data.source.name }}
 
-              <span class="badge bg-primary">
+              <span class="badge text-bg-primary">
               {{ result.data.type }}
               </span>
-              <span class="badge bg-success">
+              <span class="badge text-bg-success">
               {{ result.data.count | formatNumber }} {{ "record" if result.data.count === 1 else "records" }}
               </span>
 
             {% elseif result.type === 'submission-restore' %}
               {{ result.data.source.name }}
 
-              <span class="badge bg-primary">
+              <span class="badge text-bg-primary">
               {{ result.data.type }}
               </span>
-              <span class="badge bg-success">
+              <span class="badge text-bg-success">
               {{ result.data.count | formatNumber }} {{ "record" if result.data.count === 1 else "records" }}
               </span>
 
@@ -172,6 +177,11 @@
 
             {% elseif result.type === 'view-create' %}
               {{ result.data.name }}
+            {% endif %}
+          </td>
+          <td>
+            {% if result.type === 'import-commit' and result.data.import.isBulkEdit %}
+            <a href="/api/audit/undo/{{ result._id }}" class="btn btn-sm btn-danger" target="_blank">Undo</a>
             {% endif %}
           </td>
         </tr>
