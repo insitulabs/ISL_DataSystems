@@ -1246,22 +1246,7 @@ class Source extends Base {
       }
     }
 
-    let toPersist = {
-      sourceId: source._id,
-      sourceName: source.name,
-      created: today,
-      createdBy: {
-        id: new ObjectId(this.user._id),
-        name: this.user.name,
-        email: this.user.email
-      },
-      fields: newFields,
-      mappedFields: options.mappedFields || null,
-      isBulkEdit: options.isBulkEdit || false,
-      count: records.length
-    };
-
-    let insertImport = await imports.insertOne(toPersist);
+    const importId = new ObjectId();
 
     let submissionsToPersist = records.map((r) => {
       let created = today;
@@ -1308,7 +1293,7 @@ class Source extends Base {
       }
 
       let stagedSubmission = {
-        import: insertImport.insertedId,
+        import: importId,
         created,
         originId,
         data: normalized
@@ -1317,9 +1302,43 @@ class Source extends Base {
       return stagedSubmission;
     });
 
-    await stagedSubmissions.insertMany(submissionsToPersist);
+    // Ensure bulk edit is for non-deleted submissions from the correct source.
+    if (options.isBulkEdit) {
+      let ids = submissionsToPersist.map((s) => s.originId);
+      let exists = await this.collection(SUBMISSIONS)
+        .find({ _id: { $in: ids }, source: source.submissionKey, deleted: { $ne: true } })
+        .map((s) => {
+          return s._id.toString();
+        })
+        .toArray();
 
-    return imports.findOne(insertImport.insertedId);
+      submissionsToPersist = submissionsToPersist.filter((s) => {
+        return s.originId && exists.includes(s.originId.toString());
+      });
+    }
+
+    let toPersist = {
+      _id: importId,
+      sourceId: source._id,
+      sourceName: source.name,
+      created: today,
+      createdBy: {
+        id: new ObjectId(this.user._id),
+        name: this.user.name,
+        email: this.user.email
+      },
+      fields: newFields,
+      mappedFields: options.mappedFields || null,
+      isBulkEdit: options.isBulkEdit || false,
+      count: submissionsToPersist.length
+    };
+    await imports.insertOne(toPersist);
+
+    if (submissionsToPersist.length) {
+      await stagedSubmissions.insertMany(submissionsToPersist);
+    }
+
+    return imports.findOne(importId);
   }
 
   async getImport(id) {

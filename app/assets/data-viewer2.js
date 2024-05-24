@@ -84,7 +84,8 @@ Vue.createApp({
       checkedSubmissions: [],
       copyToModalTitle: '',
       isSavingNewSubmission: false,
-      newSubmission: {}
+      newSubmission: {},
+      isCommitingImport: false
     };
   },
 
@@ -1020,9 +1021,9 @@ Vue.createApp({
       let prompt = `Are you sure you want to ${label} ${count} ${noun}?`;
 
       if (confirm(prompt)) {
-        let url = `/api/${ORIGIN_TYPE}/${ORIGIN_ID}/submissions/${operation}`;
-        if (ORIGIN_TYPE === 'import') {
-          url = `/api/source/${ORIGIN_ID}/import/submissions/${operation}`;
+        let url = `/api/${this.ORIGIN_TYPE}/${this.ORIGIN_ID}/submissions/${operation}`;
+        if (this.ORIGIN_TYPE === 'import') {
+          url = `/api/source/${this.ORIGIN_ID}/import/submissions/${operation}`;
         }
 
         $api(url, {
@@ -1055,7 +1056,7 @@ Vue.createApp({
         return s;
       }, {});
 
-      $api(`/api/source/${ORIGIN_ID}/submission`, {
+      $api(`/api/source/${this.ORIGIN_ID}/submission`, {
         method: 'POST',
         body: JSON.stringify(submission)
       })
@@ -1077,13 +1078,13 @@ Vue.createApp({
     renderSubmissionDetailsModal(domTarget) {
       domTarget.classList.add('loading');
       let url = null;
-      if (ORIGIN_TYPE == 'import') {
+      if (this.ORIGIN_TYPE == 'import') {
         let [match, sourceId, importId] = /\/source\/([^\/]+)\/import\/([^\/]+)/i.exec(
           window.location.pathname
         );
         url = `/api/source/${sourceId}/submission/${domTarget.dataset.id}?staged=true`;
       } else {
-        url = `/api/${ORIGIN_TYPE}/${ORIGIN_ID}/submission/${domTarget.dataset.id}`;
+        url = `/api/${this.ORIGIN_TYPE}/${this.ORIGIN_ID}/submission/${domTarget.dataset.id}`;
       }
 
       return $api(url, {
@@ -1091,7 +1092,7 @@ Vue.createApp({
       })
         .then((response) => {
           let record = null;
-          if (ORIGIN_TYPE === 'view') {
+          if (this.ORIGIN_TYPE === 'view') {
             if (response.results?.length) {
               let index = parseInt(domTarget.dataset.index);
               record = response.results[isNaN(index) ? 0 : index];
@@ -1116,12 +1117,13 @@ Vue.createApp({
           for (let i = events.length - 1; i >= 0; i--) {
             let event = events[i];
             let modified = event.modified;
+            let modifiedLocal = new Date(event.modified);
             let time = `
               <time
               datetime="${modified}"
-              title="${modified}"
+              title="${modified} UTC"
             >
-              ${modified}
+              ${modifiedLocal.toLocaleDateString()} ${modifiedLocal.toLocaleTimeString()}
             </time>
           `;
             let user = `<div class="ms-2 user">${event.modifiedBy.name}</div>`;
@@ -1163,6 +1165,50 @@ Vue.createApp({
         .finally(() => {
           domTarget.classList.remove('loading');
         });
+    },
+
+    /**
+     * Commit the staged import after confirmation.
+     */
+    commitImport() {
+      if (confirm('Are you sure you want to import all records?')) {
+        this.isCommitingImport = true;
+        let [match, sourceId, importId] = /\/source\/([^\/]+)\/import\/([^\/]+)/i.exec(
+          window.location.pathname
+        );
+        $api(`/api/source/${sourceId}/import/${importId}`, {
+          method: 'POST'
+        })
+          .then(() => {
+            window.location.href = `/data-viewer/source/${sourceId}/import`;
+          })
+          .catch((error) => {
+            this.isCommitingImport = false;
+            alert(error && error.message ? error.message : error);
+          });
+      }
+    },
+
+    /**
+     * Discard the staged import after confirmation.
+     */
+    discardImport() {
+      if (confirm('Are you sure you want to delete this staged import?')) {
+        this.isCommitingImport = true;
+        let [match, sourceId, importId] = /\/source\/([^\/]+)\/import\/([^\/]+)/i.exec(
+          window.location.pathname
+        );
+        $api(`/api/source/${sourceId}/import/${importId}`, {
+          method: 'DELETE'
+        })
+          .then(() => {
+            window.location.href = `/data-viewer/source/${sourceId}/import`;
+          })
+          .catch((error) => {
+            alert(error && error.message ? error.message : error);
+            this.isCommitingImport = true;
+          });
+      }
     }
   }
 }).mount('body > main');

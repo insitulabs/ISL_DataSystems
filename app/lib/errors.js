@@ -42,9 +42,25 @@ class Unauthorized extends Error {
   }
 }
 
+class NotImplemented extends Error {
+  constructor(message = 'Not Implemented', ...params) {
+    super(message, params);
+
+    this.name = 'NotImplemented';
+    this.logLevel = false;
+    this.statusCode = 400;
+    this.silent = true;
+
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, BadRequest);
+    }
+  }
+}
+
 module.exports = {
   BadRequest,
   NotFound,
+  NotImplemented,
   Unauthorized
 };
 

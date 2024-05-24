@@ -4,6 +4,10 @@
 <link href="{{ '/assets/admin-audit.css' | appendVersion }}" rel="stylesheet" />
 {% endblock %}
 
+{% block scripts %}
+<script src="{{'/assets/admin-audit.js' | appendVersion }}" type="module"></script>
+{% endblock %}
+
 {% block content %}
 <div class="container-xxl mt-2" id="app">
   <div class="table-responsive-md">
@@ -78,46 +82,63 @@
               {% endif %}
 
             {% elseif result.type === 'import-commit' %}
-              {{ result.data.source.name }}
-              <span class="badge text-bg-primary">
+              <a
+                class="me-1"
+                href="/data-viewer/source/{{ result.data.source._id }}"
+              >{{ result.data.source.name }}</a>
+              <span class="badge text-bg-primary me-1">
               {{ result.data.type }}
               </span>
-              <span class="badge text-bg-success">
+              <span class="badge text-bg-success me-1">
                 {{ result.data.count | formatNumber }} {{ "record" if result.data.count === 1 else "records" }}
               </span>
               {% if result.data.import.isBulkEdit %}
               <span class="badge text-bg-warning">bulk edit</span>
               {% endif %}
             {% elseif result.type === 'import-create' %}
-              {{ result.data.source.name }}
+              <a
+                class="me-1"
+                href="/data-viewer/source/{{ result.data.source._id }}"
+              >{{ result.data.source.name }}</a>
               <span class="badge text-bg-primary">
               {{ result.data.type }}
               </span>
 
             {% elseif result.type === 'import-delete' %}
-              {{ result.data.source.name }}
+              <a
+                class="me-1"
+                href="/data-viewer/source/{{ result.data.source._id }}"
+              >{{ result.data.source.name }}</a>
               <span class="badge text-bg-primary">
               {{ result.data.type }}
               </span>
-
 
             {% elseif result.type === 'export' %}
               {{ result.data.type }} - {{ result.data.name }}
 
             {% elseif result.type === 'submission-create' %}
-              {{ result.data.source.name }}
+              <a
+                class="me-1"
+                href="/data-viewer/source/{{ result.data.source._id }}"
+              >{{ result.data.source.name }}</a>
               <span class="badge text-bg-primary">
               {{ result.data.type }}
               </span>
 
             {% elseif result.type === 'submission-edit' %}
               {% if result.data.view %}
-              {{ result.data.view.name }}
+              <a
+                class="me-1"
+                href="/data-viewer/view/{{ result.data.view._id }}"
+              >{{ result.data.view.name }}</a>
               {% else %}
-              {{ result.data.source.name }}
+              <a
+                class="me-1"
+                href="/data-viewer/source/{{ result.data.source._id }}"
+              >{{ result.data.source.name }}</a>
               {% endif %}
 
-              <span class="badge text-bg-primary">
+              <span class="badge text-bg-primary me-1">
               {{ result.data.type }}
               </span>
               <span class="badge text-bg-success">
@@ -125,9 +146,12 @@
               </span>
 
             {% elseif result.type === 'submission-delete' %}
-              {{ result.data.source.name }}
+              <a
+                class="me-1"
+                href="/data-viewer/source/{{ result.data.source._id }}"
+              >{{ result.data.source.name }}</a>
 
-              <span class="badge text-bg-primary">
+              <span class="badge text-bg-primary me-1">
               {{ result.data.type }}
               </span>
               <span class="badge text-bg-success">
@@ -135,13 +159,14 @@
               </span>
 
             {% elseif result.type === 'submission-restore' %}
-              {{ result.data.source.name }}
+              <a
+                class="me-1"
+                href="/data-viewer/source/{{ result.data.source._id }}"
+              >{{ result.data.source.name }}</a>
 
-              <span class="badge text-bg-primary">
-              {{ result.data.type }}
-              </span>
+              <span class="badge text-bg-primary me-1">{{ result.data.type }}</span>
               <span class="badge text-bg-success">
-              {{ result.data.count | formatNumber }} {{ "record" if result.data.count === 1 else "records" }}
+                {{ result.data.count | formatNumber }} {{ "record" if result.data.count === 1 else "records" }}
               </span>
 
             {% elseif result.type === 'source-edit' %}
@@ -180,8 +205,37 @@
             {% endif %}
           </td>
           <td>
-            {% if result.type === 'import-commit' and result.data.import.isBulkEdit %}
-            <a href="/api/audit/undo/{{ result._id }}" class="btn btn-sm btn-danger" target="_blank">Undo</a>
+            {% if result.undone %}
+            Undone by: {{ result.undoneBy.email }}
+            <br />
+            <time
+              datetime="{{ result.undoneOn | formatDate('YYYY-MM-DDTHH:mm:ssZ[Z]') }}"
+              title="{{ result.undoneOn | formatDate('YYYY-MM-DDTHH:mm:ssZ[Z]') }}"
+            >
+              {{ result.undoneOn | formatDate('YYYY-MM-DDTHH:mm:ssZ[Z]') }}
+            </time>
+            {% endif %}
+
+            {% if result.canUndo %}
+            <div class="d-flex align-items-center" v-if="!undone['{{ result._id }}']">
+              <div
+                v-if="inflightUndo['{{ result._id }}']"
+                class="spinner-border text-primary spinner-border-sm me-1"
+                role="status"
+                v-cloak
+              >
+                <span class="visually-hidden">Loading...</span>
+              </div>
+              <button
+                @click="promptUndo('{{ result._id }}')"
+                :disabled="inflightUndo['{{ result._id }}']"
+                href="/api/audit/undo/{{ result._id }}"
+                class="btn btn-sm btn-danger"
+                target="_blank"
+              >
+                Undo
+              </button>
+            </div>
             {% endif %}
           </td>
         </tr>

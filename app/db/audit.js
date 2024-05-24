@@ -2,10 +2,13 @@ const Base = require('./base');
 const { ObjectId } = require('mongodb');
 const Errors = require('../lib/errors');
 const CurrentUser = require('../lib/current-user');
+const AuditEvent = require('./audit-events/audit-event');
+const ImportCommit = require('./audit-events/import-commit');
+const SubmissionEdit = require('./audit-events/submission-edit');
 
 const AUDIT_EVENTS = 'audit';
 
-const AuditEvent = Object.freeze({
+const AuditEventType = Object.freeze({
   UserActivity: 'user-activity',
   UserLoginAttempt: 'user-login-attempt',
   Export: 'export',
@@ -27,6 +30,8 @@ const AuditEvent = Object.freeze({
   SourceRestore: 'source-restore',
   UserEdit: 'user-edit'
 });
+
+const UNDOABLE_AUDIT_TYPES = [AuditEventType.ImportCommit, AuditEventType.SubmissionEdit];
 
 class Audit extends Base {
   /** @type {CurrentUser} */
@@ -117,19 +122,22 @@ class Audit extends Base {
       });
     }
 
-    let results = await events.aggregate(pipeline);
+    let results = await events.aggregate(pipeline).toArray();
+    for (let result of results) {
+      result.canUndo = this.#canUndo(result);
+    }
 
     return {
       totalResults,
-      offset: offset,
-      results: await results.toArray()
+      offset,
+      results
     };
   }
 
   /**
    * Get audit event.
    * @param {ObjectId} id
-   * @return {Object} The event record.
+   * @return {AuditEvent} The event record.
    */
   async getEvent(id) {
     if (!id || !ObjectId.isValid(id)) {
@@ -142,7 +150,18 @@ class Audit extends Base {
       throw new Errors.BadRequest('Event not found: ' + id);
     }
 
-    return event;
+    event.canUndo = this.#canUndo(event);
+
+    let auditEvent = null;
+    if (event.type === AuditEventType.ImportCommit) {
+      auditEvent = new ImportCommit(event);
+    } else if (event.type === AuditEventType.SubmissionEdit) {
+      auditEvent = new SubmissionEdit(event);
+    } else {
+      auditEvent = new AuditEvent(event);
+    }
+
+    return auditEvent;
   }
 
   /**
@@ -163,12 +182,12 @@ class Audit extends Base {
     since.setTime(now - 1000 * 60 * 60);
 
     let query = {
-      type: AuditEvent.UserActivity,
+      type: AuditEventType.UserActivity,
       'user.email': this.user.email,
       created: { $gte: since }
     };
 
-    let record = this.#userEvent(AuditEvent.UserActivity);
+    let record = this.#userEvent(AuditEventType.UserActivity);
     const update = {
       $set: record,
       $addToSet: { 'data.pages': page }
@@ -201,13 +220,13 @@ class Audit extends Base {
     since.setTime(now - 1000 * 60 * 60);
 
     let query = {
-      type: AuditEvent.UserLoginAttempt,
+      type: AuditEventType.UserLoginAttempt,
       'user.email': this.user.email,
       'data.ip': ip,
       created: { $gte: since }
     };
 
-    let record = this.#userEvent(AuditEvent.UserLoginAttempt, {
+    let record = this.#userEvent(AuditEventType.UserLoginAttempt, {
       ip: ip,
       userAgent: userAgent
     });
@@ -243,7 +262,7 @@ class Audit extends Base {
     }
 
     let events = this.collection(AUDIT_EVENTS);
-    let record = this.#userEvent(AuditEvent.Export, data);
+    let record = this.#userEvent(AuditEventType.Export, data);
     return events.insertOne(record).catch(this.#onError);
   }
 
@@ -258,7 +277,7 @@ class Audit extends Base {
     }
 
     let events = this.collection(AUDIT_EVENTS);
-    let record = this.#userEvent(AuditEvent.ImportCommit, data);
+    let record = this.#userEvent(AuditEventType.ImportCommit, data);
 
     if (auditId) {
       record._id = auditId;
@@ -277,7 +296,7 @@ class Audit extends Base {
     }
 
     let events = this.collection(AUDIT_EVENTS);
-    let record = this.#userEvent(AuditEvent.ImportCreate, data);
+    let record = this.#userEvent(AuditEventType.ImportCreate, data);
     return events.insertOne(record).catch(this.#onError);
   }
 
@@ -291,7 +310,7 @@ class Audit extends Base {
     }
 
     let events = this.collection(AUDIT_EVENTS);
-    let record = this.#userEvent(AuditEvent.ImportDelete, data);
+    let record = this.#userEvent(AuditEventType.ImportDelete, data);
     return events.insertOne(record).catch(this.#onError);
   }
 
@@ -305,7 +324,7 @@ class Audit extends Base {
     }
 
     let events = this.collection(AUDIT_EVENTS);
-    let record = this.#userEvent(AuditEvent.SubmissionCreate, data);
+    let record = this.#userEvent(AuditEventType.SubmissionCreate, data);
     return events.insertOne(record).catch(this.#onError);
   }
 
@@ -320,11 +339,14 @@ class Audit extends Base {
     }
 
     let events = this.collection(AUDIT_EVENTS);
-    let record = this.#userEvent(AuditEvent.SubmissionEdit, data);
+    let record = this.#userEvent(AuditEventType.SubmissionEdit, data);
 
     if (auditId) {
       record._id = auditId;
     }
+
+    // Indicate these events are version 2 can can be bulk undone.
+    record.data.version = 2;
 
     return events.insertOne(record).catch(this.#onError);
   }
@@ -339,7 +361,7 @@ class Audit extends Base {
     }
 
     let events = this.collection(AUDIT_EVENTS);
-    let record = this.#userEvent(AuditEvent.SubmissionDelete, data);
+    let record = this.#userEvent(AuditEventType.SubmissionDelete, data);
     return events.insertOne(record).catch(this.#onError);
   }
 
@@ -353,7 +375,7 @@ class Audit extends Base {
     }
 
     let events = this.collection(AUDIT_EVENTS);
-    let record = this.#userEvent(AuditEvent.SubmissionRestore, data);
+    let record = this.#userEvent(AuditEventType.SubmissionRestore, data);
     return events.insertOne(record).catch(this.#onError);
   }
 
@@ -367,7 +389,7 @@ class Audit extends Base {
     }
 
     let events = this.collection(AUDIT_EVENTS);
-    let record = this.#userEvent(AuditEvent.Download, { file });
+    let record = this.#userEvent(AuditEventType.Download, { file });
     return events.insertOne(record).catch(this.#onError);
   }
 
@@ -381,7 +403,7 @@ class Audit extends Base {
     }
 
     let events = this.collection(AUDIT_EVENTS);
-    let record = this.#userEvent(AuditEvent.SourceCreate, {
+    let record = this.#userEvent(AuditEventType.SourceCreate, {
       _id: source._id,
       name: source.name,
       submissionKey: source.submissionKey
@@ -399,7 +421,7 @@ class Audit extends Base {
     }
 
     let events = this.collection(AUDIT_EVENTS);
-    let record = this.#userEvent(AuditEvent.SourceDelete, {
+    let record = this.#userEvent(AuditEventType.SourceDelete, {
       _id: source._id,
       name: source.name,
       submissionKey: source.submissionKey
@@ -417,7 +439,7 @@ class Audit extends Base {
     }
 
     let events = this.collection(AUDIT_EVENTS);
-    let record = this.#userEvent(AuditEvent.SourceRestore, {
+    let record = this.#userEvent(AuditEventType.SourceRestore, {
       _id: source._id,
       name: source.name,
       submissionKey: source.submissionKey
@@ -445,7 +467,7 @@ class Audit extends Base {
       data.deletedFields = deletedFields.map((f) => f.name || f.id);
     }
 
-    let record = this.#userEvent(AuditEvent.SourceEdit, data);
+    let record = this.#userEvent(AuditEventType.SourceEdit, data);
     return events.insertOne(record).catch(this.#onError);
   }
 
@@ -459,7 +481,7 @@ class Audit extends Base {
     }
 
     let events = this.collection(AUDIT_EVENTS);
-    let record = this.#userEvent(AuditEvent.ViewCreate, {
+    let record = this.#userEvent(AuditEventType.ViewCreate, {
       _id: view._id,
       name: view.name
     });
@@ -476,7 +498,7 @@ class Audit extends Base {
     }
 
     let events = this.collection(AUDIT_EVENTS);
-    let record = this.#userEvent(AuditEvent.ViewDelete, {
+    let record = this.#userEvent(AuditEventType.ViewDelete, {
       _id: view._id,
       name: view.name
     });
@@ -493,7 +515,7 @@ class Audit extends Base {
     }
 
     let events = this.collection(AUDIT_EVENTS);
-    let record = this.#userEvent(AuditEvent.ViewRestore, {
+    let record = this.#userEvent(AuditEventType.ViewRestore, {
       _id: view._id,
       name: view.name
     });
@@ -518,7 +540,7 @@ class Audit extends Base {
     if (deletedFields && deletedFields.length) {
       data.deletedFields = deletedFields.map((f) => f.name);
     }
-    let record = this.#userEvent(AuditEvent.ViewEdit, data);
+    let record = this.#userEvent(AuditEventType.ViewEdit, data);
     return events.insertOne(record).catch(this.#onError);
   }
 
@@ -587,13 +609,53 @@ class Audit extends Base {
       }
     }
 
-    let record = this.#userEvent(AuditEvent.UserEdit, data);
+    let record = this.#userEvent(AuditEventType.UserEdit, data);
     return events.insertOne(record).catch(this.#onError);
+  }
+
+  /**
+   * Can the audit event be undone?
+   * @param {Object} event
+   * @return {boolean}
+   */
+  #canUndo(event) {
+    let canUndo = false;
+
+    if (event.type === AuditEventType.SubmissionEdit) {
+      return new SubmissionEdit(event).canUndo;
+    } else if (event.type === AuditEventType.ImportCommit) {
+      return new ImportCommit(event).canUndo;
+    }
+
+    return canUndo;
+  }
+
+  /**
+   * Mark an event as undone.
+   * @param {AuditEvent} event
+   * @param {CurrentUser} currentUser
+   * @returns
+   */
+  async markUndone(event, currentUser) {
+    let events = this.collection(AUDIT_EVENTS);
+    return events.updateOne(
+      { _id: event.id },
+      {
+        $set: {
+          undone: true,
+          undoneBy: {
+            _id: currentUser._id,
+            email: currentUser.email
+          },
+          undoneOn: new Date()
+        }
+      }
+    );
   }
 }
 
 module.exports = {
   Audit,
-  AuditEvent
+  AuditEventType
 };
 

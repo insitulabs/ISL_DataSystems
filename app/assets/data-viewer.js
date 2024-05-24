@@ -617,47 +617,6 @@ if (ORIGIN_TYPE === 'import') {
       renameFieldModal.modal.show();
     }
   });
-
-  document.getElementById('btn-delete-import').addEventListener('click', (event) => {
-    let $btn = event.target;
-    if (confirm('Are you sure you want to delete this staged import?')) {
-      $btn.setAttribute('disabled', 'disabled');
-
-      let [match, sourceId, importId] = /\/source\/([^\/]+)\/import\/([^\/]+)/i.exec(
-        window.location.pathname
-      );
-      $api(`/api/source/${sourceId}/import/${importId}`, {
-        method: 'DELETE'
-      })
-        .then(() => {
-          window.location.href = `/data-viewer/source/${sourceId}/import`;
-        })
-        .catch((error) => {
-          alert(error && error.message ? error.message : error);
-          $btn.removeAttribute('disabled');
-        });
-    }
-  });
-
-  document.getElementById('btn-import-records').addEventListener('click', (event) => {
-    if (confirm('Are you sure you want to import all the records?')) {
-      let $btn = event.target;
-      $btn.setAttribute('disabled', 'disabled');
-      let [match, sourceId, importId] = /\/source\/([^\/]+)\/import\/([^\/]+)/i.exec(
-        window.location.pathname
-      );
-      $api(`/api/source/${sourceId}/import/${importId}`, {
-        method: 'POST'
-      })
-        .then(() => {
-          window.location.href = `/data-viewer/source/${sourceId}/import`;
-        })
-        .catch((error) => {
-          alert(error && error.message ? error.message : error);
-          $btn.removeAttribute('disabled');
-        });
-    }
-  });
 }
 
 // #######################################################
@@ -802,6 +761,7 @@ function onLoad() {
   }
 
   document.getElementById('data-loader').classList.add('d-none');
+  $data.dataset.loaded = true;
 }
 
 onLoad();

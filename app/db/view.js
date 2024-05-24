@@ -832,6 +832,7 @@ class View extends Base {
     }
 
     let submissionField = null;
+
     for (const [sourceField, renamedField] of Object.entries(submissionSource.rename)) {
       if (field === View.normalizeFieldName(renamedField)) {
         if (!submissionField) {
