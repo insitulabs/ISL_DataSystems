@@ -493,6 +493,7 @@ class View extends Base {
       let sourceMap = {};
       for (const [existingField, newField] of Object.entries(s.rename)) {
         // Ensure rename sources are mapped to actual view fields
+        // TODO Revisit name vs id here of field.
         let mappedViewField = fields.find((f) => f.name === newField);
         if (mappedViewField) {
           // Never let fields have . in them, or Mongo will blow up,
@@ -831,9 +832,15 @@ class View extends Base {
       throw new Errors.BadRequest('Source not found in view: ' + submission.source);
     }
 
+    let viewField = view.fields.find((f) => f.id === field);
+    if (!viewField) {
+      throw new Errors.BadRequest('Field not found in view: ' + field);
+    }
+
     let submissionField = null;
     for (const [sourceField, renamedField] of Object.entries(submissionSource.rename)) {
-      if (field === View.normalizeFieldName(renamedField)) {
+      let renamed = View.normalizeFieldName(renamedField);
+      if (viewField.name === renamed) {
         if (!submissionField) {
           submissionField = sourceField;
         } else if (Array.isArray(submissionField)) {
