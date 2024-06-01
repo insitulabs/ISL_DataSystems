@@ -317,14 +317,20 @@ class Audit extends Base {
   /**
    * Log a submission create.
    * @param {object} data The data to log with this event.
+   * @param {ObjectId} auditId A audit identifier used to commit the import actions.
    */
-  async logSubmissionCreate(data) {
+  async logSubmissionCreate(data, auditId) {
     if (this.user.preventAudit) {
       return;
     }
 
     let events = this.collection(AUDIT_EVENTS);
     let record = this.#userEvent(AuditEventType.SubmissionCreate, data);
+
+    if (auditId) {
+      record._id = auditId;
+    }
+
     return events.insertOne(record).catch(this.#onError);
   }
 

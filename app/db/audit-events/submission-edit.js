@@ -23,7 +23,7 @@ class SubmissionEdit extends AuditEvent {
   async undo(sourceManager, viewManager, currentUser) {
     let source = await sourceManager.getSource(this.data.source._id);
     currentUser.validateSourcePermission(source, CurrentUser.PERMISSIONS.WRITE);
-    let { results } = await sourceManager.getSubmissionsFromAudit(this.id);
+    let { results } = await sourceManager.getSubmissionsFromEditAudit(this.id);
     let count = results.length;
 
     if (!count) {

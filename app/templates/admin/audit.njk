@@ -124,6 +124,11 @@
               <span class="badge text-bg-primary">
               {{ result.data.type }}
               </span>
+              {% if result.data.count %}
+              <span class="ms-1 badge text-bg-success">
+              {{ result.data.count | formatNumber }} {{ "record" if result.data.count === 1 else "records" }}
+              </span>
+              {% endif %}
 
             {% elseif result.type === 'submission-edit' %}
               {% if result.data.view %}

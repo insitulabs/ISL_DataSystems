@@ -323,11 +323,11 @@ class Source extends Base {
   }
 
   /**
-   * Get all submissions modified in a given audit event.
+   * Get all submissions modified in a given edit audit event.
    * @param {ObjectId | String} auditId
    * @return {{results: Array, totalResults: Number}} The results.
    */
-  async getSubmissionsFromAudit(auditId) {
+  async getSubmissionsFromEditAudit(auditId) {
     if (!auditId || !ObjectId.isValid(auditId)) {
       throw new Errors.BadRequest('Invalid audit ID');
     }
@@ -335,6 +335,28 @@ class Source extends Base {
     let results = await this.collection(SUBMISSIONS)
       .find({
         '_edits.auditId': new ObjectId(auditId)
+      })
+      .toArray();
+
+    return {
+      results,
+      totalResults: results.length
+    };
+  }
+
+  /**
+   * Get all submissions created in a given audit event.
+   * @param {ObjectId | String} auditId
+   * @return {{results: Array, totalResults: Number}} The results.
+   */
+  async getSubmissionsFromCreateAudit(auditId) {
+    if (!auditId || !ObjectId.isValid(auditId)) {
+      throw new Errors.BadRequest('Invalid audit ID');
+    }
+
+    let results = await this.collection(SUBMISSIONS)
+      .find({
+        auditId: new ObjectId(auditId)
       })
       .toArray();
 
@@ -1042,10 +1064,16 @@ class Source extends Base {
    * Create submissions.
    * @param {object} source
    * @param {array} submissions
-   * @param {object} options Options to use on insert. Can include:
+   * @param {{
+   *  externalIdKey: String,
+   *  originIdKey: String,
+   *  createdKey: String,
+   *  auditId: ObjectId
+   * }} options Options to use on insert. Can include:
    *   - externalIdKey {string} To filter out existing submissions from exsternal source (ODK).
    *   - originIdKey {string} To associate with a copied item.
    *   - createdKey {string} To use as the create date.
+   *   - auditId {ObjectId} Audit record, if we are doing a user genereated bulk import.
    * @return {array} Array of new submission IDs.
    */
   async insertSubmissions(source, submissions, options = {}) {
@@ -1122,11 +1150,15 @@ class Source extends Base {
         }
 
         if (originId) {
-          submission.originId = originId;
+          submission.originId = new ObjectId(originId);
         }
 
         if (_attachmentsPresent) {
           submission._attachmentsPresent = _attachmentsPresent;
+        }
+
+        if (options.auditId) {
+          submission.auditId = options.auditId;
         }
 
         return submission;
@@ -1769,15 +1801,20 @@ class Source extends Base {
       }
     }
 
-    viewData[field] = value;
+    let previous = {};
+    previous[field] = viewData[field];
+
+    let auditUpdate = {};
+    auditUpdate[field] = value;
 
     let update = {};
+    viewData[field] = value;
     update['viewData' + '.' + viewId + '.' + subIndex] = viewData;
 
     let auditRecord = {
       viewData: 'viewData' + '.' + viewId + '.' + subIndex,
-      field,
-      value,
+      update: auditUpdate,
+      previous,
       modified: new Date(),
       modifiedBy: {
         id: new ObjectId(this.user._id),

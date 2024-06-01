@@ -669,7 +669,7 @@
         {% if field.editable %}
         <div class="row align-items-center py-1">
           <div class="col">
-            <div class="form-floating flex-fill field">
+            <div class="form-floating flex-fill field overflow-hidden">
               <input
                 id="new-submission-field-{{ field.id }}"
                 type="text"
@@ -681,6 +681,7 @@
               <label
                 for="new-submission-field-{{ field.id }}"
                 class="text-secondary"
+                title="{{ field.id }}"
               >
                 {{ field.id }}
               </label>

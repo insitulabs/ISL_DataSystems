@@ -6,10 +6,12 @@ const { ObjectId } = require('mongodb');
 const CurrentUser = require('../../lib/current-user');
 
 class ImportCommit extends AuditEvent {
+  /** @type {boolean} */
+  isBulkEdit = false;
+
   constructor(event) {
     super(event);
-
-    this.canUndo = this.canUndo && this.data.import.isBulkEdit;
+    this.isBulkEdit = this.data.import.isBulkEdit || false;
   }
 
   /**
@@ -22,11 +24,22 @@ class ImportCommit extends AuditEvent {
   async undo(sourceManager, viewManager, currentUser) {
     let source = await sourceManager.getSource(this.data.source._id);
     currentUser.validateSourcePermission(source, CurrentUser.PERMISSIONS.WRITE);
-    let { results } = await sourceManager.getSubmissionsFromAudit(this.id);
+
+    if (this.isBulkEdit) {
+      return this.undoBulkEdit(sourceManager);
+    } else {
+      return this.undoCreate(sourceManager);
+    }
+  }
+
+  /**
+   * Undo bulk edit.
+   * @param {Source} sourceManager
+   * @return {Promise} the count of undone records
+   */
+  async undoBulkEdit(sourceManager) {
+    let { results } = await sourceManager.getSubmissionsFromEditAudit(this.id);
     let count = results.length;
-
-    // TODO support undoing bulk create, not just bulk edit.
-
     if (!count) {
       throw new Errors.BadRequest(`Bad data state. Nothing to undo for ${this.id}`);
     }
@@ -61,6 +74,32 @@ class ImportCommit extends AuditEvent {
               error.message;
             throw new Error(msg);
           });
+      })
+    ).then(() => {
+      return count;
+    });
+  }
+
+  /**
+   * Undo bulk import create. This will soft delete the submissions.
+   * @param {Source} sourceManager
+   * @return {Promise} the count of undone records
+   */
+  async undoCreate(sourceManager) {
+    let { results } = await sourceManager.getSubmissionsFromCreateAudit(this.id);
+    let count = results.length;
+    if (!count) {
+      throw new Errors.BadRequest(`Bad data state. Nothing to undo for ${this.id}`);
+    }
+
+    return Promise.all(
+      results.map((submission) => {
+        return sourceManager.deleteSubmission(submission._id).catch((error) => {
+          let msg =
+            `Error deleting submission [${submission._id}] in source ${source.submissionKey}: ` +
+            error.message;
+          throw new Error(msg);
+        });
       })
     ).then(() => {
       return count;

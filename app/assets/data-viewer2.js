@@ -1128,28 +1128,37 @@ Vue.createApp({
           `;
             let user = `<div class="ms-2 user">${event.modifiedBy.name}</div>`;
 
-            let update = event.update;
-            if (!update) {
-              update = {};
-              update[event.field] = event.value;
-            }
-            update =
-              '<pre class="update w-50 m-0 text-success">' +
-              JSON.stringify(update, undefined, 2) +
-              '</pre>';
+            let detailsHtml = '';
+            if (typeof event.deleted === 'boolean') {
+              if (event.deleted) {
+                detailsHtml = '<span class="text-danger">Archived</span>';
+              } else {
+                detailsHtml = '<span class="text-success">Retored</span>';
+              }
+            } else {
+              let update = event.update;
+              if (!update) {
+                update = {};
+                update[event.field] = event.value;
+              }
+              detailsHtml =
+                '<pre class="update w-50 m-0 text-success">' +
+                JSON.stringify(update, undefined, 2) +
+                '</pre>';
 
-            let previous = event.previous || {};
-            previous =
-              '<pre class="previous w-50 m-0 text-danger">' +
-              JSON.stringify(previous, undefined, 2) +
-              '</pre>';
+              let previous = event.previous || {};
+              detailsHtml +=
+                '<pre class="previous w-50 m-0 text-danger">' +
+                JSON.stringify(previous, undefined, 2) +
+                '</pre>';
+            }
 
             let clazz = i % 2 === 0 ? 'bg-body-secondary' : '';
             let str = `<div class="p-2 d-flex flex-wrap ${clazz}">
               ${time}
               ${user}
               <div class="diff w-100 d-flex justify-content-between">
-                ${previous} ${update}
+                ${detailsHtml}
               </div>
               </div>`;
 
