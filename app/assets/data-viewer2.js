@@ -1146,11 +1146,12 @@ Vue.createApp({
                 JSON.stringify(update, undefined, 2) +
                 '</pre>';
 
-              let previous = event.previous || {};
-              detailsHtml +=
-                '<pre class="previous w-50 m-0 text-danger">' +
-                JSON.stringify(previous, undefined, 2) +
-                '</pre>';
+              if (event.previous) {
+                detailsHtml +=
+                  '<pre class="previous w-50 m-0 text-danger">' +
+                  JSON.stringify(event.previous, undefined, 2) +
+                  '</pre>';
+              }
             }
 
             let clazz = i % 2 === 0 ? 'bg-body-secondary' : '';
