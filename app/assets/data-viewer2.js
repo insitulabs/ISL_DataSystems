@@ -84,7 +84,8 @@ Vue.createApp({
       checkedSubmissions: [],
       copyToModalTitle: '',
       isSavingNewSubmission: false,
-      newSubmission: {}
+      newSubmission: {},
+      isCommitingImport: false
     };
   },
 
@@ -310,6 +311,13 @@ Vue.createApp({
 
     this.$refs.fieldTogglesBtn.addEventListener('hide.bs.dropdown', (event) => {
       this.onHideFieldToggles(event);
+    });
+
+    // Listen for submission details modal open.
+    this.$refs.data.addEventListener('show.bs.modal', (event) => {
+      if (event.target.matches('.modal.record-details')) {
+        this.renderSubmissionDetailsModal(event.target);
+      }
     });
 
     if (this.$refs.copyToModal) {
@@ -1013,9 +1021,9 @@ Vue.createApp({
       let prompt = `Are you sure you want to ${label} ${count} ${noun}?`;
 
       if (confirm(prompt)) {
-        let url = `/api/${ORIGIN_TYPE}/${ORIGIN_ID}/submissions/${operation}`;
-        if (ORIGIN_TYPE === 'import') {
-          url = `/api/source/${ORIGIN_ID}/import/submissions/${operation}`;
+        let url = `/api/${this.ORIGIN_TYPE}/${this.ORIGIN_ID}/submissions/${operation}`;
+        if (this.ORIGIN_TYPE === 'import') {
+          url = `/api/source/${this.ORIGIN_ID}/import/submissions/${operation}`;
         }
 
         $api(url, {
@@ -1048,7 +1056,7 @@ Vue.createApp({
         return s;
       }, {});
 
-      $api(`/api/source/${ORIGIN_ID}/submission`, {
+      $api(`/api/source/${this.ORIGIN_ID}/submission`, {
         method: 'POST',
         body: JSON.stringify(submission)
       })
@@ -1061,6 +1069,156 @@ Vue.createApp({
         .finally(() => {
           this.isSavingNewSubmission = false;
         });
+    },
+
+    /**
+     * Fetch submission and render details modal tabs.
+     * @param {Element} domTarget The submission details modal.
+     */
+    renderSubmissionDetailsModal(domTarget) {
+      domTarget.classList.add('loading');
+      let url = null;
+      if (this.ORIGIN_TYPE == 'import') {
+        let [match, sourceId, importId] = /\/source\/([^\/]+)\/import\/([^\/]+)/i.exec(
+          window.location.pathname
+        );
+        url = `/api/source/${sourceId}/submission/${domTarget.dataset.id}?staged=true`;
+      } else {
+        url = `/api/${this.ORIGIN_TYPE}/${this.ORIGIN_ID}/submission/${domTarget.dataset.id}`;
+      }
+
+      return $api(url, {
+        method: 'GET'
+      })
+        .then((response) => {
+          let record = null;
+          if (this.ORIGIN_TYPE === 'view') {
+            if (response.results?.length) {
+              let index = parseInt(domTarget.dataset.index);
+              record = response.results[isNaN(index) ? 0 : index];
+            }
+          } else {
+            record = response;
+          }
+          domTarget.querySelector('.source-json').innerText = JSON.stringify(
+            record.data,
+            undefined,
+            2
+          );
+
+          let events = record._edits || [];
+
+          // TODO revisit this for showing view data history
+          events = events.filter((e) => {
+            return !e.viewData;
+          });
+
+          let history = '';
+          for (let i = events.length - 1; i >= 0; i--) {
+            let event = events[i];
+            let modified = event.modified;
+            let modifiedLocal = new Date(event.modified);
+            let time = `
+              <time
+              datetime="${modified}"
+              title="${modified} UTC"
+            >
+              ${modifiedLocal.toLocaleDateString()} ${modifiedLocal.toLocaleTimeString()}
+            </time>
+          `;
+            let user = `<div class="ms-2 user">${event.modifiedBy.name}</div>`;
+
+            let detailsHtml = '';
+            if (typeof event.deleted === 'boolean') {
+              if (event.deleted) {
+                detailsHtml = '<span class="text-danger">Archived</span>';
+              } else {
+                detailsHtml = '<span class="text-success">Retored</span>';
+              }
+            } else {
+              let update = event.update;
+              if (!update) {
+                update = {};
+                update[event.field] = event.value;
+              }
+              detailsHtml =
+                '<pre class="update w-50 m-0 text-success">' +
+                JSON.stringify(update, undefined, 2) +
+                '</pre>';
+
+              if (event.previous) {
+                detailsHtml +=
+                  '<pre class="previous w-50 m-0 text-danger">' +
+                  JSON.stringify(event.previous, undefined, 2) +
+                  '</pre>';
+              }
+            }
+
+            let clazz = i % 2 === 0 ? 'bg-body-secondary' : '';
+            let str = `<div class="p-2 d-flex flex-wrap ${clazz}">
+              ${time}
+              ${user}
+              <div class="diff w-100 d-flex justify-content-between">
+                ${detailsHtml}
+              </div>
+              </div>`;
+
+            history += str;
+          }
+          domTarget.querySelector('.tab-pane.history').innerHTML = history;
+        })
+        .catch((error) => {
+          domTarget.querySelector('.tab-pane .source-json').innerText = error.message
+            ? error.message
+            : error;
+        })
+        .finally(() => {
+          domTarget.classList.remove('loading');
+        });
+    },
+
+    /**
+     * Commit the staged import after confirmation.
+     */
+    commitImport() {
+      if (confirm('Are you sure you want to import all records?')) {
+        this.isCommitingImport = true;
+        let [match, sourceId, importId] = /\/source\/([^\/]+)\/import\/([^\/]+)/i.exec(
+          window.location.pathname
+        );
+        $api(`/api/source/${sourceId}/import/${importId}`, {
+          method: 'POST'
+        })
+          .then(() => {
+            window.location.href = `/data-viewer/source/${sourceId}/import`;
+          })
+          .catch((error) => {
+            this.isCommitingImport = false;
+            alert(error && error.message ? error.message : error);
+          });
+      }
+    },
+
+    /**
+     * Discard the staged import after confirmation.
+     */
+    discardImport() {
+      if (confirm('Are you sure you want to delete this staged import?')) {
+        this.isCommitingImport = true;
+        let [match, sourceId, importId] = /\/source\/([^\/]+)\/import\/([^\/]+)/i.exec(
+          window.location.pathname
+        );
+        $api(`/api/source/${sourceId}/import/${importId}`, {
+          method: 'DELETE'
+        })
+          .then(() => {
+            window.location.href = `/data-viewer/source/${sourceId}/import`;
+          })
+          .catch((error) => {
+            alert(error && error.message ? error.message : error);
+            this.isCommitingImport = true;
+          });
+      }
     }
   }
 }).mount('body > main');

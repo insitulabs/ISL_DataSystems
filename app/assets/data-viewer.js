@@ -92,8 +92,6 @@ const updateSubmission = function (target, field, value, currentValue, valueType
           $td.dataset.value = response.value !== null ? response.value : '';
           $td.innerHTML = response.html;
         }
-
-        $tr.querySelector('.record-source').classList.add('loading');
       });
     } else if (target.fields) {
       target.fields.forEach((f) => {
@@ -116,7 +114,6 @@ const updateSubmission = function (target, field, value, currentValue, valueType
           } else {
             $td.innerHTML = response.html;
           }
-          $td.closest('tr').querySelector('.record-source').classList.add('loading');
         });
       });
     }
@@ -620,90 +617,7 @@ if (ORIGIN_TYPE === 'import') {
       renameFieldModal.modal.show();
     }
   });
-
-  document.getElementById('btn-delete-import').addEventListener('click', (event) => {
-    let $btn = event.target;
-    if (confirm('Are you sure you want to delete this staged import?')) {
-      $btn.setAttribute('disabled', 'disabled');
-
-      let [match, sourceId, importId] = /\/source\/([^\/]+)\/import\/([^\/]+)/i.exec(
-        window.location.pathname
-      );
-      $api(`/api/source/${sourceId}/import/${importId}`, {
-        method: 'DELETE'
-      })
-        .then(() => {
-          window.location.href = `/data-viewer/source/${sourceId}/import`;
-        })
-        .catch((error) => {
-          alert(error && error.message ? error.message : error);
-          $btn.removeAttribute('disabled');
-        });
-    }
-  });
-
-  document.getElementById('btn-import-records').addEventListener('click', (event) => {
-    if (confirm('Are you sure you want to import all the records?')) {
-      let $btn = event.target;
-      $btn.setAttribute('disabled', 'disabled');
-      let [match, sourceId, importId] = /\/source\/([^\/]+)\/import\/([^\/]+)/i.exec(
-        window.location.pathname
-      );
-      $api(`/api/source/${sourceId}/import/${importId}`, {
-        method: 'POST'
-      })
-        .then(() => {
-          window.location.href = `/data-viewer/source/${sourceId}/import`;
-        })
-        .catch((error) => {
-          alert(error && error.message ? error.message : error);
-          $btn.removeAttribute('disabled');
-        });
-    }
-  });
 }
-
-// #######################################################
-// # Record Source Modal Fetching.
-// #######################################################
-
-$data.addEventListener('show.bs.modal', (event) => {
-  if (event.target.matches('.modal.record-source.loading')) {
-    let url = null;
-    if (ORIGIN_TYPE == 'import') {
-      let [match, sourceId, importId] = /\/source\/([^\/]+)\/import\/([^\/]+)/i.exec(
-        window.location.pathname
-      );
-      url = `/api/source/${sourceId}/submission/${event.target.dataset.id}?staged=true`;
-    } else {
-      url = `/api/${ORIGIN_TYPE}/${ORIGIN_ID}/submission/${event.target.dataset.id}`;
-    }
-
-    return $api(url, {
-      method: 'GET'
-    })
-      .then((response) => {
-        let data = null;
-        if (ORIGIN_TYPE === 'view') {
-          if (response.results?.length) {
-            let index = parseInt(event.target.dataset.index);
-            data = response.results[isNaN(index) ? 0 : index].data;
-          }
-        } else {
-          data = response.data;
-        }
-        event.target.querySelector('.source-json').innerText = JSON.stringify(data, undefined, 2);
-      })
-      .catch((error) => {
-        event.target.querySelector('.source-json').innerText = error.message
-          ? error.message
-          : error;
-      })
-      .finally(() => {
-        event.target.classList.remove('loading');
-      });
-  }
-});
 
 // #######################################################
 // # ATTACHMENT MODAL LOGIC
@@ -847,6 +761,7 @@ function onLoad() {
   }
 
   document.getElementById('data-loader').classList.add('d-none');
+  $data.dataset.loaded = true;
 }
 
 onLoad();

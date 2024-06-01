@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const CONFIG = require('../config');
 const langUtil = require('../lib/langUtil');
+const { ObjectId } = require('mongodb');
 
 // const currencyFormatter = new Intl.NumberFormat('en-US', {
 //   minimumFractionDigits: 2
@@ -129,9 +130,12 @@ module.exports = function (nunjucks) {
   });
 
   nunjucks.addFilter('shortenID', (value) => {
-    if (value && typeof value === 'string') {
-      let len = value.length;
-      return value.substring(len - 5, len);
+    if (value) {
+      let toShorten = value instanceof ObjectId ? value.toString() : value;
+      if (typeof toShorten === 'string') {
+        let len = toShorten.length;
+        return toShorten.substring(len - 5, len);
+      }
     }
     return null;
   });

@@ -78,12 +78,6 @@ Vue.createApp({
   },
 
   methods: {
-    getWorkspaceUrl(name) {
-      let host = window.location.host.split('.');
-      host.shift();
-      return window.location.protocol + '//' + name + '.' + host.join('.');
-    },
-
     /**
      * Show the modal for editing or creating a workspace.
      * @param {Event} event The click event.

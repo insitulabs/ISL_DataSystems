@@ -6,6 +6,7 @@ const { getCurrentUser } = require('../../lib/route-helpers');
 const CurrentUser = require('../../lib/current-user');
 const Audit = require('../../db/audit').Audit;
 const langUtil = require('../../lib/langUtil');
+const { ObjectId } = require('mongodb');
 
 module.exports = function (opts) {
   const router = express.Router();
@@ -187,7 +188,7 @@ module.exports = function (opts) {
       if (!source._id.equals(theImport.sourceId)) {
         throw new Error.BadRequest('Mismatch import to source');
       }
-      let count = await sourceManager.commitImport(theImport);
+      let { auditId, count } = await sourceManager.commitImport(theImport);
 
       const auditManager = new Audit(getCurrentUser(res));
       let auditRecord = {
@@ -200,7 +201,7 @@ module.exports = function (opts) {
         count,
         import: theImport
       };
-      auditManager.logImportCommit(auditRecord);
+      auditManager.logImportCommit(auditRecord, auditId);
 
       res.json({});
     } catch (error) {
@@ -335,24 +336,28 @@ module.exports = function (opts) {
         return Source.flatRecordToSubmission(source, s);
       });
 
+      let auditId = new ObjectId();
       let ids = await sourceManager.insertSubmissions(source, submissions, {
         // Allow linking back to copied submission original
-        originIdKey: '__originId'
+        originIdKey: '__originId',
+        auditId
       });
 
       let created = await Promise.all(ids.map((id) => sourceManager.getSubmission(id)));
 
-      created.forEach((submission) => {
-        auditManager.logSubmissionCreate({
+      auditManager.logSubmissionCreate(
+        {
           type: 'source',
           source: {
             _id: source._id,
             name: source.name,
             submissionKey: source.submissionKey
           },
-          submission
-        });
-      });
+          count: ids.length,
+          ids
+        },
+        auditId
+      );
 
       res.json(created);
     } catch (error) {

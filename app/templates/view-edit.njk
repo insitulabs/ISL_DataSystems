@@ -5,7 +5,10 @@
 {% endblock %}
 
 {% block pageTitle %}
-<span class="badge bg-primary">{{ view.name }}</span>
+  <a
+    href="/data-viewer/view/{{ view._id }}"
+    class="badge bg-primary link-light link-opacity-100 text-decoration-none"
+  >{{ view.name }}</a>
 {% endblock %}
 
 {% block content %}

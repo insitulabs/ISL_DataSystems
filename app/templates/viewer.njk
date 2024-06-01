@@ -34,7 +34,8 @@
 {% if pageTitle %}
 {% block pageTitle %}
 <span class="badge bg-primary">
-  {{ pageTitle }} {% if editLink %}
+  <a href="{{ link }}" class="link-light link-opacity-100 text-decoration-none">{{ pageTitle }}</a>
+  {% if editLink %}
   <a href="{{ editLink }}" title="Edit source" class="text-white ms-1">
     <i class="bi bi-pencil-square"></i>
   </a>
@@ -89,16 +90,38 @@
     role="alert"
   >
     <div>
+      {% if theImport.isBulkEdit %}
+      <strong>Bulk Edit Matching Records</strong>
+      <span> - Finalize your data before importing.</span>
+      {% else %}
       <strong>Staged Import Data</strong>
-      <span> - Finalize your data before importing your submissions. </span>
+      <span> - Finalize your data before importing your submissions.</span>
+      {% endif %}
     </div>
 
     {% if userCanEdit %}
-    <div>
-      <button id="btn-delete-import" class="btn btn-outline-secondary btn-sm">
+    <div class="d-flex align-items-center">
+      <div
+          v-cloak
+          v-if="isCommitingImport"
+          class="spinner-border text-primary spinner-border-sm me-2"
+          role="status"
+        >
+          <span class="visually-hidden">Saving...</span>
+      </div>
+      <button
+        class="btn btn-outline-secondary btn-sm me-1"
+        :disabled="isCommitingImport"
+        @click="discardImport">
         Discard Import
       </button>
-      <button id="btn-import-records" class="btn btn-primary btn-sm ms-1">Import Records</button>
+      <button
+        @click="commitImport"
+        :disabled="isCommitingImport"
+        class="btn btn-primary btn-sm"
+      >
+        {% if theImport.isBulkEdit %}Bulk Update{% else %}Import{% endif %} Records
+      </button>
     </div>
     {% endif %}
   </div>
@@ -397,20 +420,6 @@
         Actions
       </button>
       <ul class="dropdown-menu">
-        {% if userCanCreate %}
-        <li>
-          <button
-            type="button"
-            class="dropdown-item"
-            data-bs-toggle="modal"
-            data-bs-target="#new-submission-modal"
-          >
-            <i class="bi bi-file-earmark-plus-fill"></i>
-            Create
-          </button>
-        </li>
-        {% endif %}
-
         {% if showDuplicateBtn %}
         <li>
           <button
@@ -467,6 +476,30 @@
             <i class="bi bi-recycle"></i>
             Restore
           </button>
+        </li>
+        {% endif %}
+
+        {% if userCanCreate %}
+        <li><hr class="dropdown-divider"></li>
+        <li>
+          <button
+            type="button"
+            class="dropdown-item"
+            data-bs-toggle="modal"
+            data-bs-target="#new-submission-modal"
+          >
+            <i class="bi bi-file-earmark-plus-fill"></i>
+            Create
+          </button>
+        </li>
+        <li>
+          <a
+            class="dropdown-item"
+            href="{{link}}/import"
+          >
+            <i class="bi bi-cloud-upload"></i>
+            Import / Bulk Edit
+          </a>
         </li>
         {% endif %}
       </ul>
@@ -636,7 +669,7 @@
         {% if field.editable %}
         <div class="row align-items-center py-1">
           <div class="col">
-            <div class="form-floating flex-fill field">
+            <div class="form-floating flex-fill field overflow-hidden">
               <input
                 id="new-submission-field-{{ field.id }}"
                 type="text"
@@ -648,6 +681,7 @@
               <label
                 for="new-submission-field-{{ field.id }}"
                 class="text-secondary"
+                title="{{ field.id }}"
               >
                 {{ field.id }}
               </label>

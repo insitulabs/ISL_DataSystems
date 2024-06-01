@@ -15,31 +15,32 @@
   width: 1024px;
 }
 
-.record-source .modal-body .source-json {
-  max-height: 65vh;
-  overflow-y: auto;
-}
-
-.record-source .modal-body .spinner-border {
+.record-details .modal-body .spinner-border {
   display: none;
 }
 
-.record-source.loading .modal-body {
+.record-details .modal-body {
+  height: 75vh;
+  overflow-y: auto;
+}
+
+.record-details.loading .modal-body {
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.record-source.loading .modal-body .spinner-border {
+.record-details.loading .modal-body .spinner-border {
   display: block;
 }
 
-.record-source.loading .modal-body .source-json {
+.record-details.loading .modal-body .nav,
+.record-details.loading .modal-body .tab-content {
   display: none;
 }
-.modal-body.record-source.loading {
-  max-height: 75vh;
-  overflow-y: auto;
+
+#data[data-type="view"] .record-details .nav-item.history {
+  display: none;
 }
 
 main .dropdown-menu {

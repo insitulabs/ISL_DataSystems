@@ -1,6 +1,9 @@
 const express = require('express');
 const App = require('../../db/app');
 const Errors = require('../../lib/errors');
+const crypto = require('../../lib/crypto');
+const CONFIG = require('../../config');
+const { getCurrentUser } = require('../../lib/route-helpers');
 
 module.exports = function (opts) {
   const router = express.Router();
@@ -111,6 +114,23 @@ module.exports = function (opts) {
         links[col] = url;
         return links;
       }, {});
+
+      let currentUser = getCurrentUser(res);
+      let hostName = req.hostname.split('.');
+      hostName = hostName.slice(hostName.length > 2 ? -2 : -1).join('.');
+
+      let loginLinks = workspaces.forEach((workspace) => {
+        let link =
+          (CONFIG.IS_LOCAL_DEV_ENV ? 'http' : 'https') + `://${workspace.name}.${hostName}`;
+        if (CONFIG.IS_LOCAL_DEV_ENV) {
+          link += ':' + CONFIG.PORT;
+        }
+
+        // Allow super admins to login via custom link.
+        workspace.link = link;
+        workspace.url =
+          link + '?token=' + encodeURIComponent(crypto.getUserToken(currentUser.email, link));
+      });
 
       let model = {
         pagePath,

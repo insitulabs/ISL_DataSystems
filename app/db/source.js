@@ -4,6 +4,7 @@ const Sequence = require('./sequence');
 const Errors = require('../lib/errors');
 const CurrentUser = require('../lib/current-user');
 const dayjs = require('dayjs');
+const _ = require('lodash');
 
 const SUBMISSIONS = 'submissions';
 const SOURCES = 'sources';
@@ -55,7 +56,17 @@ class Source extends Base {
       }
     }
     recurse(data, '');
-    return result;
+
+    // Remove empty objects from flat structure.
+    return Object.keys(result).reduce((cleaned, key) => {
+      let value = result[key];
+      if (value && typeof value === 'object' && !Object.values(value).length) {
+        return cleaned;
+      }
+
+      cleaned[key] = value;
+      return cleaned;
+    }, {});
   }
 
   /**
@@ -308,6 +319,50 @@ class Source extends Base {
     return {
       results: await results.toArray(),
       totalResults: totalResults
+    };
+  }
+
+  /**
+   * Get all submissions modified in a given edit audit event.
+   * @param {ObjectId | String} auditId
+   * @return {{results: Array, totalResults: Number}} The results.
+   */
+  async getSubmissionsFromEditAudit(auditId) {
+    if (!auditId || !ObjectId.isValid(auditId)) {
+      throw new Errors.BadRequest('Invalid audit ID');
+    }
+
+    let results = await this.collection(SUBMISSIONS)
+      .find({
+        '_edits.auditId': new ObjectId(auditId)
+      })
+      .toArray();
+
+    return {
+      results,
+      totalResults: results.length
+    };
+  }
+
+  /**
+   * Get all submissions created in a given audit event.
+   * @param {ObjectId | String} auditId
+   * @return {{results: Array, totalResults: Number}} The results.
+   */
+  async getSubmissionsFromCreateAudit(auditId) {
+    if (!auditId || !ObjectId.isValid(auditId)) {
+      throw new Errors.BadRequest('Invalid audit ID');
+    }
+
+    let results = await this.collection(SUBMISSIONS)
+      .find({
+        auditId: new ObjectId(auditId)
+      })
+      .toArray();
+
+    return {
+      results,
+      totalResults: results.length
     };
   }
 
@@ -874,58 +929,83 @@ class Source extends Base {
   /**
    * Update a submission
    * @param {String || ObjectId} id
-   * @param {String} field
-   * @param {*} value
-   * @param {*} currentValue
+   * @param {Object} delta
+   * @param {{auditId: ObjectId, submission: Object, previousDelta: Object}} options
+   *   - auditId: The audit ID used to group bulk actions to audit history.
+   *   - submission: The submission to update, if we have it. Not required.
+   *   - previousDelta: Current values, if provided, do optimistic lock check.
    * @return {Object} The updated submission.
    */
-  async updateSubmission(id, field, value, currentValue) {
-    const submissions = this.collection(SUBMISSIONS);
-    let record = await this.getSubmission(id);
-
-    if (typeof field !== 'string') {
-      throw new Errors.BadRequest('Invalid field name type: ' + typeof field);
+  async updateSubmission(id, delta, options = {}) {
+    if (!id || !ObjectId.isValid(id)) {
+      throw new Errors.BadRequest('Invalid submission ID');
     }
 
-    if (currentValue !== undefined) {
-      let flatRecord = Source.flattenSubmission(record.data);
-      currentValue = currentValue && currentValue !== '0' ? currentValue : null;
-      let recordValue = flatRecord[field] ? flatRecord[field] : null;
-      recordValue = recordValue && recordValue !== '0' ? recordValue : null;
-
-      if (currentValue != recordValue) {
-        // Optimistic Lock
-        throw new Errors.BadRequest(
-          'The data you are trying to edit is stale. Refresh the page and try again.'
-        );
-      }
+    if (!delta || typeof delta !== 'object' || Object.keys(delta).length === 0) {
+      throw new Errors.BadRequest('Invalid update delta');
     }
-
+    let record = options.submission || (await this.getSubmission(id));
+    let previous = {};
     let update = {};
-    update['data.' + field] = value;
+    let auditUpdate = {};
 
-    let auditRecord = {
-      field,
-      value,
-      modified: new Date(),
-      modifiedBy: {
-        id: new ObjectId(this.user._id),
-        email: this.user.email,
-        name: this.user.name
+    for (let key of Object.keys(delta)) {
+      let previousValue = _.get(record.data, key, null);
+      if (previousValue !== delta[key]) {
+        update['data.' + key] = delta[key];
+        auditUpdate[key] = delta[key];
+        previous[key] = previousValue;
       }
-    };
+    }
 
-    let results = await submissions.updateOne(
-      { _id: new ObjectId(id) },
-      {
-        $set: update,
-        $push: {
-          _edits: auditRecord
+    if (options.previousDelta) {
+      for (let key of Object.keys(options.previousDelta)) {
+        let currentVal =
+          options.previousDelta[key] && options.previousDelta[key] !== '0'
+            ? options.previousDelta[key]
+            : null;
+        let recordVal = previous[key] && previous[key] !== '0' ? previous[key] : null;
+        if (currentVal != recordVal) {
+          // Optimistic Lock. Do not compare type so we don't get into string/number issues.
+          throw new Errors.BadRequest(
+            'The data you are trying to edit is stale. Refresh the page and try again.'
+          );
         }
       }
-    );
+    }
 
-    return this.getSubmission(id);
+    // Don't bother updating if there's nothing to update.
+    if (Object.keys(update).length) {
+      let auditRecord = {
+        update: auditUpdate,
+        previous,
+        modified: new Date(),
+        modifiedBy: {
+          id: new ObjectId(this.user._id),
+          email: this.user.email,
+          name: this.user.name
+        }
+      };
+
+      if (options.auditId) {
+        auditRecord.auditId = options.auditId;
+      }
+
+      const submissions = this.collection(SUBMISSIONS);
+      let results = await submissions.updateOne(
+        { _id: new ObjectId(id) },
+        {
+          $set: update,
+          $push: {
+            _edits: auditRecord
+          }
+        }
+      );
+
+      return this.getSubmission(id);
+    } else {
+      return record;
+    }
   }
 
   /**
@@ -984,10 +1064,16 @@ class Source extends Base {
    * Create submissions.
    * @param {object} source
    * @param {array} submissions
-   * @param {object} options Options to use on insert. Can include:
+   * @param {{
+   *  externalIdKey: String,
+   *  originIdKey: String,
+   *  createdKey: String,
+   *  auditId: ObjectId
+   * }} options Options to use on insert. Can include:
    *   - externalIdKey {string} To filter out existing submissions from exsternal source (ODK).
    *   - originIdKey {string} To associate with a copied item.
    *   - createdKey {string} To use as the create date.
+   *   - auditId {ObjectId} Audit record, if we are doing a user genereated bulk import.
    * @return {array} Array of new submission IDs.
    */
   async insertSubmissions(source, submissions, options = {}) {
@@ -1055,7 +1141,7 @@ class Source extends Base {
           imported: now,
           data: rest,
           attachments: [],
-          edits: [],
+          _edits: [],
           originalData: rest
         };
 
@@ -1064,11 +1150,15 @@ class Source extends Base {
         }
 
         if (originId) {
-          submission.originId = originId;
+          submission.originId = new ObjectId(originId);
         }
 
         if (_attachmentsPresent) {
           submission._attachmentsPresent = _attachmentsPresent;
+        }
+
+        if (options.auditId) {
+          submission.auditId = options.auditId;
         }
 
         return submission;
@@ -1124,7 +1214,17 @@ class Source extends Base {
     return this.getSubmission(id);
   }
 
-  async createImport(source, records, fields) {
+  /**
+   * Create an import for a source.
+   * @param {Object} source
+   * @param {Array} records
+   * @param {Object} options
+   *   - fields: If we're creating new fields for an empty source, this is the fields.
+   *   - mappedFields: If not an empty source, the fields provided in the upload.
+   *   - isBulkEdit: If we're doing a bulk edit of exiting records.
+   * @return {Object}
+   */
+  async createImport(source, records, options = {}) {
     if (!source) {
       throw new Errors.BadRequest('Source is required');
     }
@@ -1137,6 +1237,7 @@ class Source extends Base {
     let today = new Date();
 
     let newFields = null;
+    let fields = options.fields;
     if (fields) {
       newFields = fields
         .filter((id) => {
@@ -1177,35 +1278,31 @@ class Source extends Base {
       }
     }
 
-    let toPersist = {
-      sourceId: source._id,
-      sourceName: source.name,
-      created: today,
-      createdBy: {
-        id: new ObjectId(this.user._id),
-        name: this.user.name,
-        email: this.user.email
-      },
-      fields: newFields
-    };
-
-    let insertImport = await imports.insertOne(toPersist);
+    const importId = new ObjectId();
 
     let submissionsToPersist = records.map((r) => {
       let created = today;
+      let originId = null;
       let normalized = {};
       for (let [key, value] of Object.entries(r)) {
         let newValue = value;
+
+        if (options.isBulkEdit && key === '_id') {
+          originId = new ObjectId(value);
+          continue;
+        }
 
         if (key.toLowerCase() === 'created' && newValue) {
           key = 'created';
           let createdDate = dayjs(newValue);
           if (createdDate.isValid()) {
             created = createdDate.toDate();
-            newValue = created;
-          } else {
-            // Clear out bad dates.
-            newValue = null;
+          }
+
+          // For bulk edit, don't bother pushing created into data to update.
+          // Preserve for true creates.
+          if (options.isBulkEdit) {
+            continue;
           }
         }
 
@@ -1227,16 +1324,53 @@ class Source extends Base {
         normalized[key] = newValue;
       }
 
-      return {
-        import: insertImport.insertedId,
+      let stagedSubmission = {
+        import: importId,
         created,
+        originId,
         data: normalized
       };
+
+      return stagedSubmission;
     });
 
-    await stagedSubmissions.insertMany(submissionsToPersist);
+    // Ensure bulk edit is for non-deleted submissions from the correct source.
+    if (options.isBulkEdit) {
+      let ids = submissionsToPersist.map((s) => s.originId);
+      let exists = await this.collection(SUBMISSIONS)
+        .find({ _id: { $in: ids }, source: source.submissionKey, deleted: { $ne: true } })
+        .map((s) => {
+          return s._id.toString();
+        })
+        .toArray();
 
-    return imports.findOne(insertImport.insertedId);
+      submissionsToPersist = submissionsToPersist.filter((s) => {
+        return s.originId && exists.includes(s.originId.toString());
+      });
+    }
+
+    let toPersist = {
+      _id: importId,
+      sourceId: source._id,
+      sourceName: source.name,
+      created: today,
+      createdBy: {
+        id: new ObjectId(this.user._id),
+        name: this.user.name,
+        email: this.user.email
+      },
+      fields: newFields,
+      mappedFields: options.mappedFields || null,
+      isBulkEdit: options.isBulkEdit || false,
+      count: submissionsToPersist.length
+    };
+    await imports.insertOne(toPersist);
+
+    if (submissionsToPersist.length) {
+      await stagedSubmissions.insertMany(submissionsToPersist);
+    }
+
+    return imports.findOne(importId);
   }
 
   async getImport(id) {
@@ -1276,14 +1410,39 @@ class Source extends Base {
       throw new Errors.BadRequest('Invalid ID param');
     }
 
-    const submissions = this.collection(SUBMISSIONS_STAGED);
-    let submission = submissions.findOne({ _id: new ObjectId(id) });
-    if (!submission) {
+    const stagedSubmissions = this.collection(SUBMISSIONS_STAGED);
+    let staged = await stagedSubmissions.findOne({ _id: new ObjectId(id) });
+    if (!staged) {
       throw new Errors.BadRequest('Submission not found.');
     }
-    return submission;
+
+    // Loaded existing record if this is a bulk-edit staged submission
+    if (staged.originId) {
+      let existing = await this.getSubmission(staged.originId);
+      let theImport = await this.getImport(staged.import);
+      let source = await this.getSource(theImport.sourceId);
+      if (existing.source === source.submissionKey) {
+        staged.existing = existing;
+      }
+    }
+
+    return staged;
   }
 
+  /**
+   * Get the staged submissions for an import.
+   * @param {Object} theImport The import object.
+   * @param {Object} options Query params:
+   *  - sort
+   *  - order
+   *  - limit (-1 for all)
+   *  - offset
+   *  - filters,
+   *  - sample,
+   *  - id
+   *  - deleted
+   * @returns
+   */
   async getStagedSubmissions(theImport, options = {}) {
     const col = this.collection(SUBMISSIONS_STAGED);
 
@@ -1294,13 +1453,39 @@ class Source extends Base {
     let countQuery = this.#buildSubmissionQuery($match, options, true);
     let fullQuery = this.#buildSubmissionQuery($match, options, false);
 
+    if (theImport.isBulkEdit) {
+      fullQuery.splice(1, 0, {
+        $lookup: {
+          from: 'submissions',
+          localField: 'originId',
+          foreignField: '_id',
+          as: 'existing'
+        }
+      });
+    }
+
     let totalResults = await col.aggregate([...countQuery, { $count: 'totalResults' }]).toArray();
     totalResults = totalResults && totalResults.length ? totalResults[0].totalResults : 0;
 
-    let results = col.aggregate(fullQuery);
+    let results = await col.aggregate(fullQuery).toArray();
+
+    if (theImport.isBulkEdit) {
+      let source = await this.getSource(theImport.sourceId);
+      results.forEach((r) => {
+        if (r.existing?.length && r.existing[0].source === source.submissionKey) {
+          // Make sure the existing data is for the source being bulk edited.
+          // If a user uploads the wrong spreadsheet, don't mix datasets.
+          // Get rid of the array for existing submission.
+          r.existing = r.existing[0];
+        } else {
+          delete r.existing;
+        }
+      });
+    }
+
     return {
-      results: await results.toArray(),
-      totalResults: totalResults
+      results,
+      totalResults
     };
   }
 
@@ -1446,9 +1631,10 @@ class Source extends Base {
   }
 
   /**
-   * Commit the  he given import.
+   * Commit the the given import.
    * @param {object} theImport
-   * @return {number} The count of imported submissions.
+   * @return {{count:Number, auditId: ObjectId}} The count of imported or modified submissions.
+   *  and the auditId associated with the actions.
    */
   async commitImport(theImport) {
     if (!theImport) {
@@ -1456,16 +1642,43 @@ class Source extends Base {
     }
 
     let source = await this.getSource(theImport.sourceId);
-
     let queryResponse = await this.getStagedSubmissions(theImport, { limit: -1 });
-    let toCreate = queryResponse.results.map((r) => {
-      return r.data;
-    });
-    let ids = await this.insertSubmissions(source, toCreate, {
-      createdKey: 'created'
-    });
+
+    let auditId = new ObjectId();
+    let count = queryResponse.results.length;
+
+    if (theImport.isBulkEdit) {
+      await Promise.all(
+        queryResponse.results.map((r) => {
+          return this.updateSubmission(r.originId, Source.flattenSubmission(r.data), {
+            auditId,
+            submission: r.existing
+          }).catch((error) => {
+            let msg =
+              `Error updating submission [${r.originId}] in source ${source.submissionKey}: ` +
+              error.message;
+            let contextualError = new Error(msg);
+            throw contextualError;
+          });
+        })
+      );
+    } else {
+      let toCreate = queryResponse.results.map((r) => {
+        return r.data;
+      });
+      let ids = await this.insertSubmissions(source, toCreate, {
+        createdKey: 'created',
+        auditId
+      });
+      count = ids.length;
+    }
+
     await this.deleteImport(theImport);
-    return ids.length;
+
+    return {
+      auditId,
+      count
+    };
   }
 
   /**
@@ -1540,7 +1753,7 @@ class Source extends Base {
   }
 
   /**
-   * Update a submission
+   * Update a submission's custom view data.
    * @param {String || ObjectId} id
    * @param {String} field
    * @param {*} value
@@ -1588,15 +1801,20 @@ class Source extends Base {
       }
     }
 
-    viewData[field] = value;
+    let previous = {};
+    previous[field] = viewData[field];
+
+    let auditUpdate = {};
+    auditUpdate[field] = value;
 
     let update = {};
+    viewData[field] = value;
     update['viewData' + '.' + viewId + '.' + subIndex] = viewData;
 
     let auditRecord = {
       viewData: 'viewData' + '.' + viewId + '.' + subIndex,
-      field,
-      value,
+      update: auditUpdate,
+      previous,
       modified: new Date(),
       modifiedBy: {
         id: new ObjectId(this.user._id),

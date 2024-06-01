@@ -388,9 +388,10 @@ const emailValidator = require('./lib/email-validator');
   });
 
   // Register API routes
+  app.use('/api/audit', noCacheMiddleware, require('./view/routes/api-audit')());
   app.use('/api/source', noCacheMiddleware, require('./view/routes/api-source')());
-  app.use('/api/view', noCacheMiddleware, require('./view/routes/api-view')());
   app.use('/api/user', noCacheMiddleware, require('./view/routes/api-user')());
+  app.use('/api/view', noCacheMiddleware, require('./view/routes/api-view')());
 
   // /data-viewer
   app.use(

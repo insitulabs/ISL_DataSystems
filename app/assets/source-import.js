@@ -7,6 +7,7 @@ Vue.createApp({
       fields: [],
       headers: null,
       samples: [],
+      isBulkEdit: false,
       sampleIndex: 0,
       submissionSamples: [],
       submissionSampleIndex: 0,
@@ -89,6 +90,10 @@ Vue.createApp({
           }
         }
 
+        if (this.isBulkEdit) {
+          mapping[this.idHeading] = this.idHeading;
+        }
+
         return JSON.stringify(mapping);
       }
       return '';
@@ -99,6 +104,45 @@ Vue.createApp({
         return true;
       }
       return false;
+    },
+
+    /**
+     * The list of column names to render from the upload.
+     * Will not return an ID field for bulk edit.
+     * @return {Array} The headers parsed headers of the upload.
+     */
+    visibleHeaders() {
+      if (this.headers && this.isBulkEdit && this.idHeading) {
+        return this.headers.filter((h) => h !== this.idHeading);
+      }
+      return this.headers;
+    },
+
+    /**
+     * Get a possible matching ID column for bulk edit to key off of.
+     * @return {String} The ID heading name.
+     */
+    idHeading() {
+      let options = ['ID', 'id', '_id'];
+      if (this.headers) {
+        for (let option of options) {
+          if (this.headers.includes(option)) {
+            return option;
+          }
+        }
+      }
+      return null;
+    }
+  },
+
+  watch: {
+    /**
+     * When we toggle bulk edit mode, clear any mapping to a possible ID field.
+     */
+    isBulkEdit() {
+      if (this.idHeading) {
+        delete this.mapping[this.idHeading];
+      }
     }
   },
 
@@ -162,6 +206,7 @@ Vue.createApp({
       event.preventDefault();
       this.error = null;
       this.loading = true;
+
       let formData = new FormData(this.$refs.form);
       formData.set('xhr', true);
       $api(this.$refs.form.getAttribute('action'), {
@@ -179,12 +224,29 @@ Vue.createApp({
           this.samples = data.samples;
           this.submissionSamples = data.submissionSamples;
           this.mapping = this.headers.reduce((mapping, h) => {
-            let f = this.fields.find((f) => f.id === h);
+            let f = this.fields.find((f) => {
+              if (f.id === h) {
+                // ID match
+                return true;
+              } else if (f.name && f.name === h) {
+                // English name match
+                return true;
+              } else if (this.language && field.altLang && field.altLang[this.language] === h) {
+                // Alt lang name match
+                return true;
+              }
+              return false;
+            });
+
             if (f) {
               mapping[h] = f.id;
             }
             return mapping;
           }, {});
+
+          if (this.idHeading) {
+            this.isBulkEdit = null;
+          }
         })
         .catch((error) => {
           this.error = error?.message ? error.message : error;

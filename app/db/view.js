@@ -838,6 +838,7 @@ class View extends Base {
     }
 
     let submissionField = null;
+
     for (const [sourceField, renamedField] of Object.entries(submissionSource.rename)) {
       let renamed = View.normalizeFieldName(renamedField);
       if (viewField.name === renamed) {
@@ -857,7 +858,20 @@ class View extends Base {
         submissionField = submissionField[subIndex];
       }
 
-      await sourceManager.updateSubmission(submission._id, submissionField, value, currentValue);
+      let delta = {};
+      delta[submissionField] = value;
+      let previousDelta = null;
+      if (currentValue !== undefined) {
+        previousDelta = {};
+        previousDelta[submissionField] = currentValue;
+      }
+
+      await sourceManager.updateSubmission(submission._id, delta, {
+        // TODO allow bulk undo by providing audit
+        // auditId,
+        submission,
+        previousDelta
+      });
     } else {
       // Custom Field
       await sourceManager.updateSubmissionViewData(

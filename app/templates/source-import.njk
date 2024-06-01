@@ -8,7 +8,7 @@
   }
 
   input[type=file][readonly] {
-    background-color: #e9ecef;
+    background-color: var(--bs-secondary-bg);
     opacity: 1;
     pointer-events: none;
   }
@@ -99,7 +99,50 @@
 
       <div v-cloak v-if="headers" class="row mt-4">
         <div class="col">
-          <p>2. Map import columns to sourfe fields:</p>
+          <p>1. Is this an import or bulk edit?</p>
+          <div class="btn-group" role="group" aria-label="Import mode">
+            <input
+              type="radio"
+              name="mode"
+              class="btn-check"
+              id="import-mode"
+              autocomplete="off"
+              v-model="isBulkEdit"
+              :value="false"
+              required
+            >
+            <label class="btn btn-outline-primary" for="import-mode">Import</label>
+
+            <input
+              type="radio"
+              name="mode"
+              class="btn-check"
+              id="bulk-edit-mode"
+              autocomplete="off"
+              v-model="isBulkEdit"
+              :value="true"
+              :disabled="!idHeading"
+              required
+            >
+            <label class="btn btn-outline-primary" for="bulk-edit-mode">Bulk Edit</label>
+          </div>
+          <div class="form-text">
+            <span v-if="!idHeading">
+              Bulk edit is only avilable for uploaded data with an ID column.
+            </span>
+            <span v-else-if="idHeading && isBulkEdit">
+              Edit records with matching ID column in your dataset.
+            </span>
+            <span v-else>
+              Create new submissions.
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div v-cloak v-if="headers" class="row mt-4">
+        <div class="col">
+          <p>2. Map import columns to source fields:</p>
         </div>
       </div>
 
@@ -116,7 +159,7 @@
             </div>
           </div>
 
-          <div v-for="(h, index) of headers" :key="h + index" class="row">
+          <div v-for="(h, index) of visibleHeaders" :key="h + index" class="row">
             <div class="col">
               <div class="form-floating">
                 <input type="text" class="form-control" :value="sample[h] || ''" disabled />
@@ -185,6 +228,7 @@
       </div>
 
       <input type="hidden" :value="mappingAsJSON" name="mapping" />
+      <input v-if="isBulkEdit" type="hidden" :value="idHeading" name="idHeading" />
 
       <div v-cloak v-if="error" class="alert alert-danger mt-2 mb-0" role="alert">${ error }</div>
       <button class="btn btn-primary mt-2" type="submit" :disabled="isFormDisabled">
