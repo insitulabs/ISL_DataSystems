@@ -86,10 +86,11 @@
             </time>
           </td>
           <td class="align-middle">
-            <a
-              :href="getWorkspaceUrl('{{ workspace.name }}')">
-                ${ getWorkspaceUrl('{{ workspace.name }}') }
-            </a>
+            <a href="{{ workspace.link }}">{{ workspace.link }}</a>
+            <div class="ps-2">
+              <i class="bi bi-unlock-fill"></i>
+              <a href="{{ workspace.url }}">Admin Login</a>
+            </div>
           </td>
           <td class="align-middle">
             {% for lang in workspace.languages %}
