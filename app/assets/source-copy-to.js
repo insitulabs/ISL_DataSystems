@@ -18,11 +18,12 @@ Vue.createApp({
       submissions: window._submissions.slice(0),
       submissionIndex: 0,
       saving: false,
-      error: window._sources.length === 0 ? 'Access denied. No editable sources.' : null,
+      error: null,
       created: null,
       fieldSearch: '',
       enableLinkBack: false,
-      duplicateCount: 1
+      duplicateCount: 1,
+      invalidDestinations: false
     };
   },
 
@@ -193,6 +194,13 @@ Vue.createApp({
     document.querySelectorAll('[data-bs-toggle="popover"]').forEach((popoverTriggerEl) => {
       return new bootstrap.Popover(popoverTriggerEl);
     });
+
+    if (!this.isDuplicate) {
+      this.invalidDestinations = this.$refs.destinations.childElementCount === 0;
+      if (this.invalidDestinations) {
+        this.error = 'Access denied. No editable sources';
+      }
+    }
   },
 
   methods: {

@@ -280,7 +280,7 @@ class Source extends Base {
   }
 
   /**
-   * @param {Object || String || ObjectId} source The source.
+   * @param {Object|String|ObjectId} source The source.
    * Can be a source object, an _id or submissionKey.
    * @param {Object} options Query params (sort, order, limit (-1 for all), offset, filters, sample, id, deleted)
    * @return {object} Result set with results and totalResults keys.
@@ -470,7 +470,7 @@ class Source extends Base {
 
   /**
    * Get a source by ID.
-   * @param {String || ObjectId} id The ID of the source.
+   * @param {String|ObjectId} id The ID of the source.
    * @param {boolean} ignorePermissionCheck True if we should prevent a permission check.
    * @return {Object} Source
    * @throws Not found error.
@@ -519,7 +519,7 @@ class Source extends Base {
 
   /**
    * Get a source by ID.
-   * @param {String || ObjectId} id The ID of the source.
+   * @param {String|ObjectId} id The ID of the source.
    * @return {Object} Source
    * @throws Not found error.
    */
@@ -928,7 +928,7 @@ class Source extends Base {
 
   /**
    * Update a submission
-   * @param {String || ObjectId} id
+   * @param {String|ObjectId} id
    * @param {Object} delta
    * @param {{auditId: ObjectId, submission: Object, previousDelta: Object}} options
    *   - auditId: The audit ID used to group bulk actions to audit history.
@@ -1011,7 +1011,7 @@ class Source extends Base {
   /**
    * Update submissions in bulk.
    * @param {object} source
-   * @param {Array[String || ObjectId]} id
+   * @param {Array[String|ObjectId]} id
    * @param {String} field
    * @param {*} value
    * @return {number} The number of updated submissions.
@@ -1186,7 +1186,7 @@ class Source extends Base {
 
   /**
    * Add attachments to a submission. Will not update, only add.
-   * @param {String || ObjectId} id
+   * @param {String|ObjectId} id
    * @param {[Object]} attachments
    * @return {Object} The updated submission.
    */
@@ -1373,6 +1373,11 @@ class Source extends Base {
     return imports.findOne(importId);
   }
 
+  /**
+   * Get an import. User must have write permissions.
+   * @param {String|ObjectId} id The import ID.
+   * @return {object} The import.
+   */
   async getImport(id) {
     if (!id || !ObjectId.isValid(id)) {
       throw new Errors.BadRequest('Invalid import ID');
@@ -1491,7 +1496,7 @@ class Source extends Base {
 
   /**
    * Update staged submission.
-   * @param {String || ObjectId} id
+   * @param {String|ObjectId} id
    * @param {String} field
    * @param {*} value
    * @param {*} currentValue
@@ -1534,7 +1539,7 @@ class Source extends Base {
   /**
    * Update staged submissions in bulk.
    * @param {object} theImport
-   * @param {Array[String || ObjectId]} id
+   * @param {Array[String|ObjectId]} id
    * @param {String} field
    * @param {*} value
    * @return {number} The number of updated submissions.
@@ -1580,6 +1585,13 @@ class Source extends Base {
     stagedSubmissions.deleteOne({ _id: submission._id });
   }
 
+  /**
+   * Bulk rename a field in an import's staged submissions.
+   * @param {ObjectId || String} id The import ID
+   * @param {String} field The field in the import data to rename.
+   * @param {String} newField The new name.
+   * @return {String} The new field ID.
+   */
   async updateImportField(id, field, newField) {
     if (!field) {
       throw new Errors.BadRequest('Invalid field name');
@@ -1754,7 +1766,7 @@ class Source extends Base {
 
   /**
    * Update a submission's custom view data.
-   * @param {String || ObjectId} id
+   * @param {String|ObjectId} id
    * @param {String} field
    * @param {*} value
    * @param {*} currentValue

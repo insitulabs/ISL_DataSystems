@@ -101,18 +101,13 @@ module.exports = function (opts) {
   // Delete source import submissions.
   router.post('/:id/import/submissions/delete', async (req, res, next) => {
     try {
-      let currentUser = getCurrentUser(res);
-      const sourceManager = new Source(getCurrentUser(res));
-
       if (!req.body && !Array.isArray(req.body)) {
         throw new Error.BadRequest('Invalid delete request');
       }
 
+      const sourceManager = new Source(getCurrentUser(res));
       // Auth validation done in deleteStagedSubmission
       await Promise.all(req.body.map((id) => sourceManager.deleteStagedSubmission(id)));
-
-      // TODO do we need to audit record?
-
       res.send({ success: true });
     } catch (error) {
       next(error);
@@ -122,7 +117,6 @@ module.exports = function (opts) {
   // Rename source import field
   router.put('/:id/import/:importId/rename', async (req, res, next) => {
     try {
-      getCurrentUser(res).validate(CurrentUser.PERMISSIONS.SOURCE_CREATE);
       const sourceManager = new Source(getCurrentUser(res));
       let source = await sourceManager.getSource(req.params.id);
       let theImport = await sourceManager.getImport(req.params.importId);
@@ -151,9 +145,9 @@ module.exports = function (opts) {
   // Delete a source import
   router.delete('/:id/import/:importId', async (req, res, next) => {
     try {
-      getCurrentUser(res).validate(CurrentUser.PERMISSIONS.SOURCE_CREATE);
       const sourceManager = new Source(getCurrentUser(res));
       let source = await sourceManager.getSource(req.params.id);
+      getCurrentUser(res).validateSourcePermission(source, CurrentUser.PERMISSIONS.WRITE);
       let theImport = await sourceManager.getImport(req.params.importId);
       if (!source._id.equals(theImport.sourceId)) {
         throw new Error.BadRequest('Mismatch import to source');
@@ -181,9 +175,10 @@ module.exports = function (opts) {
   // Commit a source import
   router.post('/:id/import/:importId', async (req, res, next) => {
     try {
-      getCurrentUser(res).validate(CurrentUser.PERMISSIONS.SOURCE_CREATE);
       const sourceManager = new Source(getCurrentUser(res));
       let source = await sourceManager.getSource(req.params.id);
+
+      // Validation done in getImport. User must be able to write to source.
       let theImport = await sourceManager.getImport(req.params.importId);
       if (!source._id.equals(theImport.sourceId)) {
         throw new Error.BadRequest('Mismatch import to source');

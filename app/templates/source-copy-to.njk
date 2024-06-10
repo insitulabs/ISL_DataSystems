@@ -44,6 +44,7 @@
           aria-label="Destination"
           v-model="destinationQuery"
           list="destinations"
+          :disabled="invalidDestinations"
         />
         <label for="destination">Destination</label>
       </div>
@@ -70,7 +71,7 @@
         </button>
       </div>
 
-      <datalist id="destinations">
+      <datalist id="destinations" ref="destinations">
         {% for s in sources %}
           {% if s._id.toString() !== origin._id.toString() %}
             <option value="{{ s._id }}">
