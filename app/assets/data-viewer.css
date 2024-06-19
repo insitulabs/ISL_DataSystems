@@ -50,20 +50,6 @@ main .dropdown-menu {
   z-index: 1021;
 }
 
-.sticky-header {
-  position: relative;
-}
-
-.sticky-header th {
-  --bs-table-bg: #f8f9fa;
-  position: sticky;
-  top: 0;
-}
-
-[data-bs-theme=dark] .sticky-header th {
-  --bs-table-bg: inherit;
-}
-
 #data {
   width: 100vw;
   overflow: auto;

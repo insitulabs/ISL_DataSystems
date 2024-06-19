@@ -1470,7 +1470,9 @@ module.exports = function (opts) {
    */
   router.get('/sources', async (req, res, next) => {
     try {
-      const sourceManager = new Source(getCurrentUser(res));
+      let currentUser = getCurrentUser(res);
+      const sourceManager = new Source(currentUser);
+      const auditManager = new Audit(currentUser);
       const viewData = await getPageRenderData(req, res);
       const { pagePath } = viewData;
       const pageParams = new URLSearchParams();
@@ -1502,23 +1504,26 @@ module.exports = function (opts) {
         deleted = true;
       }
 
-      let sortLinks = ['created', 'system', 'namespace', 'name'].reduce((links, col) => {
-        let url = '?sort=' + col;
-        if (sort === col && order === 'asc') {
-          url += '&order=' + 'desc';
-        } else if (sort === col && order === 'desc') {
-          url += '&order=' + 'asc';
-        }
+      let sortLinks = ['inserted', 'updated', 'created', 'system', 'namespace', 'name'].reduce(
+        (links, col) => {
+          let url = '?sort=' + col;
+          if (sort === col && order === 'asc') {
+            url += '&order=' + 'desc';
+          } else if (sort === col && order === 'desc') {
+            url += '&order=' + 'asc';
+          }
 
-        if (nameQuery) {
-          url += '&name=' + encodeURIComponent(nameQuery);
-        }
-        if (deleted) {
-          url += '&deleted=1';
-        }
-        links[col] = url;
-        return links;
-      }, {});
+          if (nameQuery) {
+            url += '&name=' + encodeURIComponent(nameQuery);
+          }
+          if (deleted) {
+            url += '&deleted=1';
+          }
+          links[col] = url;
+          return links;
+        },
+        {}
+      );
 
       pageParams.set('sort', sort);
       pageParams.set('order', order);
@@ -1541,18 +1546,33 @@ module.exports = function (opts) {
 
       let currentPage = Math.floor(offset / limit) + 1;
       let pagination = paginate(queryResponse.totalResults, currentPage, limit, 10);
+      let results = queryResponse.results;
+
+      const MAX_RECENT = 8;
+      let recentSources = await auditManager.getRecentlyViewedSources(MAX_RECENT);
+      recentSources = await Promise.all(
+        recentSources.map((id) => {
+          return sourceManager.getSource(id);
+        })
+      );
+
+      if (!nameQuery && !deleted && results.length < MAX_RECENT) {
+        // Don't show recent if the workspace doesn't have that many sources to begin with.
+        recentSources = [];
+      }
 
       let model = {
         ...viewData,
         pagePathWQuery: pagePath + '?' + pageParams.toString(),
         pagination,
-        results: queryResponse.results,
+        results,
         sort,
         order,
         sortLinks,
         nameQuery,
         deleted,
-        pageTitle: 'Sources'
+        pageTitle: 'Sources',
+        recent: recentSources
       };
 
       res.render('source-list', model);

@@ -48,135 +48,166 @@
       <button class="btn btn-primary" type="submit" id="name-filter-btn">Filter</button>
     </div>
   </form>
-  <div class="table-responsive-md">
-    <table class="table sticky-header table-striped table-bordered mt-1">
-      <thead>
-        <tr>
-          <th scope="col" class="{{ 'is-sorted' if sort === "system" }}">
-            <a href="{{ sortLinks.system }}" class="text-decoration-none {{ order }} {{ "link-body-emphasis" if sort === "system" else "text-secondary" }}">
-              System
-              <i class="bi bi-sort-down"></i>
-            </a>
-          </th>
-          <th scope="col" class="{{ 'is-sorted' if sort === "namespace" }}">
-            <a href="{{ sortLinks.namespace }}" class="text-decoration-none {{ order }} {{ "link-body-emphasis" if sort === "namespace" else "text-secondary" }}">
-              Namespace
-              <i class="bi bi-sort-down"></i>
-            </a>
-          </th>
-          <th scope="col" class="{{ 'is-sorted' if sort === "name" }}">
-            <a href="{{ sortLinks.name }}" class="text-decoration-none {{ order }} {{ "link-body-emphasis" if sort === "name" else "text-secondary" }}">
-              Name
-              <i class="bi bi-sort-down"></i>
-            </a>
-          </th>
-          <th scope="col" class="{{ 'is-sorted' if sort === "created" }}">
-            <a href="{{ sortLinks.created }}" class="text-decoration-none {{ order }} {{ "link-body-emphasis" if sort === "created" else "text-secondary" }}">
-              Created
-              <i class="bi bi-sort-down"></i>
-            </a>
-          </th>
 
-          {% if isAdmin %}
-          <th scope="col"></th>
-          {% endif %}
-        </tr>
-      </thead>
-      <tbody>
-        {% if results.length === 0 %}
-        <tr><td colspan="100%">No results</td></tr>
-        {% endif %}
-        {% for source in results %}
-        <tr>
-          <td>{{ source.system }}</td>
-          <td>{{ source.namespace }}</td>
-          <td>
-            <a href="/data-viewer/source/{{ source._id }}">
-              {{ source | altLang('name', language) }}
-            </a>
-          </td>
-          <td><time title="{{ source.created }}">{{ source.created | formatDate }}</time></td>
-          {% if isAdmin %}
-          <td>
-            <a
-              href="/data-viewer/source/{{ source._id }}/edit"
-              class="btn btn-link btn-sm"
-              role="button"
-              title="Edit source"
-              >
-                <i class="bi bi-pencil-square"></i>
-            </a>
-            <a
-              href="/data-viewer/source/new?origin={{ source._id }}"
-              class="btn btn-link btn-sm"
-              role="button"
-              title="Duplicate source"
-              >
-                <i class="bi bi-copy"></i>
-            </a>
-            <a
-              href="/data-viewer/source/{{ source._id }}/import"
-              role="button"
-              class="btn btn-link btn-sm {{ 'btn btn-link disabled p-0' if source.deleted }}"
-              title="Import data"
-            >
-              <i class="bi bi-cloud-upload"></i>
-            </a>
-          </td>
-          {% endif %}
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
+  <div class="row">
+    <div class="col">
+      <div class="table-responsive-md">
+        <table class="table sticky-header table-striped table-bordered mt-1">
+          <thead>
+            <tr>
+              <th scope="col" class="{{ 'is-sorted' if sort === "system" }} align-top">
+                <a href="{{ sortLinks.system }}" class="text-decoration-none {{ order }} {{ "link-body-emphasis" if sort === "system" else "text-secondary" }}">
+                  System
+                  <i class="bi bi-sort-down"></i>
+                </a>
+              </th>
+              <th scope="col" class="{{ 'is-sorted' if sort === "name" }} align-top">
+                <a href="{{ sortLinks.name }}" class="text-decoration-none {{ order }} {{ "link-body-emphasis" if sort === "name" else "text-secondary" }}">
+                  Name
+                  <i class="bi bi-sort-down"></i>
+                </a>
+              </th>
 
-  {% if results.length !== 0 %}
-  <nav>
-    <div class="px-2 pb-2">
-      Showing {{ results.length }} of {{ pagination.totalItems | formatNumber }} sources.
+              <th scope="col" class="{{ 'is-sorted' if sort === "inserted" }} align-top">
+                <a href="{{ sortLinks.inserted }}" class="text-decoration-none {{ order }} {{ "link-body-emphasis" if sort === "inserted" else "text-secondary" }}">
+                  Last Insert
+                  <i class="bi bi-sort-down"></i>
+                </a>
+              </th>
+
+              <th scope="col" class="{{ 'is-sorted' if sort === "updated" }} align-top">
+                <a href="{{ sortLinks.updated }}" class="text-decoration-none {{ order }} {{ "link-body-emphasis" if sort === "updated" else "text-secondary" }}">
+                  Last Update
+                  <i class="bi bi-sort-down"></i>
+                </a>
+              </th>
+
+              <th scope="col" class="{{ 'is-sorted' if sort === "created" }} align-top">
+                <a href="{{ sortLinks.created }}" class="text-decoration-none {{ order }} {{ "link-body-emphasis" if sort === "created" else "text-secondary" }}">
+                  Created
+                  <i class="bi bi-sort-down"></i>
+                </a>
+              </th>
+
+              {% if isAdmin %}
+              <th scope="col"></th>
+              {% endif %}
+            </tr>
+          </thead>
+          <tbody>
+            {% if results.length === 0 %}
+            <tr><td colspan="100%">No results</td></tr>
+            {% endif %}
+            {% for source in results %}
+            <tr>
+              <td>{{ source.system }}</td>
+              <td>
+                <a href="/data-viewer/source/{{ source._id }}">
+                  {{ source | altLang('name', language) }}
+                </a>
+                <br>
+                <small>{{ source.namespace }}</small>
+              </td>
+              <td><time title="{{ source.inserted }}">{{ source.inserted | formatDate }}</time></td>
+              <td><time title="{{ source.updated }}">{{ source.updated | formatDate }}</time></td>
+              <td><time title="{{ source.created }}">{{ source.created | formatDate }}</time></td>
+              {% if isAdmin %}
+              <td>
+                <a
+                  href="/data-viewer/source/{{ source._id }}/edit"
+                  class="btn btn-link btn-sm"
+                  role="button"
+                  title="Edit source"
+                  >
+                    <i class="bi bi-pencil-square"></i>
+                </a>
+                <a
+                  href="/data-viewer/source/new?origin={{ source._id }}"
+                  class="btn btn-link btn-sm"
+                  role="button"
+                  title="Duplicate source"
+                  >
+                    <i class="bi bi-copy"></i>
+                </a>
+                <a
+                  href="/data-viewer/source/{{ source._id }}/import"
+                  role="button"
+                  class="btn btn-link btn-sm {{ 'btn btn-link disabled p-0' if source.deleted }}"
+                  title="Import data"
+                >
+                  <i class="bi bi-cloud-upload"></i>
+                </a>
+              </td>
+              {% endif %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% if results.length !== 0 %}
+      <nav>
+        <div class="px-2 pb-2">
+          Showing {{ results.length }} of {{ pagination.totalItems | formatNumber }} sources.
+        </div>
+
+        <ul class="pagination pagination-sm p-2">
+          <li class="page-item {% if 1 === pagination.currentPage %} disabled {% endif %}">
+            <a class="page-link" href="{{ pagePathWQuery }}&limit={{ pagination.pageSize }}"
+                {% if 1 === pagination.currentPage %} tabindex="-1" aria-disabled="true" {% endif %}>First</a>
+          </li>
+          {% for page in pagination.pages %}
+          <li class="page-item {% if page === pagination.currentPage %} active {% endif %}">
+            {% if page !== pagination.currentPage %}
+              <a class="page-link"
+                href="{{ pagePathWQuery }}&offset={{ (page - 1) * pagination.pageSize }}&limit={{ pagination.pageSize }}">{{ page }}</a>
+            {% else %}
+              <span class="page-link">{{ page }}</span>
+            {% endif %}
+            </li>
+          {% endfor %}
+          <li class="page-item {% if pagination.totalPages === pagination.currentPage %} disabled {% endif %}">
+            <a class="page-link"
+                href="{{ pagePathWQuery }}&offset={{ (pagination.totalPages - 1) * pagination.pageSize }}&limit={{ pagination.pageSize }}"
+                {% if pagination.totalPages === pagination.currentPage %} tabindex="-1" aria-disabled="true" {% endif %}>Last</a>
+          </li>
+          <li class="ms-2">
+            <div class="btn-group dropup">
+              <button type="button"
+                  id="itemsPerPageBtn"
+                  class="btn btn-secondary dropdown-toggle btn-sm"
+                  data-bs-toggle="dropdown"
+                  aria-expanded="false">
+                Show rows: {{ pagination.pageSize | formatNumber }}
+              </button>
+              <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton1">
+                <li><a class="dropdown-item {% if 20 == pagination.pageSize %} active {% endif %}"
+                  href="{{ pagePathWQuery }}&limit=20">20</a></li>
+                <li><a class="dropdown-item {% if 100 == pagination.pageSize %} active {% endif %}"
+                  href="{{ pagePathWQuery }}&limit=50">50</a></li>
+              </ul>
+            </div>
+          </li>
+        </ul>
+      </nav>
+      {% endif %}
     </div>
 
-    <ul class="pagination pagination-sm p-2">
-      <li class="page-item {% if 1 === pagination.currentPage %} disabled {% endif %}">
-        <a class="page-link" href="{{ pagePathWQuery }}&limit={{ pagination.pageSize }}"
-            {% if 1 === pagination.currentPage %} tabindex="-1" aria-disabled="true" {% endif %}>First</a>
-      </li>
-      {% for page in pagination.pages %}
-      <li class="page-item {% if page === pagination.currentPage %} active {% endif %}">
-        {% if page !== pagination.currentPage %}
-          <a class="page-link"
-            href="{{ pagePathWQuery }}&offset={{ (page - 1) * pagination.pageSize }}&limit={{ pagination.pageSize }}">{{ page }}</a>
-        {% else %}
-          <span class="page-link">{{ page }}</span>
-        {% endif %}
+    {% if recent.length > 0 %}
+    <div class="col col-3">
+      <h4>Recently Viewed</h4>
+      <ul class="list-group list-group-flush">
+      {% for source in recent %}
+        <li class="list-group-item">
+          <a href="/data-viewer/source/{{ source._id }}">
+            {{ source | altLang('name', language) }}
+          </a>
         </li>
       {% endfor %}
-      <li class="page-item {% if pagination.totalPages === pagination.currentPage %} disabled {% endif %}">
-        <a class="page-link"
-            href="{{ pagePathWQuery }}&offset={{ (pagination.totalPages - 1) * pagination.pageSize }}&limit={{ pagination.pageSize }}"
-            {% if pagination.totalPages === pagination.currentPage %} tabindex="-1" aria-disabled="true" {% endif %}>Last</a>
-      </li>
-      <li class="ms-2">
-        <div class="btn-group dropup">
-          <button type="button"
-              id="itemsPerPageBtn"
-              class="btn btn-secondary dropdown-toggle btn-sm"
-              data-bs-toggle="dropdown"
-              aria-expanded="false">
-            Show rows: {{ pagination.pageSize | formatNumber }}
-          </button>
-          <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton1">
-            <li><a class="dropdown-item {% if 20 == pagination.pageSize %} active {% endif %}"
-              href="{{ pagePathWQuery }}&limit=20">20</a></li>
-            <li><a class="dropdown-item {% if 100 == pagination.pageSize %} active {% endif %}"
-              href="{{ pagePathWQuery }}&limit=50">50</a></li>
-          </ul>
-        </div>
-      </li>
-    </ul>
-  </nav>
-  {% endif %}
+      </ul>
+    </div>
+    {% endif %}
+  </div>
 </div>
-
 {% endblock %}
 

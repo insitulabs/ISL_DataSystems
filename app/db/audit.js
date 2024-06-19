@@ -658,6 +658,55 @@ class Audit extends Base {
       }
     );
   }
+
+  /**
+   * Get the current users's recently viewed sources within the last month.
+   * @param {number} limit
+   * @return {Array} The list of source IDs.
+   */
+  async getRecentlyViewedSources(limit = 5) {
+    let events = this.collection(AUDIT_EVENTS);
+    let pipeline = [];
+    let lastMonth = new Date();
+    lastMonth.setTime(lastMonth.getTime() - 1000 * 60 * 60 * 24 * 31);
+
+    pipeline.push({
+      $match: {
+        'user._id': this.user._id,
+        type: AuditEventType.UserActivity,
+        created: { $gte: lastMonth }
+      }
+    });
+
+    pipeline.push({
+      $sort: { _id: -1 }
+    });
+
+    pipeline.push({
+      $limit: 30
+    });
+
+    let results = await events.aggregate(pipeline).toArray();
+    let sources = results.reduce((sources, audit) => {
+      if (audit.data?.pages) {
+        audit.data.pages.reverse();
+        for (let page of audit.data.pages) {
+          let match = /\/data-viewer\/source\/([\d\w]{10,})+/i.exec(page);
+          if (match) {
+            sources[match[1]] = true;
+          }
+        }
+      }
+      return sources;
+    }, {});
+
+    let ids = Object.keys(sources);
+    if (ids.length > limit) {
+      return ids.slice(0, limit);
+    }
+
+    return ids;
+  }
 }
 
 module.exports = {

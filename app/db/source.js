@@ -422,6 +422,8 @@ class Source extends Base {
       }
     );
 
+    await this.#updateSourceLastUpdate(submission.source);
+
     return this.getSubmission(id);
   }
 
@@ -464,6 +466,8 @@ class Source extends Base {
         }
       }
     );
+
+    await this.#updateSourceLastUpdate(submission.source);
 
     return this.getSubmission(id);
   }
@@ -927,7 +931,7 @@ class Source extends Base {
   }
 
   /**
-   * Update a submission
+   * Update a submission. No permissions checks are done.
    * @param {String|ObjectId} id
    * @param {Object} delta
    * @param {{auditId: ObjectId, submission: Object, previousDelta: Object}} options
@@ -1002,7 +1006,9 @@ class Source extends Base {
         }
       );
 
-      return this.getSubmission(id);
+      let updatedSubmission = await this.getSubmission(id);
+      await this.#updateSourceLastUpdate(updatedSubmission.source);
+      return updatedSubmission;
     } else {
       return record;
     }
@@ -1010,6 +1016,7 @@ class Source extends Base {
 
   /**
    * Update submissions in bulk.
+   * @deprecated
    * @param {object} source
    * @param {Array[String|ObjectId]} id
    * @param {String} field
@@ -1178,6 +1185,9 @@ class Source extends Base {
       }
 
       let resp = await col.insertMany(toInsert);
+
+      await this.#updateSourceLastInsert(source);
+
       return Object.values(resp.insertedIds);
     }
 
@@ -1926,6 +1936,57 @@ class Source extends Base {
     }
 
     return modified;
+  }
+
+  /**
+   * Update the lastInsert field on a source.
+   * @param {Object} source The source to update.
+   * @param {Date} date Willd default to now if not provided.
+   */
+  async #updateSourceLastInsert(source, date = new Date()) {
+    if (!source || !ObjectId.isValid(source._id)) {
+      throw new Errors.BadRequest('Source is required');
+    }
+
+    let lastInsert = date;
+    if (!lastInsert || !lastInsert instanceof Date) {
+      lastInsert = new Date();
+    }
+
+    const sources = this.collection(SOURCES);
+    return sources.updateOne({ _id: source._id }, { $set: { inserted: lastInsert } });
+  }
+
+  /**
+   * Update the lastUpdate field on a source.
+   * @param {Object|String} source The source to update. Can also be the _id or submissionKey.
+   * @param {Date} date Willd default to now if not provided.
+   */
+  async #updateSourceLastUpdate(source, date = new Date()) {
+    let findBy = {};
+
+    // If we get a string, determine if it's _id or submissionKey
+    if (source && typeof source === 'string') {
+      if (ObjectId.isValid(source)) {
+        findBy._id = new ObjectId(source);
+      } else {
+        findBy.submissionKey = source;
+      }
+    } else if (source && source._id && ObjectId.isValid(source._id)) {
+      findBy._id = source._id;
+    }
+
+    if (!Object.keys(findBy).length) {
+      throw new Errors.BadRequest('Source is required');
+    }
+
+    let lastUpdate = date;
+    if (!lastUpdate || !lastUpdate instanceof Date) {
+      lastUpdate = new Date();
+    }
+
+    const sources = this.collection(SOURCES);
+    return sources.updateOne(findBy, { $set: { updated: lastUpdate } });
   }
 }
 

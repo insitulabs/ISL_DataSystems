@@ -49,6 +49,10 @@ module.exports = function (nunjucks) {
   );
 
   nunjucks.addFilter('formatDate', (date, format = 'MMM D, YYYY') => {
+    if (!date) {
+      return '';
+    }
+
     let day = dayjs(date);
     if (!day.isValid()) {
       return 'Invalid Date';
