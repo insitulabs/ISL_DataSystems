@@ -16,6 +16,10 @@
         display: none !important;
       }
 
+      body {
+        --bg-sticky: #f8f9fa;
+      }
+
       .navbar-brand img {
         width: 50px;
       }
@@ -36,8 +40,12 @@
         position: relative;
       }
 
+      .bg-sticky {
+        background-color: var(--bg-sticky);
+      }
+
       .sticky-header th {
-        --bs-table-bg: #f8f9fa;
+        --bs-table-bg: var(--bg-sticky);
         position: sticky;
         top: 0;
       }
@@ -139,146 +147,161 @@
     {%- if language %} data-language="{{ language }}" {%- endif -%}
   >
     {% if not preventHeader %}
-    <nav class="navbar navbar-expand-lg bg-body-tertiary">
+    <nav class="navbar navbar-expand-md bg-body-tertiary">
       <div class="container-fluid">
-        <a class="navbar-brand d-flex align-items-center" href="/">
-          <img src="/assets/isl-100x100.png" alt="In Situ Labs Logo" />
-          <span class="ms-2 fs-6">
-            For field research
-            <br />
-            By field researchers
-          </span>
-        </a>
-        {% block pageTitle %}{% endblock %} {%- if user -%}
-        <div class="d-flex align-items-center justify-content-between flex-fill">
-          {% block nav %}
-          <div></div>
-          {% endblock %}
-          <ul class="navbar-nav ms-auto flex-row flex-nowrap">
-            {% if workspace and workspace.sync and workspace.sync.enabled %}
-            <li class="nav-item me-4">
-              <a
-                class="nav-link"
-                aria-current="page"
-                href="{{ workspace.sync.url }}"
-                target="_blank"
-              >
-                {{ workspace.sync.type }}
-                <i class="bi bi-box-arrow-up-right ms-1"></i>
-              </a>
-            </li>
-            {% endif %}
-            <li class="nav-item me-4">
-              <a class="nav-link" aria-current="page" href="/data-viewer/sources">Sources</a>
-            </li>
-            <li class="nav-item me-4">
-              <a class="nav-link" aria-current="page" href="/data-viewer/views">Views</a>
-            </li>
-            {% if isAdmin %}
-            <li class="nav-item me-4">
-              <a class="nav-link" aria-current="page" href="/admin/users">Users</a>
-            </li>
-            {% endif %}
+        <div class="d-sm-flex align-items-center">
+          <a class="navbar-brand d-flex align-items-center" href="/">
+            <img src="/assets/isl-100x100.png" alt="In Situ Labs Logo" />
+            <span class="ms-2 fs-6">
+              For field research
+              <br />
+              By field researchers
+            </span>
+          </a>
+          {% block pageTitle %}{% endblock %}
+        </div>
+        {%- if user -%}
+        <button
+          class="navbar-toggler"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#navbarScroll"
+          aria-controls="navbarScroll"
+          aria-expanded="false"
+          aria-label="Toggle navigation"
+        >
+          <span class="navbar-toggler-icon"></span>
+        </button>
 
-            {% if workspace.languages and workspace.languages.length %}
-            <li class="nav-item d-flex align-items-center me-4">
-              <form>
-                <div class="input-group input-group-sm">
-                  <span class="input-group-text"><i class="bi bi-translate"></i></span>
-                  <select id="lang-select" class="form-select form-select-sm" aria-label="Language">
-                    <option
-                      value="en"
-                      {% if language === 'en' %} selected {% endif %}
-                    >
-                      English
-                    </option>
-                    {% for lang in languages %}
-                    <option
-                      value="{{ lang.id }}"
-                      {% if language === lang.id %} selected {% endif %}
-                    >
-                      {{ lang.nativeName }}
-                    </option>
-                    {% endfor %}
-                  </select>
-                </div>
-              </form>
-            </li>
-            {% endif %}
+        <div id="navbarScroll" class="collapse navbar-collapse">
+          <div class="d-sm-flex align-items-center justify-content-between flex-fill">
+            {% block nav %}<div></div>{% endblock %}
+            <ul class="navbar-nav ms-sm-auto flex-sm-row flex-sm-nowrap">
+              {% if workspace and workspace.sync and workspace.sync.enabled %}
+              <li class="nav-item me-sm-4">
+                <a
+                  class="nav-link"
+                  aria-current="page"
+                  href="{{ workspace.sync.url }}"
+                  target="_blank"
+                >
+                  {{ workspace.sync.type }}
+                  <i class="bi bi-box-arrow-up-right ms-1"></i>
+                </a>
+              </li>
+              {% endif %}
+              <li class="nav-item me-sm-4">
+                <a class="nav-link" aria-current="page" href="/data-viewer/sources">Sources</a>
+              </li>
+              <li class="nav-item me-sm-4">
+                <a class="nav-link" aria-current="page" href="/data-viewer/views">Views</a>
+              </li>
+              {% if isAdmin %}
+              <li class="nav-item me-sm-4">
+                <a class="nav-link" aria-current="page" href="/admin/users">Users</a>
+              </li>
+              {% endif %}
 
-            <li class="nav-item dropdown">
-              <button
-                class="btn btn-link nav-link dropdown-toggle"
-                data-bs-toggle="dropdown"
-                aria-expanded="false"
-                data-bs-auto-close="outside"
-                id="user-menu"
-
-              >
-                {{ user.firstName }}
-              </button>
-              <ul class="dropdown-menu dropdown-menu-end dropdown-menu-dark"
-                aria-labelledby="user-menu"
-                id="user-theme-menu">
-                <li>
-                  <div class="btn-group dropstart d-block">
-                    <button
-                      type="button"
-                      class="dropdown-item dropdown-toggle"
-                      data-bs-toggle="dropdown"
-                      aria-expanded="false"
-                    >
-                      <i class="bi bi-moon-stars-fill me-1"></i>
-                      Theme
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end dropdown-menu-dark">
-                      <li>
-                        <button
-                          class="dropdown-item theme-btn"
-                          type="button"
-                          id="theme-btn-auto"
-                          data-theme="auto"
-                        >
-                          <i class="bi bi-circle-half me-1"></i>
-                          <span>Auto</span>
-                        </button>
-                      </li>
-                      <li>
-                        <button
-                          class="dropdown-item theme-btn"
-                          type="button"
-                          id="theme-btn-light"
-                          data-theme="light"
-                        >
-                          <i class="bi bi-brightness-high-fill me-1"></i>
-                          <span>Light</span>
-                        </button>
-                      </li>
-                      <li>
-                        <button
-                          class="dropdown-item theme-btn"
-                          type="button"
-                          id="theme-btn-dark"
-                          data-theme="dark"
-                        >
-                          <i class="bi bi-moon-stars-fill me-1"></i>
-                          <span>Dark</span>
-                        </button>
-                      </li>
-                    </ul>
+              {% if workspace.languages and workspace.languages.length %}
+              <li class="nav-item d-flex align-items-center me-sm-4">
+                <form>
+                  <div class="input-group input-group-sm">
+                    <span class="input-group-text"><i class="bi bi-translate"></i></span>
+                    <select id="lang-select" class="form-select form-select-sm" aria-label="Language">
+                      <option
+                        value="en"
+                        {% if language === 'en' %} selected {% endif %}
+                      >
+                        English
+                      </option>
+                      {% for lang in languages %}
+                      <option
+                        value="{{ lang.id }}"
+                        {% if language === lang.id %} selected {% endif %}
+                      >
+                        {{ lang.nativeName }}
+                      </option>
+                      {% endfor %}
+                    </select>
                   </div>
-                </li>
+                </form>
+              </li>
+              {% endif %}
 
-                {% if isSuperAdmin %}
-                <li><a class="dropdown-item" href="/super-admin/workspaces">Workspaces</a></li>
-                {% endif %}
-                <li><a class="dropdown-item" href="/Logout">Logout</a></li>
-              </ul>
-            </li>
-          </ul>
+              <li class="nav-item dropdown">
+                <button
+                  class="btn btn-link nav-link dropdown-toggle"
+                  data-bs-toggle="dropdown"
+                  aria-expanded="false"
+                  data-bs-auto-close="outside"
+                  id="user-menu"
+
+                >
+                  {{ user.firstName }}
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end dropdown-menu-dark"
+                  aria-labelledby="user-menu"
+                  id="user-theme-menu">
+                  <li>
+                    <div class="btn-group dropstart d-block">
+                      <button
+                        type="button"
+                        class="dropdown-item dropdown-toggle"
+                        data-bs-toggle="dropdown"
+                        aria-expanded="false"
+                      >
+                        <i class="bi bi-moon-stars-fill me-1"></i>
+                        Theme
+                      </button>
+                      <ul class="dropdown-menu dropdown-menu-end dropdown-menu-dark">
+                        <li>
+                          <button
+                            class="dropdown-item theme-btn"
+                            type="button"
+                            id="theme-btn-auto"
+                            data-theme="auto"
+                          >
+                            <i class="bi bi-circle-half me-1"></i>
+                            <span>Auto</span>
+                          </button>
+                        </li>
+                        <li>
+                          <button
+                            class="dropdown-item theme-btn"
+                            type="button"
+                            id="theme-btn-light"
+                            data-theme="light"
+                          >
+                            <i class="bi bi-brightness-high-fill me-1"></i>
+                            <span>Light</span>
+                          </button>
+                        </li>
+                        <li>
+                          <button
+                            class="dropdown-item theme-btn"
+                            type="button"
+                            id="theme-btn-dark"
+                            data-theme="dark"
+                          >
+                            <i class="bi bi-moon-stars-fill me-1"></i>
+                            <span>Dark</span>
+                          </button>
+                        </li>
+                      </ul>
+                    </div>
+                  </li>
+
+                  {% if isSuperAdmin %}
+                  <li><a class="dropdown-item" href="/super-admin/workspaces">Workspaces</a></li>
+                  {% endif %}
+                  <li><a class="dropdown-item" href="/Logout">Logout</a></li>
+                </ul>
+              </li>
+            </ul>
+          </div>
         </div>
         {% endif %}
-      </div>
+        </div>
     </nav>
     {% endif %}
 

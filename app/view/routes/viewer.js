@@ -1550,11 +1550,15 @@ module.exports = function (opts) {
 
       const MAX_RECENT = 8;
       let recentSources = await auditManager.getRecentlyViewedSources(MAX_RECENT);
-      recentSources = await Promise.all(
-        recentSources.map((id) => {
-          return sourceManager.getSource(id);
-        })
-      );
+      recentSources = (
+        await Promise.all(
+          recentSources.map((id) => {
+            // Fetch a source, catch any error and simply ignore it.
+            // Errors could come from bad source URLs
+            return sourceManager.getSource(id).catch(() => null);
+          })
+        )
+      ).filter(Boolean);
 
       if (!nameQuery && !deleted && results.length < MAX_RECENT) {
         // Don't show recent if the workspace doesn't have that many sources to begin with.

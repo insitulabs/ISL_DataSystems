@@ -348,6 +348,7 @@ const emailValidator = require('./lib/email-validator');
     let path = req.originalUrl;
     if (path.indexOf('/api/') === -1 && path.indexOf('/admin/') === -1) {
       const auditManager = new Audit(res.locals.user);
+      // TODO don't log pages that result in error.
       auditManager.logUserActivity(path);
     }
 

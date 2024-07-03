@@ -49,10 +49,10 @@
     </div>
   </form>
 
-  <div class="row">
-    <div class="col">
+  <div class="row g-2">
+    <div class="col order-1 order-sm-0">
       <div class="table-responsive-md">
-        <table class="table sticky-header table-striped table-bordered mt-1">
+        <table class="table sticky-header table-striped table-bordered">
           <thead>
             <tr>
               <th scope="col" class="{{ 'is-sorted' if sort === "system" }} align-top">
@@ -194,17 +194,21 @@
     </div>
 
     {% if recent.length > 0 %}
-    <div class="col col-3">
-      <h4>Recently Viewed</h4>
-      <ul class="list-group list-group-flush">
-      {% for source in recent %}
-        <li class="list-group-item">
-          <a href="/data-viewer/source/{{ source._id }}">
-            {{ source | altLang('name', language) }}
-          </a>
-        </li>
-      {% endfor %}
-      </ul>
+    <div class="col col-sm-3">
+      <div class="bg-sticky border px-2 h-100">
+        <div class="sticky-sm-top">
+          <strong class="d-block pt-2">Recently Viewed</strong>
+          <ul class="list-group list-group-flush">
+          {% for source in recent %}
+            <li class="list-group-item px-0 bg-transparent">
+              <a href="/data-viewer/source/{{ source._id }}">
+                {{ source | altLang('name', language) }}
+              </a>
+            </li>
+          {% endfor %}
+          </ul>
+        </div>
+      </div>
     </div>
     {% endif %}
   </div>
