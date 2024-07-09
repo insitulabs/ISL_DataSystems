@@ -128,8 +128,8 @@
 </div>
 {% endif %}
 
-<header class="sticky-top border-tertiary w-100 p-2" ref="header">
-  <section class="d-flex">
+<header class="sticky-top border-tertiary w-100 p-2 bg-body" ref="header">
+  <section class="d-flex flex-wrap flex-sm-nowrap">
     <div class="border rounded bg-body-tertiary p-2 flex-fill d-flex">
       <div>
         <div>
@@ -235,7 +235,7 @@
         {% endif %}
       </div>
 
-      <div id="active-filters" v-cloak class="d-flex flex-wrap">
+      <div id="active-filters" v-cloak class="d-flex flex-wrap flex-fill">
         <div
           v-for="(values, filter) in currentFilters"
           :key="filter"
@@ -264,10 +264,91 @@
           />
         </div>
       </div>
+
+      {% if not theImport and not isIFRAME and not view and not isDeletedQuery and not isDeleted %}
+      <div v-cloak v-if="isListMode" ref="tracking">
+        <button
+          v-if="!isTracking"
+          ref="tracking-button"
+          class="btn btn-sm btn-outline-secondary text-nowrap"
+          type="button"
+          @click="enableTracking"
+          data-bs-trigger="hover focus"
+          data-bs-content="Remember selected rows inbetween filtering."
+        >
+          <input type="checkbox" class="d-inline-block me-1 align-middle" />
+          <span class="align-middle">
+            <i class="bi bi-check2-circle"></i>
+          </span>
+        </button>
+        <div
+          v-if="isTracking"
+          class="input-group input-group-sm flex-nowrap"
+          :class="{'border-warning': filteringToTracked}">
+          <button
+            class="btn btn-sm btn-outline-secondary"
+            type="button"
+            @click="disableTracking"
+          >
+            <input type="checkbox" class="d-inline-block me-1 align-middle" checked />
+            <span class="align-middle">
+              <i class="bi bi-check2-circle"></i>
+            </span>
+          </button>
+          <button
+            :disabled="!tracked.length"
+            class="btn btn-outline-secondary btn-sm"
+            type="button"
+            @click="filteringToTracked ? unshowTracked() : showTracked()"
+          >
+            <span v-if="!filteringToTracked">Show</span>
+            <span v-else>Unshow</span>
+            (${tracked.length})
+          </button>
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-secondary dropdown-toggle dropdown-toggle-split"
+            data-bs-toggle="dropdown"
+            aria-expanded="false"
+          >
+            <span class="visually-hidden">Tracking Options</span>
+          </button>
+          <ul class="dropdown-menu">
+            <li>
+              <button
+                class="dropdown-item"
+                :disabled="!tracked.length"
+                @click="showTracked"
+              >
+                <i class="bi bi-clipboard2-plus"></i>
+                Show
+              </button>
+            </li>
+            <li>
+              <button class="dropdown-item" @click="unshowTracked">
+                <i class="bi bi-clipboard2-minus"></i>
+                Unshow
+              </button>
+            </li>
+            <li>
+              <hr class="dropdown-divider"></li>
+            <li>
+              <button
+                class="dropdown-item btn-danger"
+                @click="resetTracked"
+              >
+                <i class="bi bi-clipboard-x"></i>
+                Reset
+              </button>
+            </li>
+          </ul>
+        </div>
+      </div>
+      {% endif %}
     </div>
 
     {% if not theImport and not isIFRAME %}
-    <div class="ms-2">
+    <div class="ms-sm-2">
       <div class="btn-group-vertical" role="group" aria-label="View mode">
         <input
           v-model="viewMode"
@@ -295,11 +376,18 @@
   </section>
 
   <div
-    id="page-error"
-    class="mx-2 alert alert-danger {% if not error %} d-none {% endif %}"
+    class="mt-2 mb-0 alert alert-danger {% if not error %} d-none {% endif %}"
     role="alert"
   >
     {{ error }}
+  </div>
+  <div
+    v-cloak
+    class="mt-2 mb-0 alert alert-danger"
+    role="alert"
+    v-if="error"
+  >
+    ${ error }
   </div>
 </header>
 
@@ -407,7 +495,7 @@
       </div>
     </div>
 
-    <div ref="top-pagination" class="d-none d-md-block"></div>
+    <div ref="top-pagination" class="d-none d-md-block" @click="onDataElClick"></div>
 
     {% if not isIFRAME %}
     <div class="dropdown ms-1">

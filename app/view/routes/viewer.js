@@ -40,7 +40,8 @@ const PAGE_QUERY_PARAMS = [
   'deleted',
   '__key',
   '__operation',
-  '__mode'
+  '__mode',
+  '__saved'
 ];
 
 const getFormBody = async (req) => {
@@ -161,10 +162,16 @@ const sendCSV = function (res, fileName, fields, submissions, next) {
  * @return {object} The filters
  */
 const extractFilters = function (req, fields, pageParams) {
+  // Allow filters to come from POST body as well. Helps avoid long URLs.
+  let allParams = req.query;
+  if (req.method === 'POST' && req.body) {
+    allParams = { ...allParams, ...req.body };
+  }
+
   // Parse column filters
   let filters = {};
   let fieldNames = fields.map((f) => f.id);
-  Object.keys(req.query)
+  Object.keys(allParams)
     .filter((key) => {
       if (PAGE_QUERY_PARAMS.includes(key)) {
         return false;
@@ -173,7 +180,7 @@ const extractFilters = function (req, fields, pageParams) {
       return fieldNames.includes(key) || ['created', 'imported', '_id', 'originId'].includes(key);
     })
     .forEach((key) => {
-      let values = Array.isArray(req.query[key]) ? req.query[key] : [req.query[key]];
+      let values = Array.isArray(allParams[key]) ? allParams[key] : [allParams[key]];
       values = values.filter(Boolean);
       if (values.length) {
         filters[key] = values;
@@ -184,7 +191,6 @@ const extractFilters = function (req, fields, pageParams) {
         }
       }
     });
-
   return filters;
 };
 
@@ -331,6 +337,11 @@ module.exports = function (opts) {
       }
     }
 
+    const UI_TRACKED_QUERY = !!req.query.__saved && (req.query?._id || req.body?._id);
+    if (UI_TRACKED_QUERY) {
+      limit = -1;
+    }
+
     let sort = req.query.sort || 'created';
     let order = req.query.order || 'desc';
     let idFilter = req.query.id || null;
@@ -341,6 +352,10 @@ module.exports = function (opts) {
 
     if (isIFRAME) {
       pageParams.set('iframe', isIFRAME);
+    }
+
+    if (UI_TRACKED_QUERY) {
+      pageParams.set('__saved', true);
     }
 
     let fields = [];
@@ -416,13 +431,14 @@ module.exports = function (opts) {
     }
 
     // Parse column filters and set on pageParams
-    let filters = extractFilters(req, fields, pageParams);
+    let filters = extractFilters(req, fields, !UI_TRACKED_QUERY ? pageParams : null);
 
     fields = mapFieldsForUI(fields, pageParams, {
       userCanEdit,
       sort,
       order,
-      limit,
+      // UI tracked queries don't need -1 limit in query urls
+      limit: UI_TRACKED_QUERY ? null : limit,
       originType: dataType,
       language
     });
@@ -520,7 +536,7 @@ module.exports = function (opts) {
       fields,
       hiddenFields,
       hiddenFieldsAsObj,
-      submissions: submissions,
+      results: submissions,
       pagination: pagination,
       userCanCreate,
       userCanEdit,
@@ -538,7 +554,8 @@ module.exports = function (opts) {
       isDeletedQuery,
       showArchiveBtn,
       showRestoreBtn,
-      showDuplicateBtn
+      showDuplicateBtn,
+      isUITrackedQuery: UI_TRACKED_QUERY
     };
 
     let template = isXHR ? '_table' : 'viewer';
@@ -585,7 +602,7 @@ module.exports = function (opts) {
   /**
    * Download a CSV of submission data.
    */
-  router.get('/csv/:type/:id', async (req, res, next) => {
+  router.all('/csv/:type/:id', async (req, res, next) => {
     try {
       const sourceManager = new Source(getCurrentUser(res));
       const viewManager = new View(getCurrentUser(res));
@@ -1639,7 +1656,7 @@ module.exports = function (opts) {
   /**
    * Render the source page.
    */
-  router.get('/source/:id', async (req, res, next) => {
+  router.all('/source/:id', async (req, res, next) => {
     try {
       const sourceManager = new Source(getCurrentUser(res));
       let source = await sourceManager.getSource(req.params.id);

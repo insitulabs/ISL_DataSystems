@@ -1,3 +1,5 @@
+{% import "_pagination.njk" as paginationTpl %}
+
 {% if results %}
 <table class="table sticky-header table-bordered">
   <thead>
@@ -12,7 +14,7 @@
         {% if column.sortable %}
         <a
           href="{{ column.url }}"
-          class="text-decoration-none {% if column.isSorted %} link-body-emphasis {{ column.isSorted }} {% else %} text-secondary {% endif %}"
+          class="text-decoration-none {% if column.isSorted %} link-body-emphasis {{ column.isSorted }} {% else %} link-secondary {% endif %}"
         >
           {{ column.name | replace(".", "<br />") | safe }}
           <i class="bi bi-sort-down"></i>
@@ -46,4 +48,10 @@
     {% endfor %}
   </tbody>
 </table>
-{% include "_pagination.njk" %} {% endif %}
+<nav>
+  {{ paginationTpl.count(false, results, pagination) }}
+  <ul class="pagination pagination-sm p-2">
+    {{ paginationTpl.pages(pagination, pagePathWQuery, true ) }}
+  </ul>
+</nav>
+{% endif %}

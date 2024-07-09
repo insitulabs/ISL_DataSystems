@@ -11,6 +11,7 @@ class ODKError extends Error {
     super(message, params);
 
     this.name = 'ODKError';
+    this.context = context;
 
     if (Error.captureStackTrace) {
       Error.captureStackTrace(this, ODKError);
@@ -48,6 +49,7 @@ class OdkClient {
         return resp.data.token;
       })
       .catch((error) => {
+        console.error(error);
         throw new ODKError(error, this.onError(error));
       });
   }

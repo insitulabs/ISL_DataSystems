@@ -41,19 +41,19 @@
       <thead>
         <tr>
           <th scope="col" class="{{ 'is-sorted' if sort === "email" }}">
-            <a href="{{ sortLinks.email }}" class="text-decoration-none {{ order }} {{ "link-body-emphasis" if sort === "email" else "text-secondary" }}">
+            <a href="{{ sortLinks.email }}" class="text-decoration-none {{ order }} {{ "link-body-emphasis" if sort === "email" else "link-secondary" }}">
               Email
               <i class="bi bi-sort-down"></i>
             </a>
           </th>
           <th class="{{ 'is-sorted' if sort === "name" }}">
-            <a href="{{ sortLinks.name }}" class="text-decoration-none {{ order }} {{ "link-body-emphasis" if sort === "name" else "text-secondary" }}">
+            <a href="{{ sortLinks.name }}" class="text-decoration-none {{ order }} {{ "link-body-emphasis" if sort === "name" else "link-secondary" }}">
               Name
               <i class="bi bi-sort-down"></i>
             </a>
           </th>
           <th class="{{ 'is-sorted' if sort === "modified" }}">
-            <a href="{{ sortLinks.modified }}" class="text-decoration-none {{ order }} {{ "link-body-emphasis" if sort === "modified" else "text-secondary" }}">
+            <a href="{{ sortLinks.modified }}" class="text-decoration-none {{ order }} {{ "link-body-emphasis" if sort === "modified" else "link-secondary" }}">
               Last Modified
               <i class="bi bi-sort-down"></i>
             </a>

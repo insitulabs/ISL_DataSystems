@@ -85,7 +85,11 @@ Vue.createApp({
       copyToModalTitle: '',
       isSavingNewSubmission: false,
       newSubmission: {},
-      isCommitingImport: false
+      isCommitingImport: false,
+      allowTracking: false,
+      isTracking: false,
+      filteringToTracked: false,
+      tracked: []
     };
   },
 
@@ -136,14 +140,24 @@ Vue.createApp({
      */
     queryParams() {
       let params = new URLSearchParams(this.baseParams);
-      if (this.showDeleted) {
-        params.set('deleted', 1);
-      }
-      Object.keys(this.currentFilters).forEach((filter) => {
-        this.currentFilters[filter].filter(Boolean).forEach((v) => {
-          params.append(filter, v);
+
+      if (this.filteringToTracked) {
+        params.set('__saved', true);
+        params.delete('_id');
+        let storedIds = this.tracked;
+        for (let id of storedIds) {
+          params.append('_id', id);
+        }
+      } else {
+        if (this.showDeleted) {
+          params.set('deleted', 1);
+        }
+        Object.keys(this.currentFilters).forEach((filter) => {
+          this.currentFilters[filter].filter(Boolean).forEach((v) => {
+            params.append(filter, v);
+          });
         });
-      });
+      }
       params.sort();
 
       return params;
@@ -234,6 +248,7 @@ Vue.createApp({
     viewMode(mode) {
       if (mode === VIEW_MODE.LIST) {
         window.history.replaceState(null, '', '?' + this.queryParams.toString());
+        this.$nextTick(this.setupTrackedTooltip);
       } else {
         window.history.replaceState(null, '', '?' + this.anaQueryParams.toString());
       }
@@ -260,7 +275,11 @@ Vue.createApp({
 
         this.baseParams.offset = 0;
         this.anaBaseParams.offset = 0;
-        this.fetchFilters();
+
+        // Avoid race condition when clearing filters to fetch tracked IDs.
+        if (!this.preventFilterFetch) {
+          this.fetchFilters();
+        }
       }
     },
 
@@ -293,6 +312,7 @@ Vue.createApp({
     anaKeys() {
       this.anaBaseParams.offset = 0;
     },
+
     anaOperation() {
       this.anaBaseParams.offset = 0;
     }
@@ -342,7 +362,8 @@ Vue.createApp({
     }
 
     // Fix bad chrome bug with back button and the bootstrap switch styles.
-    if (/(\?|\&)deleted=1/.test(window.location.search)) {
+    let showDeleted = /(\?|\&)deleted=1/.test(window.location.search);
+    if (showDeleted) {
       setTimeout(() => {
         this.showDeleted = true;
         this.$nextTick(() => {
@@ -375,6 +396,15 @@ Vue.createApp({
       // Add a tick so the note is the correct height before sizing.
       this.onResize();
     });
+
+    if (this.$refs.tracking) {
+      this.allowTracking = true;
+      if (Array.isArray(this.getTracked())) {
+        this.isTracking = true;
+        this.restoreTracked();
+      }
+      this.setupTrackedTooltip();
+    }
   },
 
   methods: {
@@ -384,13 +414,24 @@ Vue.createApp({
     onResize() {
       if (this.$refs.header) {
         let headerRect = this.$refs.header.getBoundingClientRect();
-        document.documentElement.style.setProperty(
-          '--fixed-header-height',
-          headerRect.height + 'px'
-        );
+        let headerHeight = headerRect.height;
+
+        // If we have a lot of filters, don't make the header sticky.
+        let fixedHeader = headerHeight < window.innerHeight / 2;
+        if (fixedHeader) {
+          this.$refs.header.classList.add('sticky-top');
+          document.documentElement.style.setProperty('--fixed-header-height', headerHeight + 'px');
+        } else {
+          this.$refs.header.classList.remove('sticky-top');
+          document.documentElement.style.setProperty('--fixed-header-height', 0 + 'px');
+        }
 
         let dataRect = this.$refs.data.getBoundingClientRect();
-        this.$refs.data.style.height = window.innerHeight - dataRect.top + 'px';
+        if (fixedHeader) {
+          this.$refs.data.style.height = window.innerHeight - dataRect.top + 'px';
+        } else {
+          this.$refs.data.style.height = window.innerHeight + 'px';
+        }
       }
     },
 
@@ -590,19 +631,58 @@ Vue.createApp({
      * @return {Promise}
      */
     fetchFilters() {
-      let params = this.queryParams;
-      const url = '?' + params.toString();
-      return $api(window.location.pathname + url + '&xhr=1')
+      this.filteringToTracked = false;
+      this.fetchPage(this.queryParams);
+    },
+
+    /**
+     * Fetch data for this view and update the data table.
+     * @param {URLSearchParams} origParams The params to query.
+     * @param {boolean} preventScroll Pass true to prevent scrolling the data table to the top.
+     * @return {Promise}
+     */
+    fetchPage(origParams, preventScroll = false) {
+      let params = new URLSearchParams(origParams);
+      let fetchOptions = {};
+      this.error = null;
+
+      // Do a POST when filtering tracked to avoid super long URLs
+      if (this.filteringToTracked) {
+        fetchOptions.method = 'POST';
+        let body = { _id: params.getAll('_id') };
+        params.delete('_id');
+        fetchOptions.body = JSON.stringify(body);
+      }
+
+      let url = '?' + params.toString();
+      return $api(window.location.pathname + url + '&xhr=1', fetchOptions)
         .then((text) => {
           if (url !== window.location.search) {
-            window.history.replaceState(null, '', url);
+            if (this.filteringToTracked) {
+              params.delete('__saved');
+            }
+            window.history.replaceState(null, '', '?' + params.toString());
           }
           this.$refs.data.innerHTML = text;
           this.updatePaginationPlacement();
 
           this.updateExportLinks(this.getFormPrefs().hiddenFields);
-          this.checkedSubmissions = [];
+          this.restoreTracked();
           this.onResize();
+
+          if (!preventScroll) {
+            this.$refs.data.scrollTo({ top: 0, behavior: 'instant' });
+          }
+
+          if (this.filteringToTracked) {
+            let rowsReturned = this.$refs.data.querySelectorAll(
+              'table > tbody > tr:not(.no-results)'
+            ).length;
+            if (this.tracked.length !== rowsReturned) {
+              throw new Error(`Requested ${this.tracked.length.toLocaleString()}, but only
+                ${rowsReturned.toLocaleString()} returned. Records may have been archived.`);
+            }
+          }
         })
         .catch((error) => {
           this.error = error && error.message ? error.message : error;
@@ -628,6 +708,9 @@ Vue.createApp({
      * @param {PointerEvent} event
      */
     onDataElClick(event) {
+      // Only hijack non-special clicks.
+      const specialClick = event.ctrlKey || event.shiftKey || event.altKey || event.metaKey;
+
       let $addFilter = event.target.closest('.add-filter');
       if ($addFilter) {
         this.addFilter($addFilter.dataset.id, true);
@@ -666,6 +749,47 @@ Vue.createApp({
         $checkbox.checked = !$checkbox.checked;
         this.onCheckedChange();
         return;
+      }
+
+      // Sort or paginate link click
+      let $a = event.target.closest('a.fetch');
+      if ($a && !specialClick) {
+        event.preventDefault();
+        let href = $a.getAttribute('href').split('?').pop();
+        let linkParams = new URLSearchParams(href);
+        let params = new URLSearchParams(this.queryParams);
+
+        // If we are simply increasing the page size, prevent data table scroll reset.
+        let moreResults =
+          $a.classList.contains('page-size-change') &&
+          parseInt(linkParams.get('limit')) > parseInt(this.queryParams.get('limit'));
+
+        for (let key of linkParams.keys()) {
+          for (let value of linkParams.getAll(key)) {
+            params.set(key, value);
+          }
+        }
+
+        for (let p of BASE_QUERY_PARAMS) {
+          if (linkParams.has(p)) {
+            this.baseParams[p] = linkParams.get(p);
+            this.anaBaseParams[p] = linkParams.get(p);
+          }
+        }
+
+        this.fetchPage(params, moreResults);
+
+        return;
+      }
+
+      let $exportBtn = event.target.closest('.export-btn');
+      if ($exportBtn) {
+        if (this.filteringToTracked) {
+          event.preventDefault();
+          let query = $exportBtn.getAttribute('href').split('?').pop();
+          let params = new URLSearchParams(query);
+          this.exportTracked(params);
+        }
       }
     },
 
@@ -892,7 +1016,7 @@ Vue.createApp({
      * @param {Array} hidden The list of hidden field IDs
      */
     updateExportLinks(hidden) {
-      document.querySelectorAll('.export-btn').forEach(($a) => {
+      document.querySelectorAll('.export-btn:not(.all)').forEach(($a) => {
         let href = $a.href.replace(/&_h=[^&]+/i, '');
         if (hidden && hidden.length) {
           $a.href = href + '&_h=' + encodeURIComponent(hidden.join(','));
@@ -939,11 +1063,19 @@ Vue.createApp({
     onCheckedChange() {
       let $checkAll = document.getElementById('check-all');
       let $data = this.$refs.data;
-      this.checkedSubmissions = [...$data.querySelectorAll('.submission-check:checked')].map(
-        ($check) => {
-          return $check.dataset.id;
+      let checkedIds = [];
+      let uncheckedIds = [];
+
+      [...$data.querySelectorAll('.submission-check')].forEach(($check) => {
+        if ($check.checked) {
+          checkedIds.push($check.dataset.id);
+        } else {
+          uncheckedIds.push($check.dataset.id);
         }
-      );
+      });
+      this.checkedSubmissions = checkedIds;
+
+      this.setTracked(checkedIds, uncheckedIds);
 
       if ($checkAll && $checkAll.checked) {
         let total = $data.querySelectorAll('.submission-check').length;
@@ -1031,6 +1163,9 @@ Vue.createApp({
           body: JSON.stringify(this.checkedSubmissions)
         })
           .then(() => {
+            if (this.isTracking) {
+              this.setTracked([], this.checkedSubmissions);
+            }
             window.location.reload();
           })
           .catch((error) => {
@@ -1218,6 +1353,197 @@ Vue.createApp({
             alert(error && error.message ? error.message : error);
             this.isCommitingImport = true;
           });
+      }
+    },
+
+    /**
+     * Enable tracking of records.
+     */
+    enableTracking() {
+      this.isTracking = true;
+      this.onCheckedChange();
+      if (this.trackingTooltip) {
+        this.trackingTooltip.dispose();
+      }
+    },
+
+    /**
+     * Disable and clear tracking of records.
+     */
+    disableTracking() {
+      this.isTracking = false;
+      this.filteringToTracked = false;
+      this.resetTracked();
+      this.$nextTick(this.setupTrackedTooltip);
+    },
+
+    /**
+     * Restore which records are being tracked by checking them.
+     */
+    restoreTracked() {
+      if (this.isTracking) {
+        let tracked = this.getTracked() || [];
+
+        // TODO what about exploded views with duplicate IDS
+        let $checkboxes = this.$refs.data.querySelectorAll(`.for-submission-check > input`);
+        for (let $checkbox of $checkboxes) {
+          $checkbox.checked = tracked.includes($checkbox.dataset.id);
+        }
+
+        let $checkAll = document.getElementById('check-all');
+        if ($checkAll) {
+          $checkAll.checked = false;
+          $checkAll.indeterminate = false;
+        }
+
+        this.onCheckedChange();
+      }
+    },
+
+    /**
+     * Get tracked record IDs. Return false if not tracking.
+     * @return {Array|boolean}
+     */
+    getTracked() {
+      try {
+        let ttl = window.localStorage.getItem(`track-ttl-${this.ORIGIN_ID}`);
+        if (ttl) {
+          let future = new Date();
+          let now = new Date();
+          future.setTime(ttl);
+          if (now < future) {
+            let json = window.localStorage.getItem(`track-data-${this.ORIGIN_ID}`);
+            if (json) {
+              let storedIds = JSON.parse(json);
+              if (Array.isArray(storedIds)) {
+                return storedIds;
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error(error);
+      }
+
+      return false;
+    },
+
+    /**
+     * Mark records as tracked or untracked.
+     * @param {Array} checkedIds IDs to add to tracking.
+     * @param {Array} uncheckedIds IDs to remove from tracking.
+     */
+    setTracked(checkedIds = [], uncheckedIds = []) {
+      if (this.isTracking) {
+        let storedIds = this.getTracked() || [];
+
+        for (let id of checkedIds) {
+          if (!storedIds.includes(id)) {
+            storedIds.push(id);
+          }
+        }
+
+        for (let id of uncheckedIds) {
+          let index = storedIds.indexOf(id);
+          if (index !== -1) {
+            storedIds.splice(index, 1);
+          }
+        }
+
+        try {
+          // Allow tracking to persist for 7 days
+          window.localStorage.setItem(
+            `track-ttl-${this.ORIGIN_ID}`,
+            new Date().getTime() + 1000 * 60 * 60 * 24 * 7
+          );
+          window.localStorage.setItem(`track-data-${this.ORIGIN_ID}`, JSON.stringify(storedIds));
+        } catch (error) {
+          console.error(error);
+        }
+
+        this.tracked = storedIds;
+      }
+    },
+
+    /**
+     * Clear what is being tracked.
+     */
+    resetTracked() {
+      try {
+        window.localStorage.removeItem(`track-ttl-${this.ORIGIN_ID}`);
+        window.localStorage.removeItem(`track-data-${this.ORIGIN_ID}`);
+        this.tracked = [];
+        this.baseParams.offset = 0;
+        this.fetchPage(this.queryParams);
+      } catch (error) {
+        console.error(error);
+      }
+    },
+
+    /**
+     * Filter to just the tracked records.
+     */
+    showTracked() {
+      if (this.isTracking) {
+        this.filteringToTracked = true;
+
+        // Avoid race condition of clearing active filters, fetching a page while
+        // we're trying to fetch tracked.
+        this.preventFilterFetch = true;
+        this.currentFilters = {};
+        this.baseParams.offset = 0;
+        this.fetchPage(this.queryParams);
+
+        // Reset filters once page state is set.
+        this.$nextTick(() => {
+          this.preventFilterFetch = false;
+        });
+      }
+    },
+
+    /**
+     * Unfilter and show all records.
+     */
+    unshowTracked() {
+      if (this.isTracking) {
+        this.filteringToTracked = false;
+        this.currentFilters = {};
+        this.fetchPage(this.queryParams);
+      }
+    },
+
+    /**
+     * Export the tracked records with the provided config. Allows a form POST rather
+     * than a super long URL of IDs.
+     * @param {URLSearchParams} params The export params
+     */
+    exportTracked(params) {
+      let $form = document.createElement('form');
+      $form.style.display = 'none';
+      $form.setAttribute('method', 'POST');
+      $form.setAttribute(
+        'action',
+        `/data-viewer/csv/${this.ORIGIN_TYPE}/${this.ORIGIN_ID}?${params.toString()}`
+      );
+      for (let id of this.tracked) {
+        let $input = document.createElement('input');
+        $input.setAttribute('type', 'hidden');
+        $input.setAttribute('name', '_id');
+        $input.setAttribute('value', id);
+        $form.appendChild($input);
+      }
+      document.body.appendChild($form);
+      $form.submit();
+      document.body.removeChild($form);
+    },
+
+    /**
+     * Setup tooltip for tracking button.
+     */
+    setupTrackedTooltip() {
+      let $btn = this.$refs['tracking-button'];
+      if ($btn) {
+        this.trackingTooltip = bootstrap.Popover.getOrCreateInstance($btn);
       }
     }
   }

@@ -20,6 +20,10 @@
         --bg-sticky: #f8f9fa;
       }
 
+      [data-bs-theme=dark] body {
+        --bg-sticky: #c2aa9e;
+      }
+
       .navbar-brand img {
         width: 50px;
       }
@@ -45,13 +49,13 @@
       }
 
       .sticky-header th {
-        --bs-table-bg: var(--bg-sticky);
+        background-color: var(--bg-sticky);
         position: sticky;
         top: 0;
       }
 
-      [data-bs-theme=dark] .sticky-header th {
-        --bs-table-bg: inherit;
+      [data-bs-theme=dark] .sticky-header th .link-body-emphasis {
+        color: #000 !important;
       }
     </style>
 
@@ -178,7 +182,7 @@
             {% block nav %}<div></div>{% endblock %}
             <ul class="navbar-nav ms-sm-auto flex-sm-row flex-sm-nowrap">
               {% if workspace and workspace.sync and workspace.sync.enabled %}
-              <li class="nav-item me-sm-4">
+              <li class="nav-item me-sm-1 me-lg-4">
                 <a
                   class="nav-link"
                   aria-current="page"
@@ -190,20 +194,20 @@
                 </a>
               </li>
               {% endif %}
-              <li class="nav-item me-sm-4">
+              <li class="nav-item me-sm-1 me-lg-4">
                 <a class="nav-link" aria-current="page" href="/data-viewer/sources">Sources</a>
               </li>
-              <li class="nav-item me-sm-4">
+              <li class="nav-item me-sm-1 me-lg-4">
                 <a class="nav-link" aria-current="page" href="/data-viewer/views">Views</a>
               </li>
               {% if isAdmin %}
-              <li class="nav-item me-sm-4">
+              <li class="nav-item me-sm-1 me-lg-4">
                 <a class="nav-link" aria-current="page" href="/admin/users">Users</a>
               </li>
               {% endif %}
 
               {% if workspace.languages and workspace.languages.length %}
-              <li class="nav-item d-flex align-items-center me-sm-4">
+              <li class="nav-item d-flex align-items-center me-sm-1 me-lg-4">
                 <form>
                   <div class="input-group input-group-sm">
                     <span class="input-group-text"><i class="bi bi-translate"></i></span>

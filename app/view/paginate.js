@@ -1,4 +1,18 @@
 module.exports = function paginate(totalItems, currentPage = 1, pageSize = 10, maxPages = 10) {
+  if (pageSize === -1) {
+    return {
+      totalItems,
+      currentPage: 1,
+      pageSize: totalItems,
+      totalPages: 1,
+      startPage: 1,
+      endPage: 1,
+      startIndex: 0,
+      endIndex: totalItems - 1,
+      pages: [1]
+    };
+  }
+
   // calculate total pages
   let totalPages = Math.ceil(totalItems / pageSize);
 
@@ -53,3 +67,4 @@ module.exports = function paginate(totalItems, currentPage = 1, pageSize = 10, m
     pages: pages
   };
 };
+

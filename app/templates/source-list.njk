@@ -56,34 +56,34 @@
           <thead>
             <tr>
               <th scope="col" class="{{ 'is-sorted' if sort === "system" }} align-top">
-                <a href="{{ sortLinks.system }}" class="text-decoration-none {{ order }} {{ "link-body-emphasis" if sort === "system" else "text-secondary" }}">
+                <a href="{{ sortLinks.system }}" class="text-decoration-none {{ order }} {{ "link-body-emphasis" if sort === "system" else "link-secondary" }}">
                   System
                   <i class="bi bi-sort-down"></i>
                 </a>
               </th>
               <th scope="col" class="{{ 'is-sorted' if sort === "name" }} align-top">
-                <a href="{{ sortLinks.name }}" class="text-decoration-none {{ order }} {{ "link-body-emphasis" if sort === "name" else "text-secondary" }}">
+                <a href="{{ sortLinks.name }}" class="text-decoration-none {{ order }} {{ "link-body-emphasis" if sort === "name" else "link-secondary" }}">
                   Name
                   <i class="bi bi-sort-down"></i>
                 </a>
               </th>
 
               <th scope="col" class="{{ 'is-sorted' if sort === "inserted" }} align-top">
-                <a href="{{ sortLinks.inserted }}" class="text-decoration-none {{ order }} {{ "link-body-emphasis" if sort === "inserted" else "text-secondary" }}">
+                <a href="{{ sortLinks.inserted }}" class="text-decoration-none {{ order }} {{ "link-body-emphasis" if sort === "inserted" else "link-secondary" }}">
                   Last Insert
                   <i class="bi bi-sort-down"></i>
                 </a>
               </th>
 
               <th scope="col" class="{{ 'is-sorted' if sort === "updated" }} align-top">
-                <a href="{{ sortLinks.updated }}" class="text-decoration-none {{ order }} {{ "link-body-emphasis" if sort === "updated" else "text-secondary" }}">
+                <a href="{{ sortLinks.updated }}" class="text-decoration-none {{ order }} {{ "link-body-emphasis" if sort === "updated" else "link-secondary" }}">
                   Last Update
                   <i class="bi bi-sort-down"></i>
                 </a>
               </th>
 
               <th scope="col" class="{{ 'is-sorted' if sort === "created" }} align-top">
-                <a href="{{ sortLinks.created }}" class="text-decoration-none {{ order }} {{ "link-body-emphasis" if sort === "created" else "text-secondary" }}">
+                <a href="{{ sortLinks.created }}" class="text-decoration-none {{ order }} {{ "link-body-emphasis" if sort === "created" else "link-secondary" }}">
                   Created
                   <i class="bi bi-sort-down"></i>
                 </a>
@@ -197,11 +197,11 @@
     <div class="col col-sm-3">
       <div class="bg-sticky border px-2 h-100">
         <div class="sticky-sm-top">
-          <strong class="d-block pt-2">Recently Viewed</strong>
+          <strong class="d-block pt-2 text-dark">Recently Viewed</strong>
           <ul class="list-group list-group-flush">
           {% for source in recent %}
             <li class="list-group-item px-0 bg-transparent">
-              <a href="/data-viewer/source/{{ source._id }}">
+              <a href="/data-viewer/source/{{ source._id }}" class="link-dark">
                 {{ source | altLang('name', language) }}
               </a>
             </li>
